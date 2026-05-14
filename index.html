@@ -4,10 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>WhatsApp Payment Guide | Personal Makeup Session SG</title>
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"><\/script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-
     body {
       font-family: 'Helvetica Neue', Arial, sans-serif;
       background: #fdf6f0;
@@ -17,7 +15,6 @@
       justify-content: center;
       padding: 24px;
     }
-
     .card {
       background: #fff;
       border-radius: 16px;
@@ -26,13 +23,10 @@
       width: 100%;
       padding: 36px 32px;
     }
-
     .logo { text-align: center; margin-bottom: 24px; }
     .logo h1 { font-size: 1rem; font-weight: 600; color: #c5766a; letter-spacing: 0.04em; }
     .logo p { font-size: 0.75rem; color: #999; margin-top: 4px; }
-
     h2 { font-size: 0.95rem; color: #333; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid #f0e8e4; }
-
     .amount-badge {
       display: inline-block;
       background: #eaf5f0; color: #2d9c6e;
@@ -40,11 +34,10 @@
       font-size: 0.8rem; font-weight: 600;
       margin-bottom: 16px;
     }
-
     .scan-area {
       border: 2px dashed #e0d6d0;
       border-radius: 12px;
-      padding: 20px;
+      padding: 16px;
       text-align: center;
       margin-bottom: 16px;
       cursor: pointer;
@@ -55,28 +48,15 @@
     .scan-area input[type="file"] {
       position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
     }
-    .scan-icon { font-size: 2rem; margin-bottom: 6px; }
-    .scan-text { font-size: 0.85rem; color: #888; }
+    .scan-icon { font-size: 1.8rem; margin-bottom: 4px; }
+    .scan-text { font-size: 0.82rem; color: #888; }
     .scan-text strong { color: #c5766a; }
-
-    #thumbWrap { display: none; margin-bottom: 12px; text-align: center; }
-    #thumb { max-height: 120px; border-radius: 8px; border: 1px solid #f0e8e4; }
-
-    #ocrStatus {
-      display: none;
-      font-size: 0.8rem;
-      color: #c5766a;
-      text-align: center;
-      margin-bottom: 12px;
-      padding: 8px;
-      background: #fff8f6;
-      border-radius: 8px;
-    }
-
+    #thumbWrap { display: none; margin-bottom: 10px; text-align: center; }
+    #thumb { max-height: 140px; border-radius: 8px; border: 1px solid #f0e8e4; }
+    #thumbHint { font-size: 0.75rem; color: #c5766a; margin-top: 6px; }
     .form-group { margin-bottom: 14px; }
     label { display: block; font-size: 0.8rem; color: #666; margin-bottom: 5px; font-weight: 500; }
     .label-hint { font-size: 0.72rem; color: #aaa; font-weight: 400; margin-left: 6px; }
-
     input {
       width: 100%; padding: 10px 14px;
       border: 1px solid #e0d6d0; border-radius: 8px;
@@ -85,22 +65,18 @@
     }
     input:focus { border-color: #c5766a; background: #fff; }
     .first-name-wrap input { border-color: #c5766a; background: #fff8f6; }
-
     .badge {
       display: inline-block; font-size: 0.68rem;
       background: #f9ede9; color: #c5766a;
       border-radius: 4px; padding: 2px 6px; margin-left: 6px; vertical-align: middle;
     }
-
     .divider { height: 1px; background: #f0e8e4; margin: 20px 0; }
-
     .preview-label { font-size: 0.78rem; color: #999; margin-bottom: 8px; }
     .preview-box {
       background: #f9f2ef; border-radius: 10px; padding: 16px; margin-bottom: 20px;
       font-size: 0.84rem; color: #444; white-space: pre-wrap; line-height: 1.75;
       border-left: 3px solid #c5766a;
     }
-
     .btn {
       display: flex; align-items: center; justify-content: center; gap: 10px;
       width: 100%; padding: 14px; border: none; border-radius: 10px;
@@ -127,14 +103,16 @@
     <div class="scan-area">
       <input type="file" id="imgInput" accept="image/*" onchange="handleImage(event)" />
       <div class="scan-icon">📸</div>
-      <div class="scan-text"><strong>Tap to scan STORES screenshot</strong><br>Customer name will be auto-filled</div>
+      <div class="scan-text"><strong>Tap to open STORES screenshot</strong><br>Then type the name you see below</div>
     </div>
 
-    <div id="thumbWrap"><img id="thumb" /></div>
-    <div id="ocrStatus"></div>
+    <div id="thumbWrap">
+      <img id="thumb" />
+      <div id="thumbHint">↑ Check the name above, then type it below</div>
+    </div>
 
     <div class="form-group">
-      <label>First name used in message <span class="badge">auto</span></label>
+      <label>First name <span class="label-hint">as it should appear in the message</span></label>
       <div class="first-name-wrap">
         <input type="text" id="firstName" placeholder="e.g. Narissa" oninput="updatePreview()" />
       </div>
@@ -161,79 +139,13 @@
   </div>
 
   <script>
-    const SG_SURNAMES = new Set([
-      'tan','lim','lee','ng','chan','wong','goh','ong','chua','koh',
-      'teo','yeo','ho','lau','loh','sim','ang','yap','chew','chong',
-      'foo','heng','leong','phua','seah','sng','soh','tay','wee',
-      'yong','yuen','beh','chia','cheong','fong','guo','huang','kam',
-      'khoo','kwok','lai','lam','lew','liaw','liu','low','lu','mah',
-      'mok','mui','neo','pang','poh','pow','quah','quek','see','shia',
-      'soon','sua','sun','sung','tang','tiong','toh','tsai','tsen',
-      'tu','tye','wan','woo','wu','xu','yam','yan','yang','yee',
-      'yin','yu','yue','zeng','zhang','zhao','zheng','zhou',
-      'bin','binte','bte','bt'
-    ]);
-
-    const SKIP_WORDS = new Set([
-      'personal','makeup','session','singapore','check','more','stores',
-      'booking','payment','cancel','checkin','checkout'
-    ]);
-
-    function guessFirstName(fullName) {
-      const parts = fullName.trim().split(/\s+/);
-      if (parts.length === 0) return '';
-      if (parts.length === 1) return parts[0];
-      if (parts.length === 2 && parts[1].length === 1) return parts[0];
-      if (SG_SURNAMES.has(parts[0].toLowerCase())) return parts[1];
-      return parts[0];
-    }
-
-    function extractNameFromOCR(text) {
-      const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 1);
-      const namePattern = /^[A-Z][a-zA-Z'-]+(\s+[A-Z][a-zA-Z'-]*\.?){0,3}$/;
-      for (const line of lines) {
-        if (!namePattern.test(line)) continue;
-        const firstWord = line.split(' ')[0].toLowerCase();
-        if (SKIP_WORDS.has(firstWord)) continue;
-        return line;
-      }
-      return null;
-    }
-
-    async function handleImage(event) {
+    function handleImage(event) {
       const file = event.target.files[0];
       if (!file) return;
-
       const thumbWrap = document.getElementById('thumbWrap');
       const thumb = document.getElementById('thumb');
       thumb.src = URL.createObjectURL(file);
       thumbWrap.style.display = 'block';
-
-      const status = document.getElementById('ocrStatus');
-      status.style.display = 'block';
-      status.textContent = '📖 Reading screenshot...';
-
-      try {
-        const result = await Tesseract.recognize(file, 'eng', {
-          logger: m => {
-            if (m.status === 'recognizing text') {
-              status.textContent = `📖 Reading... ${Math.round(m.progress * 100)}%`;
-            }
-          }
-        });
-
-        const name = extractNameFromOCR(result.data.text);
-        if (name) {
-          const firstName = guessFirstName(name);
-          document.getElementById('firstName').value = firstName;
-          updatePreview();
-          status.textContent = `✅ Found: ${name} → using "${firstName}"`;
-        } else {
-          status.textContent = '⚠️ Name not found. Please type it manually.';
-        }
-      } catch (e) {
-        status.textContent = '⚠️ Could not read screenshot. Please type the name manually.';
-      }
     }
 
     function buildMessage() {
@@ -254,6 +166,6 @@
     }
 
     updatePreview();
-  <\/script>
+  </script>
 </body>
 </html>

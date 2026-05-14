@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LINE 送信ツール | Personal Makeup Session</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      background: #fdf6f0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      max-width: 480px;
+      width: 100%;
+      padding: 36px 32px;
+    }
+    .logo { text-align: center; margin-bottom: 24px; }
+    .logo h1 { font-size: 1rem; font-weight: 600; color: #c5766a; letter-spacing: 0.04em; }
+    .logo p { font-size: 0.75rem; color: #999; margin-top: 4px; }
+    h2 { font-size: 0.95rem; color: #333; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid #f0e8e4; }
+    .form-group { margin-bottom: 14px; }
+    label { display: block; font-size: 0.8rem; color: #666; margin-bottom: 5px; font-weight: 500; }
+    .label-hint { font-size: 0.72rem; color: #aaa; font-weight: 400; margin-left: 6px; }
+    input {
+      width: 100%; padding: 10px 14px;
+      border: 1px solid #e0d6d0; border-radius: 8px;
+      font-size: 0.9rem; color: #333; background: #fdfaf8;
+      transition: border-color 0.2s; outline: none;
+    }
+    input:focus { border-color: #c5766a; background: #fff; }
+    .highlight input { border-color: #c5766a; background: #fff8f6; }
+    .divider { height: 1px; background: #f0e8e4; margin: 20px 0; }
+    .preview-label { font-size: 0.78rem; color: #999; margin-bottom: 8px; }
+    .preview-box {
+      background: #f9f2ef; border-radius: 10px; padding: 16px; margin-bottom: 20px;
+      font-size: 0.84rem; color: #444; white-space: pre-wrap; line-height: 1.75;
+      border-left: 3px solid #06c755;
+    }
+    .btn {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      width: 100%; padding: 14px; border: none; border-radius: 10px;
+      font-size: 0.95rem; font-weight: 600; cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn-line { background: #06c755; color: #fff; }
+    .btn-line:hover { opacity: 0.9; }
+    .note { font-size: 0.73rem; color: #bbb; text-align: center; margin-top: 12px; line-height: 1.6; }
+    #copy-toast {
+      display: none; position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: #333; color: #fff; padding: 10px 20px; border-radius: 8px;
+      font-size: 0.82rem; z-index: 999; pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <h1>Personal Makeup Session — Japan</h1>
+      <p>LINE メッセージ送信ツール</p>
+    </div>
+
+    <h2>お客様情報を入力</h2>
+
+    <div class="form-group highlight">
+      <label>お名前（名） <span class="label-hint">編集可</span></label>
+      <input type="text" id="firstName" placeholder="例：なりさ" oninput="updatePreview()" />
+    </div>
+
+    <div class="form-group highlight">
+      <label>LINE ID <span class="label-hint">@ なし</span></label>
+      <input type="text" id="lineId" placeholder="例：narissa123" />
+    </div>
+
+    <div class="form-group">
+      <label>料金 <span class="label-hint">編集可</span></label>
+      <input type="text" id="fee" value="30,000" oninput="updatePreview()" />
+    </div>
+
+    <div class="divider"></div>
+    <div class="preview-label">メッセージプレビュー</div>
+    <div class="preview-box" id="preview"></div>
+
+    <button class="btn btn-line" onclick="openLine()">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M19.365 9.863c.349 0 .63.285.63.63 0 .349-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.346 0 .627.285.627.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.281.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314"/>
+      </svg>
+      LINEで送る
+    </button>
+    <p class="note">ボタンを押すとメッセージがコピーされ、LINEが開きます。<br>トークに貼り付けて送信してください。</p>
+  </div>
+
+  <div id="copy-toast">メッセージをコピーしました ✓</div>
+
+  <script>
+    function buildMessage() {
+      const firstName = document.getElementById('firstName').value.trim() || '【名前】';
+      const fee = document.getElementById('fee').value.trim() || '【料金】';
+      return `${firstName}さん\n\nこの度はパーソナルメイクセッションにご予約いただき、誠にありがとうございます🌸\n\nセッション料金は ${fee}円 です。\nご予約確定のため、24時間以内にお支払いをお願いできますでしょうか。\nお振込後、お振込明細のスクリーンショットをこちらにお送りください。\n\nお支払いの確認が取れ次第、正式にご予約を確定いたします😊\n\n当日お会いできるのを楽しみにしております。\nどうぞよろしくお願いいたします🕊️`;
+    }
+
+    function updatePreview() {
+      document.getElementById('preview').textContent = buildMessage();
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('copy-toast');
+      toast.textContent = msg;
+      toast.style.display = 'block';
+      setTimeout(() => { toast.style.display = 'none'; }, 2500);
+    }
+
+    function openLine() {
+      const lineId = document.getElementById('lineId').value.trim();
+      const firstName = document.getElementById('firstName').value.trim();
+      if (!firstName) { alert('お名前を入力してください。'); return; }
+
+      navigator.clipboard.writeText(buildMessage()).then(() => {
+        if (lineId) {
+          showToast('メッセージをコピーしました ✓');
+          setTimeout(() => {
+            window.open('https://line.me/ti/p/~' + encodeURIComponent(lineId), '_blank');
+          }, 300);
+        } else {
+          showToast('メッセージをコピーしました ✓（LINE IDが未入力です）');
+        }
+      }).catch(() => {
+        alert('コピーに失敗しました。メッセージを手動でコピーしてください。');
+      });
+    }
+
+    updatePreview();
+  </script>
+</body>
+</html>

@@ -146,12 +146,12 @@
       <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
         <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
       </svg>
-      メールアプリで下書きを開く
+      メールアプリを開く（本文は自動コピー）
     </button>
     <button class="btn btn-copy" onclick="copyBody()">
       📋 本文をコピー
     </button>
-    <p class="note">ボタンを押すとメールアプリが開きます。内容を確認してから送信してください。</p>
+    <p class="note">ボタンを押すと本文がコピーされ、メールアプリが開きます。<br>メール本文欄に貼り付けてから送信してください。</p>
   </div>
 
   <div id="copy-toast">コピーしました ✓</div>
@@ -402,16 +402,26 @@ atelierR`;
       if (!to) { alert('メールアドレスを入力してください。'); return; }
       const firstName = document.getElementById('firstName').value.trim();
       if (!firstName) { alert('ファーストネームを入力してください。'); return; }
-      const subject = encodeURIComponent(buildSubject());
-      const body = encodeURIComponent(buildBody());
-      window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
+
+      // Copy body to clipboard first, then open mail app with just to + subject.
+      // Passing a long body via mailto: gets silently truncated on many mobile mail apps.
+      navigator.clipboard.writeText(buildBody()).then(() => {
+        const subject = encodeURIComponent(buildSubject());
+        window.location.href = `mailto:${to}?subject=${subject}`;
+        showToast('本文をコピーしました — メールアプリで貼り付けてください 📋');
+      }).catch(() => {
+        // Clipboard blocked — fall back to full mailto (may truncate on mobile)
+        const subject = encodeURIComponent(buildSubject());
+        const body = encodeURIComponent(buildBody());
+        window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
+      });
     }
 
     function showToast(msg) {
       const toast = document.getElementById('copy-toast');
       toast.textContent = msg;
       toast.style.display = 'block';
-      setTimeout(() => { toast.style.display = 'none'; }, 2500);
+      setTimeout(() => { toast.style.display = 'none'; }, 4000);
     }
 
     function copyBody() {

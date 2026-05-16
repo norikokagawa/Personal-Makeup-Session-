@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>メール送信ツール | Personal Makeup Session</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      background: #fdf6f0;
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      background: #fff; border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      max-width: 480px; width: 100%; padding: 36px 32px;
+    }
+    .logo { text-align: center; margin-bottom: 24px; }
+    .logo h1 { font-size: 1rem; font-weight: 600; color: #c5766a; letter-spacing: 0.04em; }
+    .logo p { font-size: 0.75rem; color: #999; margin-top: 4px; }
+    h2 { font-size: 0.95rem; color: #333; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid #f0e8e4; }
+    .amount-badge { display: inline-block; background: #eaf5f0; color: #2d9c6e; border-radius: 6px; padding: 3px 10px; font-size: 0.8rem; font-weight: 600; margin-bottom: 16px; }
+    .scan-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+    .scan-area {
+      border: 2px dashed #e0d6d0; border-radius: 12px; padding: 14px 10px;
+      text-align: center; cursor: pointer;
+      transition: border-color 0.2s, background 0.2s; position: relative;
+    }
+    .scan-area:hover { border-color: #c5766a; background: #fff8f6; }
+    .scan-area.done { border-color: #ea4335; border-style: solid; background: #fff8f7; }
+    .scan-area input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .scan-icon { font-size: 1.6rem; margin-bottom: 4px; }
+    .scan-label { font-size: 0.72rem; color: #888; font-weight: 600; }
+    .scan-status { font-size: 0.68rem; color: #c5766a; margin-top: 4px; min-height: 14px; }
+    .scan-area.done .scan-status { color: #2d9c6e; }
+    .form-group { margin-bottom: 14px; }
+    label { display: block; font-size: 0.8rem; color: #666; margin-bottom: 5px; font-weight: 500; }
+    .label-hint { font-size: 0.72rem; color: #aaa; font-weight: 400; margin-left: 6px; }
+    input, textarea {
+      width: 100%; padding: 10px 14px;
+      border: 1px solid #e0d6d0; border-radius: 8px;
+      font-size: 0.9rem; color: #333; background: #fdfaf8;
+      transition: border-color 0.2s; outline: none;
+    }
+    input:focus, textarea:focus { border-color: #c5766a; background: #fff; }
+    .highlight input { border-color: #c5766a; background: #fff8f6; }
+    .divider { height: 1px; background: #f0e8e4; margin: 20px 0; }
+    .preview-label { font-size: 0.78rem; color: #999; margin-bottom: 8px; }
+    .subject-preview {
+      background: #f9f2ef; border-radius: 8px 8px 0 0; padding: 10px 16px;
+      font-size: 0.8rem; color: #888; border-left: 3px solid #ea4335;
+      border-bottom: 1px solid #f0e8e4;
+    }
+    .subject-preview strong { color: #555; }
+    .preview-box {
+      background: #f9f2ef; border-radius: 0 0 10px 10px; padding: 16px; margin-bottom: 16px;
+      font-size: 0.84rem; color: #444; white-space: pre-wrap; line-height: 1.75;
+      border-left: 3px solid #ea4335;
+    }
+    .btn {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      width: 100%; padding: 14px; border: none; border-radius: 10px;
+      font-size: 0.95rem; font-weight: 600; cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn-email { background: #ea4335; color: #fff; }
+    .btn-email:hover { opacity: 0.9; }
+    .btn-copy { background: #fff; color: #c5766a; border: 1.5px solid #c5766a; margin-top: 8px; font-size: 0.85rem; padding: 10px; }
+    .note { font-size: 0.73rem; color: #bbb; text-align: center; margin-top: 12px; line-height: 1.6; }
+    #ocr-loading { display: none; text-align: center; padding: 8px; font-size: 0.8rem; color: #c5766a; background: #fff8f6; border-radius: 8px; margin-bottom: 12px; }
+    #copy-toast {
+      display: none; position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: #333; color: #fff; padding: 10px 20px; border-radius: 8px;
+      font-size: 0.82rem; z-index: 999; pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <h1>Personal Makeup Session — Japan</h1>
+      <p>メール決済案内送信ツール</p>
+    </div>
+
+    <h2>STORESスクリーンショットを読み取る</h2>
+    <div class="amount-badge">料金: 30,000円</div>
+
+    <div class="scan-row">
+      <div class="scan-area" id="nameBox">
+        <input type="file" accept="image/*" onchange="scanName(event)" />
+        <div class="scan-icon">👤</div>
+        <div class="scan-label">名前のスクリーンショット</div>
+        <div class="scan-status" id="nameStatus">タップして読み取る</div>
+      </div>
+      <div class="scan-area" id="emailBox">
+        <input type="file" accept="image/*" onchange="scanEmail(event)" />
+        <div class="scan-icon">✉️</div>
+        <div class="scan-label">メールアドレスのスクリーンショット</div>
+        <div class="scan-status" id="emailStatus">タップして読み取る</div>
+      </div>
+    </div>
+
+    <div id="ocr-loading"></div>
+
+    <div class="form-group highlight">
+      <label>お名前（名） <span class="label-hint">編集可</span></label>
+      <input type="text" id="firstName" placeholder="例：なりさ" oninput="updatePreview()" />
+    </div>
+    <div class="form-group highlight">
+      <label>メールアドレス <span class="label-hint">編集可</span></label>
+      <input type="email" id="emailTo" placeholder="例：customer@example.com" oninput="updatePreview()" />
+    </div>
+    <div class="form-group">
+      <label>料金 <span class="label-hint">編集可</span></label>
+      <input type="text" id="fee" value="30,000" oninput="updatePreview()" />
+    </div>
+
+    <div class="divider"></div>
+    <div class="preview-label">メールプレビュー</div>
+    <div class="subject-preview"><strong>件名：</strong><span id="subjectPreview"></span></div>
+    <div class="preview-box" id="preview"></div>
+
+    <button class="btn btn-email" onclick="sendEmail()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+      </svg>
+      メールを送る
+    </button>
+    <button class="btn btn-copy" onclick="copyBody()">
+      📋 本文をコピー
+    </button>
+    <p class="note">ボタンを押すとメールアプリが開きます。<br>内容を確認してから送信してください。</p>
+  </div>
+
+  <div id="copy-toast">コピーしました ✓</div>
+
+  <script>
+    let tesseractReady = false;
+
+    window.addEventListener('load', updatePreview);
+
+    function loadTesseract() {
+      return new Promise((resolve, reject) => {
+        if (tesseractReady) { resolve(); return; }
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+        s.onload = () => { tesseractReady = true; resolve(); };
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    }
+
+    function extractFirstName(text) {
+      const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      // Look for a line that looks like a Japanese or romaji name
+      // Prioritize lines with kanji/hiragana/katakana
+      const jpPat = /^[぀-ヿ一-鿿＀-￯\s　]{2,20}$/;
+      for (const line of lines) {
+        if (jpPat.test(line)) return line.trim();
+      }
+      // Fallback: romaji name pattern
+      const roPat = /^[A-Z][a-zA-Z\s'-]{1,30}$/;
+      const skipWords = new Set(['stores','booking','personal','makeup','session','payment','cancel','email','name','phone']);
+      for (const line of lines) {
+        if (roPat.test(line) && !skipWords.has(line.trim().split(' ')[0].toLowerCase())) return line.trim();
+      }
+      return null;
+    }
+
+    function extractEmailAddress(text) {
+      const m = text.match(/[\w.+%-]+@[\w.-]+\.[a-zA-Z]{2,}/);
+      return m ? m[0].toLowerCase() : null;
+    }
+
+    async function runOCR(file, onProgress) {
+      await loadTesseract();
+      const result = await Tesseract.recognize(file, 'jpn+eng', {
+        logger: m => { if (m.status === 'recognizing text') onProgress(Math.round(m.progress * 100)); }
+      });
+      return result.data.text;
+    }
+
+    async function scanName(event) {
+      const file = event.target.files[0]; if (!file) return;
+      const loading = document.getElementById('ocr-loading');
+      const status = document.getElementById('nameStatus');
+      loading.style.display = 'block'; loading.textContent = '📖 読み取り中...';
+      status.textContent = '読み取り中...';
+      try {
+        const text = await runOCR(file, p => { loading.textContent = `📖 名前を読み取り中... ${p}%`; });
+        const name = extractFirstName(text);
+        if (name) {
+          document.getElementById('firstName').value = name;
+          updatePreview();
+          status.textContent = '✅ ' + name;
+          document.getElementById('nameBox').classList.add('done');
+        } else { status.textContent = '⚠️ 見つかりません — 手動で入力'; }
+      } catch { status.textContent = '⚠️ エラー'; }
+      loading.style.display = 'none';
+    }
+
+    async function scanEmail(event) {
+      const file = event.target.files[0]; if (!file) return;
+      const loading = document.getElementById('ocr-loading');
+      const status = document.getElementById('emailStatus');
+      loading.style.display = 'block'; loading.textContent = '📖 読み取り中...';
+      status.textContent = '読み取り中...';
+      try {
+        const text = await runOCR(file, p => { loading.textContent = `📖 メールを読み取り中... ${p}%`; });
+        const email = extractEmailAddress(text);
+        if (email) {
+          document.getElementById('emailTo').value = email;
+          updatePreview();
+          status.textContent = '✅ ' + email;
+          document.getElementById('emailBox').classList.add('done');
+        } else { status.textContent = '⚠️ 見つかりません — 手動で入力'; }
+      } catch { status.textContent = '⚠️ エラー'; }
+      loading.style.display = 'none';
+    }
+
+    function buildSubject() {
+      return 'パーソナルメイクセッション — ご予約お支払いのご案内';
+    }
+
+    function buildBody() {
+      const firstName = document.getElementById('firstName').value.trim() || '【お名前】';
+      const fee = document.getElementById('fee').value.trim() || '【料金】';
+      return `${firstName} 様\n\nこの度はパーソナルメイクセッションにご予約いただき、誠にありがとうございます🌸\n\nご予約を確定するため、セッション料金のお振込をお願いいたします。\n\n━━━━━━━━━━━━━━━━\n■ セッション料金：${fee}円\n■ お支払い期限：ご予約より24時間以内\n━━━━━━━━━━━━━━━━\n\n【振込先】\n銀行名：\n支店名：\n口座種別：普通\n口座番号：\n口座名義：\n\nお振込後、お振込明細のスクリーンショットを本メールへの返信にてお送りください。\nご入金の確認が取れ次第、正式にご予約を確定いたします😊\n\n当日お会いできるのを楽しみにしております。\nご不明な点がございましたら、お気軽にご連絡ください。\n\nどうぞよろしくお願いいたします🕊️`;
+    }
+
+    function updatePreview() {
+      document.getElementById('subjectPreview').textContent = buildSubject();
+      document.getElementById('preview').textContent = buildBody();
+    }
+
+    function sendEmail() {
+      const to = document.getElementById('emailTo').value.trim();
+      if (!to) { alert('メールアドレスを入力してください。'); return; }
+      const firstName = document.getElementById('firstName').value.trim();
+      if (!firstName) { alert('お名前を入力してください。'); return; }
+      const subject = encodeURIComponent(buildSubject());
+      const body = encodeURIComponent(buildBody());
+      window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('copy-toast');
+      toast.textContent = msg;
+      toast.style.display = 'block';
+      setTimeout(() => { toast.style.display = 'none'; }, 2500);
+    }
+
+    function copyBody() {
+      navigator.clipboard.writeText(buildBody()).then(() => {
+        showToast('本文をコピーしました ✓');
+      }).catch(() => {
+        alert('コピーに失敗しました。手動でコピーしてください。');
+      });
+    }
+
+    updatePreview();
+  </script>
+</body>
+</html>

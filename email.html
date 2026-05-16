@@ -157,8 +157,9 @@
   <div id="copy-toast">コピーしました ✓</div>
 
   <script>
-    // Common Japanese surnames (last-name-first detection)
-    const JP_SURNAMES = new Set([
+    // Common surnames — Japanese and SG/MY/HK Chinese (last-name-first order)
+    const SURNAMES = new Set([
+      // Japanese
       'sato','suzuki','takahashi','tanaka','watanabe','ito','yamamoto','nakamura',
       'kobayashi','kato','yoshida','yamada','sasaki','yamaguchi','matsumoto',
       'inoue','kimura','hayashi','shimizu','yamazaki','mori','abe','ikeda',
@@ -166,7 +167,18 @@
       'okamoto','matsuda','nakagawa','fujii','nishimura','fukuda','ota','miura',
       'okada','kaneko','harada','miyazaki','sakamoto','ishida','sugiyama','ueda',
       'goto','masuda','chiba','kubo','nishida','fujiwara','goda','hasegawa',
-      'saito','aoki','tamura','takeuchi','kawaguchi','honda','hara'
+      'saito','aoki','tamura','takeuchi','kawaguchi','honda','hara',
+      // Singapore / Malaysia / Hong Kong Chinese (romanised)
+      'tan','lim','lee','ng','chan','wong','goh','ong','chua','koh',
+      'teo','yeo','ho','lau','loh','sim','ang','yap','chew','chong',
+      'foo','heng','leong','phua','seah','sng','soh','tay','wee',
+      'yong','yuen','beh','chia','cheong','fong','huang','kam',
+      'khoo','kwok','lai','lam','lew','liaw','liu','low','lu','mah',
+      'mok','mui','neo','pang','poh','quah','quek','see',
+      'soon','sua','sun','sung','tang','toh','wan','woo','wu',
+      'xu','yan','yang','yu','zeng','zhang','zhao','zheng','zhou',
+      'lin','chen','huang','wu','liu','he','zheng','xie','han','luo',
+      'bay','aw','ha','ip','ko','ku','man','pak','shek','szeto'
     ]);
 
     // Common Western first names (to help identify first-name-first order)
@@ -211,13 +223,17 @@
     function extractName(text) {
       const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 1);
 
-      // STORES sometimes shows name in an "お名前" or "Name" field
-      // Try to find a line that follows a label line
-      const labelPatterns = [/^(お名前|名前|氏名|name|full\s*name|customer)[\s:：]*/i];
+      // STORES notification email format: "◆予約者:" followed by name on next line
+      // Also handles generic name labels
+      const labelPatterns = [
+        /^[◆◇●•]?\s*(予約者|お名前|名前|氏名|name|full\s*name|customer)\s*[：:]/i
+      ];
       for (let i = 0; i < lines.length; i++) {
         for (const pat of labelPatterns) {
+          if (!pat.test(lines[i])) continue;
           const afterLabel = lines[i].replace(pat, '').trim();
           if (afterLabel.length > 1) return parseName(afterLabel);
+          // Name is on the next line
           if (i + 1 < lines.length && lines[i + 1].length > 1) return parseName(lines[i + 1]);
         }
       }
@@ -254,17 +270,17 @@
       const first = parts[0].toLowerCase();
       const second = parts[1] ? parts[1].toLowerCase() : '';
 
-      if (JP_SURNAMES.has(first) && !WESTERN_FIRST.has(first)) {
-        // Japanese order: surname first → first name is parts[1]
+      if (SURNAMES.has(first) && !WESTERN_FIRST.has(first)) {
+        // Surname-first order (JP / SG Chinese): first name is parts[1]
         return { firstName: parts[1], parts };
       }
-      if (WESTERN_FIRST.has(first) && !JP_SURNAMES.has(first)) {
+      if (WESTERN_FIRST.has(first) && !SURNAMES.has(first)) {
         // Western order: first name first
         return { firstName: parts[0], parts };
       }
-      if (WESTERN_FIRST.has(second) && !JP_SURNAMES.has(second)) {
-        // Second part looks like a first name → last-name-first
-        return { firstName: parts[1], parts };
+      if (SURNAMES.has(second) && !WESTERN_FIRST.has(second)) {
+        // First token is not a known surname but second is → first-name-first
+        return { firstName: parts[0], parts };
       }
 
       // Can't determine — show picker for all parts

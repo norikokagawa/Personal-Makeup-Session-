@@ -1,0 +1,161 @@
+/**
+ * STORES予約 → Googleスプレッドシート 自動同期スクリプト
+ *
+ * 【セットアップ手順】
+ * 1. Googleスプレッドシートを開く
+ * 2. メニュー「拡張機能」→「Apps Script」をクリック
+ * 3. このファイルの内容を貼り付けて保存（Ctrl+S）
+ * 4. 上部の関数選択で「setDailyTrigger」を選び「実行」ボタンをクリック
+ * 5. 権限を許可する（Gmailとスプレッドシートへのアクセス）
+ * 6. 以降、毎朝5時に自動で実行されます
+ */
+
+const SPREADSHEET_ID = '1Ndb9YHiGuWJ9UI_dW9tQ4Cbp8p2PwG-EL3FSdTA97PI';
+const SESSION_KEYWORD = 'Personal Makeup Session — Singapore';
+
+// -------------------------------------------------------
+// メイン処理（毎朝5時に自動実行）
+// -------------------------------------------------------
+function checkBookingsAndUpdate() {
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getActiveSheet();
+  const threads = GmailApp.search(
+    `from:hello@stores.jp is:unread "${SESSION_KEYWORD}"`
+  );
+
+  let updated = false;
+
+  for (const thread of threads) {
+    for (const message of thread.getMessages()) {
+      if (!message.isUnread()) continue;
+
+      const subject = message.getSubject();
+      const body = message.getPlainBody();
+
+      if (subject.includes('予約が入りました')) {
+        addNewBooking(sheet, body);
+        updated = true;
+      } else if (subject.includes('が変更されました')) {
+        updateBooking(sheet, body);
+        updated = true;
+      } else if (subject.includes('キャンセル')) {
+        cancelBooking(sheet, body);
+        updated = true;
+      }
+
+      message.markRead();
+    }
+  }
+
+  if (updated) sortByDate(sheet);
+}
+
+// -------------------------------------------------------
+// 新規予約を追加
+// -------------------------------------------------------
+function addNewBooking(sheet, body) {
+  const nameMatch = body.match(/◆予約者:\s*\r?\n\s*(.+)/);
+  const dateMatch = body.match(/◆予約日時:\s*\r?\n\s*(.+)/);
+  if (!nameMatch || !dateMatch) return;
+
+  const name = nameMatch[1].trim();
+  const dateStr = parseJapaneseDate(dateMatch[1].trim());
+  if (!dateStr) return;
+
+  // 重複チェック
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === dateStr && data[i][1] === name) return;
+  }
+
+  sheet.appendRow([dateStr, name, 250, '未確認']);
+}
+
+// -------------------------------------------------------
+// 予約変更を反映
+// -------------------------------------------------------
+function updateBooking(sheet, body) {
+  const afterSection = body.match(/\[ 変更後 \]([\s\S]*?)\[ 変更前 \]/);
+  const beforeSection = body.match(/\[ 変更前 \]([\s\S]*)$/);
+  if (!afterSection || !beforeSection) return;
+
+  const nameMatch = beforeSection[1].match(/◆予約者:\s*\r?\n\s*(.+)/);
+  const beforeDateMatch = beforeSection[1].match(/◆予約日時:\s*\r?\n\s*(.+)/);
+  const afterDateMatch = afterSection[1].match(/◆予約日時:\s*\r?\n\s*(.+)/);
+  if (!nameMatch || !beforeDateMatch || !afterDateMatch) return;
+
+  const name = nameMatch[1].trim();
+  const beforeDate = parseJapaneseDate(beforeDateMatch[1].trim());
+  const afterDate = parseJapaneseDate(afterDateMatch[1].trim());
+  if (!beforeDate || !afterDate) return;
+
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === beforeDate && data[i][1] === name) {
+      sheet.getRange(i + 1, 1).setValue(afterDate);
+      return;
+    }
+  }
+}
+
+// -------------------------------------------------------
+// キャンセルを削除
+// -------------------------------------------------------
+function cancelBooking(sheet, body) {
+  const nameMatch = body.match(/◆予約者:\s*\r?\n\s*(.+)/);
+  const dateMatch = body.match(/◆予約日時:\s*\r?\n\s*(.+)/);
+  if (!nameMatch || !dateMatch) return;
+
+  const name = nameMatch[1].trim();
+  const dateStr = parseJapaneseDate(dateMatch[1].trim());
+  if (!dateStr) return;
+
+  const data = sheet.getDataRange().getValues();
+  for (let i = data.length - 1; i >= 1; i--) {
+    if (String(data[i][0]) === dateStr && data[i][1] === name) {
+      sheet.deleteRow(i + 1);
+      return;
+    }
+  }
+}
+
+// -------------------------------------------------------
+// 日付文字列をパース
+// "2026年06月18日 (木) 13:00" → "2026/6/18 13:00"
+// -------------------------------------------------------
+function parseJapaneseDate(dateStr) {
+  const match = dateStr.match(/(\d{4})年(\d{2})月(\d{2})日[^)]+\)\s*(\d{2}:\d{2})/);
+  if (!match) return null;
+  const [, year, month, day, time] = match;
+  return `${year}/${parseInt(month)}/${parseInt(day)} ${time}`;
+}
+
+// -------------------------------------------------------
+// 日時順にソート
+// -------------------------------------------------------
+function sortByDate(sheet) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 2) return;
+  sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).sort(1);
+}
+
+// -------------------------------------------------------
+// 毎朝5時のトリガーを設定（初回のみ手動で実行）
+// -------------------------------------------------------
+function setDailyTrigger() {
+  // 既存の同名トリガーを削除
+  ScriptApp.getProjectTriggers().forEach(t => {
+    if (t.getHandlerFunction() === 'checkBookingsAndUpdate') {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+
+  // 毎日午前5時に実行
+  ScriptApp.newTrigger('checkBookingsAndUpdate')
+    .timeBased()
+    .everyDays(1)
+    .atHour(5)
+    .inTimezone('Asia/Singapore')
+    .create();
+
+  Logger.log('トリガーを設定しました：毎日5:00（シンガポール時間）');
+}

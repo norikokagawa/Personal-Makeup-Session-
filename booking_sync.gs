@@ -7,7 +7,7 @@
  * 3. このファイルの内容を貼り付けて保存（Ctrl+S）
  * 4. 上部の関数選択で「setDailyTrigger」を選び「実行」ボタンをクリック
  * 5. 権限を許可する（Gmailとスプレッドシートへのアクセス）
- * 6. 以降、毎朝5時に自動で実行されます
+ * 6. 以降、毎朝5時（日本時間）に自動で実行されます
  */
 
 const SPREADSHEET_ID = '1Ndb9YHiGuWJ9UI_dW9tQ4Cbp8p2PwG-EL3FSdTA97PI';
@@ -149,13 +149,13 @@ function setDailyTrigger() {
     }
   });
 
-  // 毎日午前5時に実行
+  // 毎日午前5時（日本時間）に実行
   ScriptApp.newTrigger('checkBookingsAndUpdate')
     .timeBased()
     .everyDays(1)
     .atHour(5)
-    .inTimezone('Asia/Singapore')
+    .inTimezone('Asia/Tokyo')
     .create();
 
-  Logger.log('トリガーを設定しました：毎日5:00（シンガポール時間）');
+  Logger.log('トリガーを設定しました：毎日5:00（日本時間）');
 }

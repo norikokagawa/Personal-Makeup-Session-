@@ -1,0 +1,31 @@
+name: Daily Instagram Post (18:00 JST)
+
+on:
+  schedule:
+    # 09:00 UTC = 18:00 JST
+    - cron: "0 9 * * *"
+  workflow_dispatch: # 手動実行も可能
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Export Canva design & post to Instagram
+        env:
+          CANVA_ACCESS_TOKEN: ${{ secrets.CANVA_ACCESS_TOKEN }}
+          CANVA_DESIGN_ID: DAHElVEheQw
+          INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+          INSTAGRAM_USER_ID: ${{ secrets.INSTAGRAM_USER_ID }}
+          POST_TYPE: story
+          CAPTION: ""
+        run: python scripts/post_to_instagram.py

@@ -27,5 +27,12 @@ jobs:
           INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
           INSTAGRAM_USER_ID: ${{ secrets.INSTAGRAM_USER_ID }}
           POST_TYPE: feed
-          CAPTION: ${{ secrets.INSTAGRAM_CAPTION }}
+          CAPTION: |
+            Session Schedule
+            Availability by location. Details via the link in my profile.
+            Singapore — Now accepting bookings.
+            Tokushima — Now accepting bookings.
+            Sydney — Bookings open from May 20th.
+            Tokyo & Fukuoka — Fully Booked.
+            Osaka & Okinawa — Members only (not open for general bookings).
         run: python scripts/post_to_instagram.py

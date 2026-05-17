@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Email Draft Tool | Personal Makeup Session Sydney</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      background: #fdf6f0;
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      background: #fff; border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      max-width: 520px; width: 100%; padding: 36px 32px;
+    }
+    .logo { text-align: center; margin-bottom: 24px; }
+    .logo h1 { font-size: 1rem; font-weight: 600; color: #c5766a; letter-spacing: 0.04em; }
+    .logo p { font-size: 0.75rem; color: #999; margin-top: 4px; }
+    h2 { font-size: 0.95rem; color: #333; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid #f0e8e4; }
+    .amount-badge { display: inline-block; background: #eaf5f0; color: #2d9c6e; border-radius: 6px; padding: 3px 10px; font-size: 0.8rem; font-weight: 600; margin-bottom: 16px; }
+
+    /* Screenshot upload area */
+    .scan-single {
+      border: 2px dashed #e0d6d0; border-radius: 12px; padding: 20px 16px;
+      text-align: center; cursor: pointer;
+      transition: border-color 0.2s, background 0.2s; position: relative;
+      margin-bottom: 16px;
+    }
+    .scan-single:hover { border-color: #c5766a; background: #fff8f6; }
+    .scan-single.done { border-color: #ea4335; border-style: solid; background: #fff8f7; }
+    .scan-single input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .scan-icon { font-size: 2rem; margin-bottom: 6px; }
+    .scan-label { font-size: 0.8rem; color: #888; font-weight: 600; }
+    .scan-hint { font-size: 0.7rem; color: #bbb; margin-top: 4px; }
+    .scan-status { font-size: 0.72rem; color: #c5766a; margin-top: 6px; min-height: 16px; }
+    .scan-single.done .scan-status { color: #2d9c6e; }
+
+    #ocr-loading { display: none; text-align: center; padding: 10px; font-size: 0.82rem; color: #c5766a; background: #fff8f6; border-radius: 8px; margin-bottom: 12px; }
+
+    /* Extracted fields */
+    .extracted-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 4px; }
+    .form-group { margin-bottom: 14px; }
+    label { display: block; font-size: 0.8rem; color: #666; margin-bottom: 5px; font-weight: 500; }
+    .label-hint { font-size: 0.72rem; color: #aaa; font-weight: 400; margin-left: 6px; }
+    input {
+      width: 100%; padding: 10px 14px;
+      border: 1px solid #e0d6d0; border-radius: 8px;
+      font-size: 0.9rem; color: #333; background: #fdfaf8;
+      transition: border-color 0.2s; outline: none;
+    }
+    input:focus { border-color: #c5766a; background: #fff; }
+    .highlight input { border-color: #c5766a; background: #fff8f6; }
+
+    /* Name picker */
+    .name-picker { display: none; background: #fff8f6; border: 1px solid #f0e8e4; border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; }
+    .name-picker p { font-size: 0.78rem; color: #888; margin-bottom: 8px; }
+    .name-picker-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .name-chip {
+      padding: 5px 14px; border-radius: 20px; font-size: 0.82rem; font-weight: 600;
+      border: 1.5px solid #c5766a; color: #c5766a; background: #fff; cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .name-chip:hover, .name-chip.selected { background: #c5766a; color: #fff; }
+
+    .divider { height: 1px; background: #f0e8e4; margin: 20px 0; }
+    .preview-label { font-size: 0.78rem; color: #999; margin-bottom: 8px; }
+    .subject-preview {
+      background: #f9f2ef; border-radius: 8px 8px 0 0; padding: 10px 16px;
+      font-size: 0.8rem; color: #888; border-left: 3px solid #ea4335;
+      border-bottom: 1px solid #f0e8e4;
+    }
+    .subject-preview strong { color: #555; }
+    .preview-box {
+      background: #f9f2ef; border-radius: 0 0 10px 10px; padding: 16px; margin-bottom: 16px;
+      font-size: 0.84rem; color: #444; white-space: pre-wrap; line-height: 1.75;
+      border-left: 3px solid #ea4335; max-height: 340px; overflow-y: auto;
+    }
+
+    .btn {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      width: 100%; padding: 14px; border: none; border-radius: 10px;
+      font-size: 0.95rem; font-weight: 600; cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn-email { background: #ea4335; color: #fff; }
+    .btn-email:hover { opacity: 0.9; }
+    .btn-copy { background: #fff; color: #c5766a; border: 1.5px solid #c5766a; margin-top: 8px; font-size: 0.85rem; padding: 10px; }
+    .note { font-size: 0.73rem; color: #bbb; text-align: center; margin-top: 12px; line-height: 1.6; }
+
+    #copy-toast {
+      display: none; position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: #333; color: #fff; padding: 10px 20px; border-radius: 8px;
+      font-size: 0.82rem; z-index: 999; pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <h1>Personal Makeup Session — Sydney</h1>
+      <p>メール決済案内ツール（STORES予約）</p>
+    </div>
+
+    <h2>STORESスクリーンショットを読み取る</h2>
+    <div class="amount-badge">AUD 308 · PAY ID: 0404485393</div>
+
+    <div class="scan-single" id="scanBox">
+      <input type="file" accept="image/*" onchange="scanScreenshot(event)" />
+      <div class="scan-icon">📋</div>
+      <div class="scan-label">予約スクリーンショットをタップしてアップロード</div>
+      <div class="scan-hint">名前・メールアドレスを自動で読み取ります</div>
+      <div class="scan-status" id="scanStatus">タップして読み取る</div>
+    </div>
+
+    <div id="ocr-loading"></div>
+
+    <!-- Name picker shown when multiple name parts detected -->
+    <div class="name-picker" id="namePicker">
+      <p>⚠️ 名前の順番が不明です。ファーストネームを選んでください：</p>
+      <div class="name-picker-row" id="nameChips"></div>
+    </div>
+
+    <div class="extracted-row">
+      <div class="form-group highlight">
+        <label>First name <span class="label-hint">編集可</span></label>
+        <input type="text" id="firstName" placeholder="e.g. Sarah" oninput="updatePreview()" />
+      </div>
+      <div class="form-group highlight">
+        <label>Email address <span class="label-hint">編集可</span></label>
+        <input type="email" id="emailTo" placeholder="customer@example.com" oninput="updatePreview()" />
+      </div>
+    </div>
+
+    <div class="divider"></div>
+    <div class="preview-label">メールプレビュー</div>
+    <div class="subject-preview"><strong>件名：</strong><span id="subjectPreview"></span></div>
+    <div class="preview-box" id="preview"></div>
+
+    <button class="btn btn-email" onclick="sendEmail()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+      </svg>
+      Gmailで作成する
+    </button>
+    <button class="btn btn-copy" onclick="copyBody()">
+      📋 本文をコピー
+    </button>
+    <p class="note">Gmailが開き、宛先・件名・本文が入力済みの状態になります。<br>内容を確認してから送信してください。</p>
+  </div>
+
+  <div id="copy-toast">コピーしました ✓</div>
+
+  <script>
+    // Common surnames — Japanese and SG/MY/HK Chinese (last-name-first order)
+    const SURNAMES = new Set([
+      // Japanese
+      'sato','suzuki','takahashi','tanaka','watanabe','ito','yamamoto','nakamura',
+      'kobayashi','kato','yoshida','yamada','sasaki','yamaguchi','matsumoto',
+      'inoue','kimura','hayashi','shimizu','yamazaki','mori','abe','ikeda',
+      'hashimoto','yamashita','ishikawa','nakajima','ogawa','maeda','fujita',
+      'okamoto','matsuda','nakagawa','fujii','nishimura','fukuda','ota','miura',
+      'okada','kaneko','harada','miyazaki','sakamoto','ishida','sugiyama','ueda',
+      'goto','masuda','chiba','kubo','nishida','fujiwara','goda','hasegawa',
+      'saito','aoki','tamura','takeuchi','kawaguchi','honda','hara',
+      // Singapore / Malaysia / Hong Kong Chinese (romanised)
+      'tan','lim','lee','ng','chan','wong','goh','ong','chua','koh',
+      'teo','yeo','ho','lau','loh','sim','ang','yap','chew','chong',
+      'foo','heng','leong','phua','seah','sng','soh','tay','wee',
+      'yong','yuen','beh','chia','cheong','fong','huang','kam',
+      'khoo','kwok','lai','lam','lew','liaw','liu','low','lu','mah',
+      'mok','mui','neo','pang','poh','quah','quek','see',
+      'soon','sua','sun','sung','tang','toh','wan','woo','wu',
+      'xu','yan','yang','yu','zeng','zhang','zhao','zheng','zhou',
+      'lin','chen','huang','wu','liu','he','zheng','xie','han','luo',
+      'bay','aw','ha','ip','ko','ku','man','pak','shek','szeto'
+    ]);
+
+    // Common Western first names (to help identify first-name-first order)
+    const WESTERN_FIRST = new Set([
+      'emma','olivia','ava','isabella','sophia','mia','charlotte','amelia',
+      'harper','evelyn','sarah','jessica','emily','ashley','samantha','lauren',
+      'taylor','megan','rachel','kayla','amber','jennifer','michelle','stephanie',
+      'liam','noah','oliver','elijah','james','william','benjamin','lucas',
+      'mason','ethan','michael','daniel','matthew','jackson','sebastian','david',
+      'aiden','joseph','carter','owen','wyatt','john','jack','luke','jayden',
+      'dylan','grayson','zoe','chloe','lily','grace','natalie','hannah',
+      'sophie','alice','lucy','ella','anna','leah','madison','layla',
+      'riley','aria','nora','ellie','paisley','audrey','skylar','violet',
+      'stella','claire','savannah','eleanor','hazel','rylee','zoey','aurora',
+      'isla','maya','camilla','ariana','lydia','aubrey','brianna','jenna'
+    ]);
+
+    let tesseractReady = false;
+    let detectedParts = [];
+
+    window.addEventListener('load', updatePreview);
+
+    function loadTesseract() {
+      return new Promise((resolve, reject) => {
+        if (tesseractReady) { resolve(); return; }
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+        s.onload = () => { tesseractReady = true; resolve(); };
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    }
+
+    // Extract email address from OCR text
+    function extractEmail(text) {
+      const m = text.match(/[\w.+%-]+@[\w.-]+\.[a-zA-Z]{2,}/);
+      return m ? m[0].toLowerCase() : null;
+    }
+
+    // Extract candidate name from OCR text
+    // Returns { firstName, parts } where parts is array of name tokens for picker
+    function extractName(text) {
+      const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 1);
+
+      // STORES notification email format: "◆予約者:" followed by name on next line
+      // Also handles generic name labels
+      const labelPatterns = [
+        /^[◆◇●•]?\s*(予約者|お名前|名前|氏名|name|full\s*name|customer)\s*[：:]/i
+      ];
+      for (let i = 0; i < lines.length; i++) {
+        for (const pat of labelPatterns) {
+          if (!pat.test(lines[i])) continue;
+          const afterLabel = lines[i].replace(pat, '').trim();
+          if (afterLabel.length > 1) return parseName(afterLabel);
+          // Name is on the next line
+          if (i + 1 < lines.length && lines[i + 1].length > 1) return parseName(lines[i + 1]);
+        }
+      }
+
+      // Fallback: find first line that looks like a person name
+      // Matches: romaji name (Title Case or ALL CAPS), optionally with kanji
+      const roPat = /^([A-Z][a-zA-Z'-]+)(\s+[A-Z][a-zA-Z'-]*\.?){0,3}$/;
+      const capsPat = /^([A-Z]{2,}\s+){1,3}[A-Z]{2,}$/;
+      const skipWords = new Set(['stores','booking','personal','makeup','session','payment','cancel',
+                                  'email','phone','address','receipt','reservation','confirm','date',
+                                  'time','menu','price','amount','total','sydney','japan','singapore']);
+      for (const line of lines) {
+        if (skipWords.has(line.trim().toLowerCase())) continue;
+        if (roPat.test(line) || capsPat.test(line)) return parseName(line);
+      }
+
+      // Japanese name (kanji/kana)
+      const jpPat = /^[぀-ヿ一-鿿ぁ-んァ-ン\s　]{2,15}$/;
+      for (const line of lines) {
+        if (jpPat.test(line)) return { firstName: line.trim(), parts: [] };
+      }
+
+      return { firstName: null, parts: [] };
+    }
+
+    function parseName(raw) {
+      // Normalize: convert ALL CAPS token to Title Case
+      const normalize = s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+      const parts = raw.trim().split(/\s+/).map(p => normalize(p));
+
+      if (parts.length === 1) return { firstName: parts[0], parts: [] };
+
+      // Heuristic: check if first token is a known surname (→ last-name-first order)
+      const first = parts[0].toLowerCase();
+      const second = parts[1] ? parts[1].toLowerCase() : '';
+
+      if (SURNAMES.has(first) && !WESTERN_FIRST.has(first)) {
+        // Surname-first order (JP / SG Chinese): first name is parts[1]
+        return { firstName: parts[1], parts };
+      }
+      if (WESTERN_FIRST.has(first) && !SURNAMES.has(first)) {
+        // Western order: first name first
+        return { firstName: parts[0], parts };
+      }
+      if (SURNAMES.has(second) && !WESTERN_FIRST.has(second)) {
+        // First token is not a known surname but second is → first-name-first
+        return { firstName: parts[0], parts };
+      }
+
+      // Can't determine — show picker for all parts
+      return { firstName: parts[0], parts };
+    }
+
+    async function scanScreenshot(event) {
+      const file = event.target.files[0]; if (!file) return;
+      const loading = document.getElementById('ocr-loading');
+      const status = document.getElementById('scanStatus');
+      const box = document.getElementById('scanBox');
+
+      loading.style.display = 'block'; loading.textContent = '📖 読み取り中...';
+      status.textContent = '読み取り中...';
+
+      try {
+        await loadTesseract();
+        const result = await Tesseract.recognize(file, 'eng+jpn', {
+          logger: m => {
+            if (m.status === 'recognizing text') {
+              loading.textContent = `📖 読み取り中... ${Math.round(m.progress * 100)}%`;
+            }
+          }
+        });
+        const text = result.data.text;
+
+        // Extract email
+        const email = extractEmail(text);
+        if (email) {
+          document.getElementById('emailTo').value = email;
+        }
+
+        // Extract name
+        const { firstName, parts } = extractName(text);
+
+        if (parts.length > 1) {
+          // Show name picker
+          showNamePicker(parts, firstName);
+        }
+        if (firstName) {
+          document.getElementById('firstName').value = firstName;
+        }
+
+        updatePreview();
+
+        const gotName = !!firstName;
+        const gotEmail = !!email;
+        if (gotName && gotEmail) {
+          status.textContent = `✅ 名前: ${firstName} · メール: ${email}`;
+          box.classList.add('done');
+        } else if (gotName) {
+          status.textContent = `✅ 名前: ${firstName} · ⚠️ メールが見つかりません`;
+          box.classList.add('done');
+        } else if (gotEmail) {
+          status.textContent = `⚠️ 名前が見つかりません · ✅ メール: ${email}`;
+          box.classList.add('done');
+        } else {
+          status.textContent = '⚠️ 読み取れませんでした — 手動で入力してください';
+        }
+
+      } catch (e) {
+        status.textContent = '⚠️ エラーが発生しました';
+      }
+
+      loading.style.display = 'none';
+    }
+
+    function showNamePicker(parts, autoGuess) {
+      const picker = document.getElementById('namePicker');
+      const chipsEl = document.getElementById('nameChips');
+      chipsEl.innerHTML = '';
+      picker.style.display = 'block';
+
+      parts.forEach(part => {
+        const chip = document.createElement('button');
+        chip.className = 'name-chip' + (part === autoGuess ? ' selected' : '');
+        chip.textContent = part;
+        chip.onclick = () => {
+          document.querySelectorAll('.name-chip').forEach(c => c.classList.remove('selected'));
+          chip.classList.add('selected');
+          document.getElementById('firstName').value = part;
+          updatePreview();
+        };
+        chipsEl.appendChild(chip);
+      });
+    }
+
+    function buildSubject() {
+      return 'Personal Makeup Session Sydney — Payment Information';
+    }
+
+    function buildBody() {
+      const firstName = document.getElementById('firstName').value.trim() || '[Name]';
+      return `Hi ${firstName},
+
+Thank you for your booking for the Personal Makeup Session in Sydney.
+
+To confirm your reservation, please complete your payment within 24 hours via PAY ID below.
+
+Amount: AUD 308
+PAY ID: 0404485393
+
+Please note that reservations will be automatically cancelled if payment is not received within 24 hours.
+
+Once the payment is completed, please reply to this email with a screenshot of the transfer confirmation.
+
+Looking forward to welcoming you in Sydney ✨
+
+atelierR`;
+    }
+
+    function updatePreview() {
+      document.getElementById('subjectPreview').textContent = buildSubject();
+      document.getElementById('preview').textContent = buildBody();
+    }
+
+    function sendEmail() {
+      const to = document.getElementById('emailTo').value.trim();
+      if (!to) { alert('メールアドレスを入力してください。'); return; }
+      const firstName = document.getElementById('firstName').value.trim();
+      if (!firstName) { alert('ファーストネームを入力してください。'); return; }
+
+      const subject = encodeURIComponent(buildSubject());
+      const body = encodeURIComponent(buildBody());
+
+      // Gmail compose URL — opens Gmail (app or web) with all fields pre-filled
+      const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(to)}&su=${subject}&body=${body}`;
+      window.open(gmailUrl, '_blank');
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('copy-toast');
+      toast.textContent = msg;
+      toast.style.display = 'block';
+      setTimeout(() => { toast.style.display = 'none'; }, 4000);
+    }
+
+    function copyBody() {
+      navigator.clipboard.writeText(buildBody()).then(() => {
+        showToast('本文をコピーしました ✓');
+      }).catch(() => {
+        alert('コピーに失敗しました。手動でコピーしてください。');
+      });
+    }
+
+    updatePreview();
+  </script>
+</body>
+</html>

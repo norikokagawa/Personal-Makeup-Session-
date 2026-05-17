@@ -30,7 +30,16 @@ client_config = {
 }
 
 flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
-creds = flow.run_console()
+flow.redirect_uri = "urn:ietf:wg:oauth:2.0:oob"
+
+auth_url, _ = flow.authorization_url(access_type="offline", prompt="consent")
+print("\n以下のURLをブラウザで開いてGoogleアカウントにログインし、表示されたコードをコピーしてください:\n")
+print(auth_url)
+print()
+
+code = input("認証コードを貼り付けてEnter: ").strip()
+flow.fetch_token(code=code)
+creds = flow.credentials
 
 print("\n=== GitHub Secrets に登録してください ===")
 print(f"GMAIL_CLIENT_ID     = {CLIENT_ID}")

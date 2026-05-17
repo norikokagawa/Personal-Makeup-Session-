@@ -2,23 +2,16 @@
 Gmail OAuth 認証ヘルパー（初回のみ実行）
 
 使い方:
-  1. Google Cloud Console で「OAuth 2.0 クライアント ID」を作成し
-     client_id と client_secret を控える
-  2. 下記の CLIENT_ID / CLIENT_SECRET を書き換えて実行:
-       python scripts/gmail_auth.py
-  3. ブラウザが開くので Google アカウントでログインして許可する
-  4. 表示された Refresh token を GitHub Secrets に登録する:
+  1. 下記の CLIENT_ID / CLIENT_SECRET を書き換える
+  2. 実行: python scripts/gmail_auth.py
+  3. 表示された URL をブラウザで開いてGoogleアカウントでログイン・許可
+  4. 表示された認証コードをターミナルに貼り付けてEnter
+  5. 表示された Refresh token を GitHub Secrets に登録する:
        GMAIL_CLIENT_ID     ← client_id
        GMAIL_CLIENT_SECRET ← client_secret
        GMAIL_REFRESH_TOKEN ← 表示された refresh_token
-
-Google Cloud Console:
-  https://console.cloud.google.com/apis/credentials
-  必要な API: Gmail API (読み取りのみ)
-  アプリの種類: デスクトップアプリ
 """
 
-import json
 from google_auth_oauthlib.flow import InstalledAppFlow
 
 CLIENT_ID     = "YOUR_CLIENT_ID"
@@ -37,7 +30,7 @@ client_config = {
 }
 
 flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
-creds = flow.run_local_server(port=0)
+creds = flow.run_console()
 
 print("\n=== GitHub Secrets に登録してください ===")
 print(f"GMAIL_CLIENT_ID     = {CLIENT_ID}")

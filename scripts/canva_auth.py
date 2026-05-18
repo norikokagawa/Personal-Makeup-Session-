@@ -42,7 +42,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         captured_code = qs.get("code", [None])[0]
         self.send_response(200)
         self.end_headers()
-        self.wfile.write(b"<h1>OK! Terminal に戻ってください。</h1>")
+        self.wfile.write(b"<h1>OK! Go back to Terminal.</h1>")
 
     def log_message(self, *_):
         pass

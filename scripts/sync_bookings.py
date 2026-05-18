@@ -5,7 +5,9 @@
   GMAIL_CLIENT_ID
   GMAIL_CLIENT_SECRET
   GMAIL_REFRESH_TOKEN
-  CANVA_ACCESS_TOKEN
+  CANVA_CLIENT_ID
+  CANVA_CLIENT_SECRET
+  CANVA_REFRESH_TOKEN
 """
 
 import os
@@ -20,9 +22,20 @@ from googleapiclient.discovery import build
 
 # ── Canva 設定 ─────────────────────────────────────────────────────────────────
 
-CANVA_API    = "https://api.canva.com/rest/v1"
-CANVA_TOKEN  = os.environ["CANVA_ACCESS_TOKEN"]
-CANVA_HEADS  = {"Authorization": f"Bearer {CANVA_TOKEN}"}
+CANVA_API = "https://api.canva.com/rest/v1"
+
+def get_canva_token() -> str:
+    r = requests.post("https://api.canva.com/rest/v1/oauth/token", data={
+        "grant_type": "refresh_token",
+        "refresh_token": os.environ["CANVA_REFRESH_TOKEN"],
+        "client_id": os.environ["CANVA_CLIENT_ID"],
+        "client_secret": os.environ["CANVA_CLIENT_SECRET"],
+    })
+    r.raise_for_status()
+    return r.json()["access_token"]
+
+CANVA_TOKEN = get_canva_token()
+CANVA_HEADS = {"Authorization": f"Bearer {CANVA_TOKEN}"}
 
 DESIGN_ID = "DAGsRHlSvkw"
 

@@ -1,7 +1,9 @@
 """
 Exports a Canva design and posts each page to Instagram as a story or carousel.
 Required env vars:
-  CANVA_ACCESS_TOKEN       - Canva API OAuth access token
+  CANVA_CLIENT_ID          - Canva OAuth client ID
+  CANVA_CLIENT_SECRET      - Canva OAuth client secret
+  CANVA_REFRESH_TOKEN      - Canva OAuth refresh token
   CANVA_DESIGN_ID          - Canva design ID (e.g. DAHElVEheQw)
   INSTAGRAM_ACCESS_TOKEN   - Meta Graph API long-lived access token
   INSTAGRAM_USER_ID        - Instagram Business Account user ID
@@ -17,7 +19,17 @@ import requests
 CANVA_API = "https://api.canva.com/rest/v1"
 GRAPH_API = "https://graph.facebook.com/v19.0"
 
-CANVA_TOKEN = os.environ["CANVA_ACCESS_TOKEN"]
+def get_canva_token() -> str:
+    r = requests.post("https://api.canva.com/rest/v1/oauth/token", data={
+        "grant_type": "refresh_token",
+        "refresh_token": os.environ["CANVA_REFRESH_TOKEN"],
+        "client_id": os.environ["CANVA_CLIENT_ID"],
+        "client_secret": os.environ["CANVA_CLIENT_SECRET"],
+    })
+    r.raise_for_status()
+    return r.json()["access_token"]
+
+CANVA_TOKEN = get_canva_token()
 DESIGN_ID = os.environ["CANVA_DESIGN_ID"]
 IG_TOKEN = os.environ["INSTAGRAM_ACCESS_TOKEN"]
 IG_USER_ID = os.environ["INSTAGRAM_USER_ID"]

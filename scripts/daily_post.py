@@ -67,10 +67,12 @@ def export_canva(token):
     raise TimeoutError("Canva export timed out")
 
 
-FALLBACK_IMAGE_URL = (
+REPO_BASE = (
     "https://raw.githubusercontent.com/norikokagawa/"
-    "Personal-Makeup-Session-/main/schedule.png"
+    "Personal-Makeup-Session-/main"
 )
+FALLBACK_SINGLE = f"{REPO_BASE}/schedule.png"
+SCHEDULE_PAGES = 7  # Canva design pages
 
 
 # ── Gmail ──────────────────────────────────────────────────────────────────
@@ -122,24 +124,50 @@ def get_todays_bookings():
 
 # ── Instagram ──────────────────────────────────────────────────────────────
 
-def post_instagram(image_url, caption):
-    uid = os.environ["IG_USER_ID"]
-    tok = os.environ["IG_ACCESS_TOKEN"]
-
-    r = requests.post(f"{IG_API}/{uid}/media",
-                      data={"image_url": image_url, "caption": caption,
-                            "access_token": tok})
+def _ig_post(uid, tok, data):
+    r = requests.post(f"{IG_API}/{uid}/media", data={**data, "access_token": tok})
     d = r.json()
     if "error" in d:
-        raise RuntimeError(f"Media create error: {d['error']['message']}")
-    cid = d["id"]
-    print(f"Media container: {cid}")
+        raise RuntimeError(d["error"]["message"])
+    return d["id"]
 
+
+def post_instagram_single(image_url, caption):
+    uid = os.environ["IG_USER_ID"]
+    tok = os.environ["IG_ACCESS_TOKEN"]
+    cid = _ig_post(uid, tok, {"image_url": image_url, "caption": caption})
+    print(f"Media container: {cid}")
     r = requests.post(f"{IG_API}/{uid}/media_publish",
                       data={"creation_id": cid, "access_token": tok})
     d = r.json()
     if "error" in d:
-        raise RuntimeError(f"Publish error: {d['error']['message']}")
+        raise RuntimeError(d["error"]["message"])
+    return d["id"]
+
+
+def post_instagram_carousel(image_urls, caption):
+    """Post multiple images as a carousel (up to 10)."""
+    uid = os.environ["IG_USER_ID"]
+    tok = os.environ["IG_ACCESS_TOKEN"]
+
+    item_ids = []
+    for i, url in enumerate(image_urls[:10]):
+        cid = _ig_post(uid, tok, {"image_url": url, "is_carousel_item": "true"})
+        print(f"  Carousel item {i+1}: {cid}")
+        item_ids.append(cid)
+
+    carousel_id = _ig_post(uid, tok, {
+        "media_type": "CAROUSEL",
+        "children": ",".join(item_ids),
+        "caption": caption,
+    })
+    print(f"Carousel container: {carousel_id}")
+
+    r = requests.post(f"{IG_API}/{uid}/media_publish",
+                      data={"creation_id": carousel_id, "access_token": tok})
+    d = r.json()
+    if "error" in d:
+        raise RuntimeError(d["error"]["message"])
     return d["id"]
 
 
@@ -176,8 +204,29 @@ def main():
                    f"#メイク #makeup #メイクアップ #メイクレッスン "
                    f"#makeupartist #beauty #シンガポール #Singapore")
 
-    print(f"4. Posting to Instagram...")
-    post_id = post_instagram(image_url, caption)
+    # Try to get multiple pages from Canva export (or repo fallback)
+    if image_url != FALLBACK_SINGLE:
+        # Canva succeeded — single URL; try to get all pages
+        image_urls = [image_url]
+    else:
+        # Fallback: look for schedule_1.png ... schedule_7.png in repo
+        urls = [f"{REPO_BASE}/schedule_{i}.png" for i in range(1, SCHEDULE_PAGES + 1)]
+        # Check which ones exist
+        image_urls = []
+        for u in urls:
+            resp = requests.head(u)
+            if resp.status_code == 200:
+                image_urls.append(u)
+                print(f"   Found: schedule_{len(image_urls)}.png")
+        if not image_urls:
+            image_urls = [FALLBACK_SINGLE]
+            print("   No schedule_N.png found, using schedule.png")
+
+    print(f"4. Posting to Instagram ({len(image_urls)} image(s))...")
+    if len(image_urls) == 1:
+        post_id = post_instagram_single(image_urls[0], caption)
+    else:
+        post_id = post_instagram_carousel(image_urls, caption)
     print(f"\n✅ Done! Instagram post ID: {post_id}")
 
 

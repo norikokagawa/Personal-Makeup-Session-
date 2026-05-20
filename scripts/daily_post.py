@@ -30,6 +30,8 @@ def canva_access_token():
         "client_id": os.environ["CANVA_CLIENT_ID"],
         "client_secret": os.environ["CANVA_CLIENT_SECRET"],
     })
+    if not r.ok:
+        print(f"Canva token error {r.status_code}: {r.text[:500]}")
     r.raise_for_status()
     return r.json()["access_token"]
 

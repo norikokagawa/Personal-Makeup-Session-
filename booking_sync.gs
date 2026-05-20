@@ -10,19 +10,32 @@
  * 6. 以降、毎朝5時（日本時間）に自動で実行されます
  */
 
-const SPREADSHEET_ID = '1Ndb9YHiGuWJ9UI_dW9tQ4Cbp8p2PwG-EL3FSdTA97PI';
+// Personal Makeup Session — Singapore 用スプレッドシートID
+const SESSION_SPREADSHEET_ID = '1Ndb9YHiGuWJ9UI_dW9tQ4Cbp8p2PwG-EL3FSdTA97PI';
+
+// Japanese Makeup Preview (イベント予約MO) 用スプレッドシートID
+// 別のスプレッドシートの場合はIDを変更してください
+const EVENT_SPREADSHEET_ID = '1Ndb9YHiGuWJ9UI_dW9tQ4Cbp8p2PwG-EL3FSdTA97PI';
+const EVENT_SHEET_NAME = 'Japanese Makeup Preview'; // シート名
+
 const SESSION_KEYWORD = 'Personal Makeup Session — Singapore';
+const EVENT_KEYWORD = 'Japanese Makeup Preview';
 
 // -------------------------------------------------------
 // メイン処理（毎朝5時に自動実行）
 // -------------------------------------------------------
 function checkBookingsAndUpdate() {
-  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getActiveSheet();
-  const threads = GmailApp.search(
-    `from:hello@stores.jp is:unread "${SESSION_KEYWORD}"`
-  );
+  const sessionSheet = SpreadsheetApp.openById(SESSION_SPREADSHEET_ID).getActiveSheet();
+  const eventSS = SpreadsheetApp.openById(EVENT_SPREADSHEET_ID);
+  let eventSheet = eventSS.getSheetByName(EVENT_SHEET_NAME);
+  if (!eventSheet) {
+    eventSheet = eventSS.insertSheet(EVENT_SHEET_NAME);
+    eventSheet.appendRow(['日時', '名前', '料金 (SGD)', '決済完了']);
+  }
 
-  let updated = false;
+  const threads = GmailApp.search('from:hello@stores.jp is:unread');
+  let sessionUpdated = false;
+  let eventUpdated = false;
 
   for (const thread of threads) {
     for (const message of thread.getMessages()) {
@@ -31,28 +44,40 @@ function checkBookingsAndUpdate() {
       const subject = message.getSubject();
       const body = message.getPlainBody();
 
+      const isSession = body.includes(SESSION_KEYWORD);
+      const isEvent = body.includes(EVENT_KEYWORD);
+
+      if (!isSession && !isEvent) {
+        message.markRead();
+        continue;
+      }
+
+      const targetSheet = isEvent ? eventSheet : sessionSheet;
+      const fee = isEvent ? 88 : 250;
+
       if (subject.includes('予約が入りました')) {
-        addNewBooking(sheet, body);
-        updated = true;
+        addNewBooking(targetSheet, body, fee);
+        isEvent ? eventUpdated = true : sessionUpdated = true;
       } else if (subject.includes('が変更されました')) {
-        updateBooking(sheet, body);
-        updated = true;
+        updateBooking(targetSheet, body);
+        isEvent ? eventUpdated = true : sessionUpdated = true;
       } else if (subject.includes('キャンセル')) {
-        cancelBooking(sheet, body);
-        updated = true;
+        cancelBooking(targetSheet, body);
+        isEvent ? eventUpdated = true : sessionUpdated = true;
       }
 
       message.markRead();
     }
   }
 
-  if (updated) sortByDate(sheet);
+  if (sessionUpdated) sortByDate(sessionSheet);
+  if (eventUpdated) sortByDate(eventSheet);
 }
 
 // -------------------------------------------------------
 // 新規予約を追加
 // -------------------------------------------------------
-function addNewBooking(sheet, body) {
+function addNewBooking(sheet, body, fee) {
   const nameMatch = body.match(/◆予約者:\s*\r?\n\s*(.+)/);
   const dateMatch = body.match(/◆予約日時:\s*\r?\n\s*(.+)/);
   if (!nameMatch || !dateMatch) return;
@@ -61,13 +86,12 @@ function addNewBooking(sheet, body) {
   const dateStr = parseJapaneseDate(dateMatch[1].trim());
   if (!dateStr) return;
 
-  // 重複チェック
   const data = sheet.getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][0]) === dateStr && data[i][1] === name) return;
   }
 
-  sheet.appendRow([dateStr, name, 250, '未確認']);
+  sheet.appendRow([dateStr, name, fee, '未確認']);
 }
 
 // -------------------------------------------------------
@@ -142,14 +166,12 @@ function sortByDate(sheet) {
 // 毎朝5時のトリガーを設定（初回のみ手動で実行）
 // -------------------------------------------------------
 function setDailyTrigger() {
-  // 既存の同名トリガーを削除
   ScriptApp.getProjectTriggers().forEach(t => {
     if (t.getHandlerFunction() === 'checkBookingsAndUpdate') {
       ScriptApp.deleteTrigger(t);
     }
   });
 
-  // 毎日午前5時（日本時間）に実行
   ScriptApp.newTrigger('checkBookingsAndUpdate')
     .timeBased()
     .everyDays(1)

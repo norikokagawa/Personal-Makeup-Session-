@@ -2,7 +2,7 @@ name: Daily Instagram Post 5:55 JST
 
 on:
   schedule:
-    - cron: '55 20 * * *'  # 5:55 JST = 20:55 UTC
+    - cron: '55 8 * * *'   # 17:55 JST = 08:55 UTC
   workflow_dispatch:        # 手動テスト用
 
 jobs:

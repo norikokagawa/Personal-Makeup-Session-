@@ -405,10 +405,16 @@ atelierR`;
 
       const subject = encodeURIComponent(buildSubject());
       const body = encodeURIComponent(buildBody());
+      const to_enc = encodeURIComponent(to);
 
-      // Gmail compose URL — opens Gmail (app or web) with all fields pre-filled
-      const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(to)}&su=${subject}&body=${body}`;
-      window.open(gmailUrl, '_blank');
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      if (isIOS) {
+        // iOS Gmail app URL scheme — opens compose directly in the Gmail app
+        window.location.href = `googlegmail://co?to=${to_enc}&subject=${subject}&body=${body}`;
+      } else {
+        // Android / desktop — Gmail web compose
+        window.open(`https://mail.google.com/mail/?view=cm&fs=1&to=${to_enc}&su=${subject}&body=${body}`, '_blank');
+      }
     }
 
     function showToast(msg) {

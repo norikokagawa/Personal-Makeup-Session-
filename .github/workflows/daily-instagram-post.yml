@@ -9,49 +9,24 @@ jobs:
   post-to-instagram:
     runs-on: ubuntu-latest
     steps:
-      - name: Post schedule image to Instagram
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests pytz
+
+      - name: Run daily post script
         env:
+          CANVA_CLIENT_ID: ${{ secrets.CANVA_CLIENT_ID }}
+          CANVA_CLIENT_SECRET: ${{ secrets.CANVA_CLIENT_SECRET }}
+          CANVA_REFRESH_TOKEN: ${{ secrets.CANVA_REFRESH_TOKEN }}
+          GMAIL_CLIENT_ID: ${{ secrets.GMAIL_CLIENT_ID }}
+          GMAIL_CLIENT_SECRET: ${{ secrets.GMAIL_CLIENT_SECRET }}
+          GMAIL_REFRESH_TOKEN: ${{ secrets.GMAIL_REFRESH_TOKEN }}
           IG_USER_ID: ${{ secrets.IG_USER_ID }}
           IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
-          IG_CAPTION: ${{ secrets.IG_CAPTION }}
-        run: |
-          set -e
-
-          IMAGE_URL="https://raw.githubusercontent.com/norikokagawa/Personal-Makeup-Session-/main/schedule.png"
-
-          CAPTION="${IG_CAPTION:-本日の予約状況です。ご予約はプロフィールリンクよりお願いいたします。
-
-#メイク #makeup #メイクアップ #メイクレッスン #makeupartist #beauty #シンガポール #Singapore}"
-
-          echo "=== Creating media container ==="
-          RESPONSE=$(curl -s -X POST \
-            "https://graph.facebook.com/v19.0/${IG_USER_ID}/media" \
-            -d "image_url=${IMAGE_URL}" \
-            -d "caption=${CAPTION}" \
-            -d "access_token=${IG_ACCESS_TOKEN}")
-
-          echo "Response: $RESPONSE"
-          CREATION_ID=$(echo "$RESPONSE" | jq -r '.id // empty')
-
-          if [ -z "$CREATION_ID" ]; then
-            echo "ERROR: Failed to create media container"
-            exit 1
-          fi
-
-          echo "Media container created: $CREATION_ID"
-          echo "=== Publishing ==="
-
-          PUBLISH=$(curl -s -X POST \
-            "https://graph.facebook.com/v19.0/${IG_USER_ID}/media_publish" \
-            -d "creation_id=${CREATION_ID}" \
-            -d "access_token=${IG_ACCESS_TOKEN}")
-
-          echo "Publish result: $PUBLISH"
-
-          POST_ID=$(echo "$PUBLISH" | jq -r '.id // empty')
-          if [ -z "$POST_ID" ]; then
-            echo "ERROR: Failed to publish"
-            exit 1
-          fi
-
-          echo "SUCCESS: Posted to Instagram! Post ID: $POST_ID"
+          CANVA_DESIGN_ID: DAGsRHlSvkw
+        run: python scripts/daily_post.py

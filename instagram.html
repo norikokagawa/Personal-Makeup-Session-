@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Instagram 投稿ツール | Personal Makeup Session</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      background: #fdf6f0;
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      background: #fff; border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      max-width: 520px; width: 100%; padding: 36px 32px;
+    }
+    .logo { text-align: center; margin-bottom: 24px; }
+    .logo h1 { font-size: 1rem; font-weight: 600; color: #c5766a; letter-spacing: 0.04em; }
+    .logo p { font-size: 0.75rem; color: #999; margin-top: 4px; }
+
+    h2 { font-size: 0.95rem; color: #333; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid #f0e8e4; }
+
+    .step-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 22px; height: 22px; border-radius: 50%;
+      background: #c5766a; color: #fff; font-size: 0.7rem; font-weight: 700;
+      margin-right: 8px; flex-shrink: 0;
+    }
+    .step-title {
+      display: flex; align-items: center;
+      font-size: 0.88rem; font-weight: 600; color: #444;
+      margin-bottom: 10px; margin-top: 20px;
+    }
+    .step-title:first-of-type { margin-top: 0; }
+
+    .guide-box {
+      background: #fdf6f0; border-radius: 10px; padding: 12px 14px;
+      font-size: 0.78rem; color: #777; line-height: 1.8;
+      margin-bottom: 14px; border-left: 3px solid #e8c4bb;
+    }
+    .guide-box ol { padding-left: 16px; }
+    .guide-box li { margin-bottom: 2px; }
+
+    .form-group { margin-bottom: 14px; }
+    label { display: block; font-size: 0.8rem; color: #666; margin-bottom: 5px; font-weight: 500; }
+    .label-hint { font-size: 0.72rem; color: #aaa; font-weight: 400; margin-left: 6px; }
+
+    input, textarea {
+      width: 100%; padding: 10px 14px;
+      border: 1px solid #e0d6d0; border-radius: 8px;
+      font-size: 0.9rem; color: #333; background: #fdfaf8;
+      transition: border-color 0.2s; outline: none;
+      font-family: inherit;
+    }
+    input:focus, textarea:focus { border-color: #c5766a; background: #fff; }
+    textarea { resize: vertical; min-height: 100px; line-height: 1.6; }
+
+    .char-count { text-align: right; font-size: 0.7rem; color: #bbb; margin-top: 4px; }
+    .char-count.warn { color: #e0835a; }
+
+    .image-preview {
+      display: none; margin-top: 10px;
+      border-radius: 10px; overflow: hidden;
+      border: 1px solid #f0e8e4; max-height: 220px;
+      text-align: center; background: #fdf6f0;
+    }
+    .image-preview img { max-width: 100%; max-height: 220px; object-fit: contain; display: block; margin: 0 auto; }
+
+    .divider { height: 1px; background: #f0e8e4; margin: 22px 0; }
+
+    .toggle-row {
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 0.82rem; color: #666; margin-bottom: 14px;
+    }
+    .toggle-row a {
+      font-size: 0.75rem; color: #c5766a; text-decoration: none; cursor: pointer;
+    }
+    .toggle-row a:hover { text-decoration: underline; }
+
+    .api-section { display: none; }
+    .api-section.open { display: block; }
+
+    .token-field { position: relative; }
+    .token-field input { padding-right: 70px; font-size: 0.78rem; }
+    .token-toggle {
+      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      font-size: 0.7rem; color: #c5766a; cursor: pointer; background: none;
+      border: none; padding: 0; font-family: inherit;
+    }
+
+    .saved-badge {
+      display: none; font-size: 0.7rem; color: #2d9c6e;
+      margin-top: 4px;
+    }
+
+    .exchange-box {
+      background: #fdf6f0; border-radius: 10px; padding: 16px;
+      margin-bottom: 14px; border: 1px solid #e8c4bb;
+    }
+    .exchange-box h3 { font-size: 0.82rem; color: #c5766a; margin-bottom: 10px; font-weight: 600; }
+    .exchange-result {
+      display: none; background: #eaf5f0; border-radius: 8px;
+      padding: 10px 12px; margin-top: 10px;
+      font-size: 0.78rem; color: #2d7a55; line-height: 1.7;
+      word-break: break-all;
+    }
+
+    .btn {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      width: 100%; padding: 14px; border: none; border-radius: 10px;
+      font-size: 0.95rem; font-weight: 600; cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s; margin-top: 6px;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-instagram {
+      background: linear-gradient(135deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+      color: #fff;
+    }
+    .btn-secondary {
+      background: #f5ede9; color: #c5766a; font-size: 0.85rem; padding: 10px;
+    }
+
+    .status-box {
+      display: none; border-radius: 10px; padding: 14px 16px;
+      font-size: 0.84rem; margin-top: 14px; line-height: 1.6;
+    }
+    .status-box.success { background: #eaf5f0; color: #2d7a55; border-left: 3px solid #2d9c6e; }
+    .status-box.error { background: #fff0ee; color: #c0392b; border-left: 3px solid #e0574f; }
+    .status-box.loading { background: #fdf6f0; color: #c5766a; border-left: 3px solid #c5766a; }
+
+    .hashtag-area { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .hashtag-chip {
+      background: #fdf6f0; border: 1px solid #e8c4bb; border-radius: 20px;
+      padding: 4px 12px; font-size: 0.75rem; color: #c5766a; cursor: pointer;
+      transition: background 0.15s;
+    }
+    .hashtag-chip:hover { background: #f5e5df; }
+    .hashtag-chip.active { background: #c5766a; color: #fff; border-color: #c5766a; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">
+    <h1>Personal Makeup Session</h1>
+    <p>Instagram 投稿ツール</p>
+  </div>
+
+  <!-- STEP 1: Canva画像URL -->
+  <div class="step-title">
+    <span class="step-badge">1</span>Canvaから画像URLを取得
+  </div>
+  <div class="guide-box">
+    <ol>
+      <li>Canvaでデザインを開く</li>
+      <li>右上「共有」→「リンクを共有」→「公開リンク」をコピー<br>
+        <span style="color:#aaa">※ または「ダウンロード」でPNG保存後、Google DriveやDropboxに上げてリンクを取得</span>
+      </li>
+      <li>下の欄に画像の直リンクを貼り付ける</li>
+    </ol>
+  </div>
+
+  <div class="form-group">
+    <label>画像URL <span class="label-hint">（公開アクセスできるURL）</span></label>
+    <input type="url" id="image-url" placeholder="https://..." autocomplete="off" />
+    <div class="image-preview" id="image-preview">
+      <img id="preview-img" src="" alt="プレビュー" />
+    </div>
+  </div>
+
+  <!-- STEP 2: キャプション -->
+  <div class="step-title">
+    <span class="step-badge">2</span>キャプションを入力
+  </div>
+
+  <div class="form-group">
+    <label>キャプション</label>
+    <textarea id="caption" placeholder="投稿文を入力...&#10;&#10;ハッシュタグは下から追加できます"></textarea>
+    <div class="char-count" id="char-count">0 / 2200</div>
+  </div>
+
+  <div class="form-group">
+    <label>よく使うハッシュタグ <span class="label-hint">（タップで追加）</span></label>
+    <div class="hashtag-area" id="hashtag-area">
+      <span class="hashtag-chip" data-tag="#メイク">#メイク</span>
+      <span class="hashtag-chip" data-tag="#makeup">#makeup</span>
+      <span class="hashtag-chip" data-tag="#メイクアップ">#メイクアップ</span>
+      <span class="hashtag-chip" data-tag="#プロメイク">#プロメイク</span>
+      <span class="hashtag-chip" data-tag="#メイクレッスン">#メイクレッスン</span>
+      <span class="hashtag-chip" data-tag="#メイクアーティスト">#メイクアーティスト</span>
+      <span class="hashtag-chip" data-tag="#ブライダルメイク">#ブライダルメイク</span>
+      <span class="hashtag-chip" data-tag="#makeupartist">#makeupartist</span>
+      <span class="hashtag-chip" data-tag="#makeuplook">#makeuplook</span>
+      <span class="hashtag-chip" data-tag="#makeuptutorial">#makeuptutorial</span>
+      <span class="hashtag-chip" data-tag="#beauty">#beauty</span>
+      <span class="hashtag-chip" data-tag="#skincare">#skincare</span>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- STEP 3: API設定 -->
+  <div class="step-title">
+    <span class="step-badge">3</span>Meta API設定
+  </div>
+
+  <div class="toggle-row">
+    <span>アクセストークン・ユーザーID</span>
+    <a id="toggle-api" onclick="toggleApi()">設定を開く ▼</a>
+  </div>
+
+  <div class="api-section" id="api-section">
+    <div class="guide-box">
+      <ol>
+        <li><strong>グラフAPIエクスプローラー</strong>で短命トークンを取得<br>
+          権限: <code>instagram_basic, instagram_content_publish</code></li>
+        <li>下の「トークンを60日延長」で長期トークンに変換</li>
+        <li>ユーザーID: <code>GET /me?fields=id</code> で確認</li>
+      </ol>
+    </div>
+
+    <!-- Token Exchange -->
+    <div class="exchange-box">
+      <h3>トークンを60日延長（短命 → 長期）</h3>
+      <div class="form-group" style="margin-bottom:10px">
+        <label>App ID <span class="label-hint">Meta Developer Portal → 基本設定</span></label>
+        <input type="text" id="app-id" placeholder="例: 123456789" />
+      </div>
+      <div class="form-group" style="margin-bottom:10px">
+        <label>App Secret <span class="label-hint">基本設定 → 「表示」をクリック</span></label>
+        <div class="token-field">
+          <input type="password" id="app-secret" placeholder="32文字の英数字" />
+          <button class="token-toggle" onclick="toggleSecret()">表示</button>
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:10px">
+        <label>短命トークン <span class="label-hint">グラフAPIエクスプローラーからコピー</span></label>
+        <input type="text" id="short-token" placeholder="EAAxxxxxxx（数時間で期限切れ）" />
+      </div>
+      <button class="btn btn-secondary" style="margin-top:4px" onclick="exchangeToken()">トークンを60日延長する</button>
+      <div class="exchange-result" id="exchange-result"></div>
+    </div>
+
+    <div class="form-group">
+      <label>Instagramユーザー ID</label>
+      <input type="text" id="ig-user-id" placeholder="例: 17841400000000000" />
+    </div>
+
+    <div class="form-group">
+      <label>アクセストークン <span class="label-hint">（延長後は自動入力）</span></label>
+      <div class="token-field">
+        <input type="password" id="access-token" placeholder="EAAxxxxxxx..." />
+        <button class="token-toggle" onclick="toggleToken()">表示</button>
+      </div>
+    </div>
+
+    <button class="btn btn-secondary" onclick="saveSettings()">設定を保存（このブラウザのみ）</button>
+    <div class="saved-badge" id="saved-badge">保存しました</div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- 投稿ボタン -->
+  <button class="btn btn-instagram" id="post-btn" onclick="postToInstagram()">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+    </svg>
+    Instagramに投稿する
+  </button>
+
+  <div class="status-box" id="status-box"></div>
+</div>
+
+<script>
+  const API_VER = 'v19.0';
+
+  // Load saved settings
+  window.addEventListener('DOMContentLoaded', () => {
+    const savedId = localStorage.getItem('ig_user_id');
+    const savedToken = localStorage.getItem('ig_access_token');
+    if (savedId) document.getElementById('ig-user-id').value = savedId;
+    if (savedToken) document.getElementById('access-token').value = savedToken;
+    if (savedId || savedToken) {
+      document.getElementById('api-section').classList.add('open');
+      document.getElementById('toggle-api').textContent = '設定を閉じる ▲';
+    }
+  });
+
+  // Image URL preview
+  document.getElementById('image-url').addEventListener('input', function() {
+    const url = this.value.trim();
+    const preview = document.getElementById('image-preview');
+    const img = document.getElementById('preview-img');
+    if (url.match(/^https?:\/\/.+\.(jpg|jpeg|png|gif|webp)/i)) {
+      img.src = url;
+      preview.style.display = 'block';
+    } else {
+      preview.style.display = 'none';
+    }
+  });
+
+  // Caption character count
+  document.getElementById('caption').addEventListener('input', function() {
+    const len = this.value.length;
+    const el = document.getElementById('char-count');
+    el.textContent = `${len} / 2200`;
+    el.classList.toggle('warn', len > 2000);
+  });
+
+  // Hashtag chips
+  document.querySelectorAll('.hashtag-chip').forEach(chip => {
+    chip.addEventListener('click', function() {
+      const tag = this.dataset.tag;
+      const caption = document.getElementById('caption');
+      if (this.classList.contains('active')) {
+        this.classList.remove('active');
+        caption.value = caption.value.replace('\n' + tag, '').replace(tag, '').trim();
+      } else {
+        this.classList.add('active');
+        const current = caption.value.trim();
+        caption.value = current ? current + '\n' + tag : tag;
+      }
+      caption.dispatchEvent(new Event('input'));
+    });
+  });
+
+  function toggleApi() {
+    const section = document.getElementById('api-section');
+    const btn = document.getElementById('toggle-api');
+    const open = section.classList.toggle('open');
+    btn.textContent = open ? '設定を閉じる ▲' : '設定を開く ▼';
+  }
+
+  function toggleToken() {
+    const input = document.getElementById('access-token');
+    const btn = document.querySelectorAll('.token-toggle')[1];
+    const show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    btn.textContent = show ? '隠す' : '表示';
+  }
+
+  function toggleSecret() {
+    const input = document.getElementById('app-secret');
+    const btn = document.querySelectorAll('.token-toggle')[0];
+    const show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    btn.textContent = show ? '隠す' : '表示';
+  }
+
+  async function exchangeToken() {
+    const appId = document.getElementById('app-id').value.trim();
+    const appSecret = document.getElementById('app-secret').value.trim();
+    const shortToken = document.getElementById('short-token').value.trim();
+    const resultBox = document.getElementById('exchange-result');
+
+    if (!appId || !appSecret || !shortToken) {
+      resultBox.style.display = 'block';
+      resultBox.style.background = '#fff0ee';
+      resultBox.style.color = '#c0392b';
+      resultBox.innerHTML = 'App ID、App Secret、短命トークンをすべて入力してください。';
+      return;
+    }
+
+    resultBox.style.display = 'block';
+    resultBox.style.background = '#fdf6f0';
+    resultBox.style.color = '#c5766a';
+    resultBox.innerHTML = '交換中...';
+
+    try {
+      const url = `https://graph.facebook.com/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${appSecret}&fb_exchange_token=${encodeURIComponent(shortToken)}`;
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (data.error) throw new Error(data.error.message);
+
+      const longToken = data.access_token;
+      const expiresDays = data.expires_in ? Math.round(data.expires_in / 86400) : 60;
+
+      document.getElementById('access-token').value = longToken;
+      localStorage.setItem('ig_access_token', longToken);
+
+      resultBox.style.background = '#eaf5f0';
+      resultBox.style.color = '#2d7a55';
+      resultBox.innerHTML = `
+        長期トークンを取得しました（約${expiresDays}日間有効）<br>
+        アクセストークン欄に自動入力済みです。<br>
+        <small style="color:#888;word-break:break-all">${longToken.substring(0, 40)}...</small>
+      `;
+    } catch (err) {
+      resultBox.style.background = '#fff0ee';
+      resultBox.style.color = '#c0392b';
+      resultBox.innerHTML = `エラー: ${err.message}`;
+    }
+  }
+
+  function saveSettings() {
+    const userId = document.getElementById('ig-user-id').value.trim();
+    const token = document.getElementById('access-token').value.trim();
+    if (userId) localStorage.setItem('ig_user_id', userId);
+    if (token) localStorage.setItem('ig_access_token', token);
+    const badge = document.getElementById('saved-badge');
+    badge.style.display = 'block';
+    setTimeout(() => badge.style.display = 'none', 2000);
+  }
+
+  function showStatus(type, msg) {
+    const box = document.getElementById('status-box');
+    box.className = `status-box ${type}`;
+    box.style.display = 'block';
+    box.innerHTML = msg;
+  }
+
+  async function postToInstagram() {
+    const imageUrl = document.getElementById('image-url').value.trim();
+    const caption = document.getElementById('caption').value.trim();
+    const userId = document.getElementById('ig-user-id').value.trim();
+    const token = document.getElementById('access-token').value.trim();
+
+    if (!imageUrl) return showStatus('error', '画像URLを入力してください。');
+    if (!userId) return showStatus('error', 'InstagramユーザーIDを入力してください。<br>「API設定」を開いて入力してください。');
+    if (!token) return showStatus('error', 'アクセストークンを入力してください。<br>「API設定」を開いて入力してください。');
+
+    const btn = document.getElementById('post-btn');
+    btn.disabled = true;
+    showStatus('loading', '投稿中... しばらくお待ちください');
+
+    try {
+      // Step 1: Create media container
+      const createRes = await fetch(
+        `https://graph.facebook.com/${API_VER}/${userId}/media`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image_url: imageUrl, caption, access_token: token })
+        }
+      );
+      const createData = await createRes.json();
+
+      if (createData.error) {
+        throw new Error(createData.error.message);
+      }
+
+      const creationId = createData.id;
+      showStatus('loading', 'メディアを処理中...');
+
+      // Step 2: Publish
+      const publishRes = await fetch(
+        `https://graph.facebook.com/${API_VER}/${userId}/media_publish`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ creation_id: creationId, access_token: token })
+        }
+      );
+      const publishData = await publishRes.json();
+
+      if (publishData.error) {
+        throw new Error(publishData.error.message);
+      }
+
+      showStatus('success', `投稿が完了しました！<br><small style="color:#5a9e7a">投稿ID: ${publishData.id}</small>`);
+      document.getElementById('image-url').value = '';
+      document.getElementById('preview-img').src = '';
+      document.getElementById('image-preview').style.display = 'none';
+
+    } catch (err) {
+      showStatus('error', `エラー: ${err.message}`);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+</script>
+</body>
+</html>

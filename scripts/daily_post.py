@@ -37,11 +37,19 @@ def canva_access_token():
 def export_canva(token):
     headers = {"Authorization": f"Bearer {token}"}
 
+    # Check design access first
+    check = requests.get(f"{CANVA_API}/designs/{CANVA_DESIGN_ID}", headers=headers)
+    print(f"Design access check: {check.status_code}")
+    if check.status_code != 200:
+        print(f"Response: {check.text[:300]}")
+        raise RuntimeError(f"Cannot access design {CANVA_DESIGN_ID}: HTTP {check.status_code}")
+
     r = requests.post(
         f"{CANVA_API}/designs/{CANVA_DESIGN_ID}/exports",
         headers=headers,
         json={"format": {"type": "png"}, "pages": [1]},
     )
+    print(f"Export request: {r.status_code} {r.text[:200]}")
     r.raise_for_status()
     job_id = r.json()["job"]["id"]
     print(f"Export job: {job_id}")
@@ -57,6 +65,12 @@ def export_canva(token):
             raise RuntimeError(f"Canva export failed: {s}")
 
     raise TimeoutError("Canva export timed out")
+
+
+FALLBACK_IMAGE_URL = (
+    "https://raw.githubusercontent.com/norikokagawa/"
+    "Personal-Makeup-Session-/main/schedule.png"
+)
 
 
 # ── Gmail ──────────────────────────────────────────────────────────────────
@@ -136,8 +150,14 @@ def main():
     print(f"=== Daily Post: {now.strftime('%Y-%m-%d %H:%M JST')} ===\n")
 
     print("1. Exporting Canva design...")
-    image_url = export_canva(canva_access_token())
-    print(f"   URL: {image_url[:80]}...\n")
+    try:
+        image_url = export_canva(canva_access_token())
+        print(f"   URL: {image_url[:80]}...\n")
+    except Exception as e:
+        print(f"   Canva export failed: {e}")
+        print(f"   Falling back to schedule.png in repo...")
+        image_url = FALLBACK_IMAGE_URL
+        print(f"   Using: {image_url}\n")
 
     print("2. Checking Gmail for today's bookings...")
     bookings = get_todays_bookings()

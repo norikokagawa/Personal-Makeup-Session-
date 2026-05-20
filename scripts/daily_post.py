@@ -34,7 +34,7 @@ def canva_access_token():
     return r.json()["access_token"]
 
 
-def export_canva(token):
+def export_canva(token, num_pages=SCHEDULE_PAGES):
     headers = {"Authorization": f"Bearer {token}"}
 
     # Check design access first
@@ -47,7 +47,7 @@ def export_canva(token):
     r = requests.post(
         f"{CANVA_API}/designs/{CANVA_DESIGN_ID}/exports",
         headers=headers,
-        json={"format": {"type": "png"}, "pages": [1]},
+        json={"format": {"type": "png"}, "pages": list(range(1, num_pages + 1))},
     )
     print(f"Export request: {r.status_code} {r.text[:200]}")
     r.raise_for_status()
@@ -60,7 +60,7 @@ def export_canva(token):
         status = s["job"]["status"]
         print(f"  [{i+1}/40] {status}")
         if status == "success":
-            return s["job"]["urls"][0]
+            return s["job"]["urls"]  # list of URLs, one per page
         if status == "failed":
             raise RuntimeError(f"Canva export failed: {s}")
 
@@ -178,14 +178,13 @@ def main():
     print(f"=== Daily Post: {now.strftime('%Y-%m-%d %H:%M JST')} ===\n")
 
     print("1. Exporting Canva design...")
+    canva_urls = None
     try:
-        image_url = export_canva(canva_access_token())
-        print(f"   URL: {image_url[:80]}...\n")
+        canva_urls = export_canva(canva_access_token())
+        print(f"   {len(canva_urls)} page(s) exported from Canva\n")
     except Exception as e:
         print(f"   Canva export failed: {e}")
-        print(f"   Falling back to schedule.png in repo...")
-        image_url = FALLBACK_IMAGE_URL
-        print(f"   Using: {image_url}\n")
+        print(f"   Falling back to schedule_N.png in repo...\n")
 
     print("2. Checking Gmail for today's bookings...")
     bookings = get_todays_bookings()
@@ -204,14 +203,11 @@ def main():
                    f"#メイク #makeup #メイクアップ #メイクレッスン "
                    f"#makeupartist #beauty #シンガポール #Singapore")
 
-    # Try to get multiple pages from Canva export (or repo fallback)
-    if image_url != FALLBACK_SINGLE:
-        # Canva succeeded — single URL; try to get all pages
-        image_urls = [image_url]
+    if canva_urls:
+        image_urls = canva_urls
     else:
         # Fallback: look for schedule_1.png ... schedule_7.png in repo
         urls = [f"{REPO_BASE}/schedule_{i}.png" for i in range(1, SCHEDULE_PAGES + 1)]
-        # Check which ones exist
         image_urls = []
         for u in urls:
             resp = requests.head(u)

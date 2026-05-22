@@ -98,6 +98,24 @@
       background: #333; color: #fff; padding: 10px 20px; border-radius: 8px;
       font-size: 0.82rem; z-index: 999; pointer-events: none;
     }
+
+    /* Gmail inbox section */
+    .gmail-section { margin-top: 4px; }
+    .gmail-section h2 { font-size: 0.95rem; color: #333; margin-bottom: 6px; padding-bottom: 10px; border-bottom: 1px solid #f0e8e4; }
+    .gmail-section-hint { font-size: 0.75rem; color: #aaa; margin-bottom: 14px; }
+    .gmail-btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .btn-gmail-inbox {
+      grid-column: 1 / -1;
+      background: #ea4335; color: #fff; font-size: 0.88rem; padding: 12px;
+    }
+    .btn-gmail-inbox:hover { opacity: 0.9; }
+    .btn-gmail-search {
+      background: #fff8f6; color: #c5766a; border: 1.5px solid #e8cfc9;
+      border-radius: 10px; font-size: 0.78rem; font-weight: 600;
+      padding: 10px 8px; cursor: pointer; text-align: center;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .btn-gmail-search:hover { background: #fdecea; border-color: #c5766a; }
   </style>
 </head>
 <body>
@@ -152,6 +170,27 @@
       📋 本文をコピー
     </button>
     <p class="note">Gmailが開き、宛先・件名・本文が入力済みの状態になります。<br>内容を確認してから送信してください。</p>
+
+    <div class="divider"></div>
+    <div class="gmail-section">
+      <h2>Gmail受信箱</h2>
+      <p class="gmail-section-hint">受信したメールを確認する</p>
+      <div class="gmail-btn-grid">
+        <button class="btn btn-gmail-inbox" onclick="openGmail()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+          受信箱を開く
+        </button>
+        <button class="btn btn-gmail-search" onclick="searchGmail('STORES 予約')">
+          🔍 STORES予約メール
+        </button>
+        <button class="btn btn-gmail-search" onclick="searchGmail('payment confirmation OR 入金確認 OR transfer')">
+          💳 入金確認メール
+        </button>
+        <button class="btn btn-gmail-search" onclick="searchGmail('from:stores.jp OR from:coubic.com OR from:mindbodyonline.com')">
+          📨 予約システムからのメール
+        </button>
+      </div>
+    </div>
   </div>
 
   <div id="copy-toast">コピーしました ✓</div>
@@ -430,6 +469,25 @@ atelierR`;
       }).catch(() => {
         alert('コピーに失敗しました。手動でコピーしてください。');
       });
+    }
+
+    function openGmail() {
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      if (isIOS) {
+        window.location.href = 'googlegmail://';
+      } else {
+        window.open('https://mail.google.com/mail/#inbox', '_blank');
+      }
+    }
+
+    function searchGmail(query) {
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const encoded = encodeURIComponent(query);
+      if (isIOS) {
+        window.location.href = `googlegmail:///search?q=${encoded}`;
+      } else {
+        window.open(`https://mail.google.com/mail/#search/${encoded}`, '_blank');
+      }
     }
 
     updatePreview();

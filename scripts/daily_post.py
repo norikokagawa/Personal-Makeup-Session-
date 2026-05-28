@@ -206,18 +206,10 @@ def main():
     bookings = get_todays_bookings()
 
     print("3. Building caption...")
-    md = now.strftime("%-m月%-d日")
-    if bookings:
-        caption = (f"{md}の予約状況です。\n"
-                   f"本日{len(bookings)}件のご予約をいただいています。\n"
-                   f"ご予約はプロフィールリンクよりお願いいたします。\n\n"
-                   f"#メイク #makeup #メイクアップ #メイクレッスン "
-                   f"#makeupartist #beauty #シンガポール #Singapore")
-    else:
-        caption = (f"{md}の予約状況です。\n"
-                   f"ご予約はプロフィールリンクよりお願いいたします。\n\n"
-                   f"#メイク #makeup #メイクアップ #メイクレッスン "
-                   f"#makeupartist #beauty #シンガポール #Singapore")
+    caption = ("Personal Makeup Session Schedule\n"
+               "for each city is now available.\n\n"
+               "Reservations can be made\n"
+               "via the link in my profile.")
 
     if canva_urls:
         image_urls = canva_urls

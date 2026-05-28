@@ -2,9 +2,9 @@
  * STORES予約 → Googleスプレッドシート 自動同期スクリプト
  *
  * 【関数一覧】
- * - manualSync()    : 現在の正しいデータを直接書き込む（一回限りのリセット用）
+ * - manualSync()             : 現在の正しいデータを直接書き込む（リセット用）
  * - checkBookingsAndUpdate() : 毎朝5時に自動実行（未読メールのみ処理）
- * - setDailyTrigger() : 初回のみ手動実行してトリガーを設定
+ * - setDailyTrigger()        : 初回のみ手動実行してトリガーを設定
  */
 
 const SESSION_SPREADSHEET_ID = '1Ndb9YHiGuWJ9UI_dW9tQ4Cbp8p2PwG-EL3FSdTA97PI';
@@ -13,15 +13,22 @@ const EVENT_SHEET_NAME       = 'Japanese Makeup Preview';
 const SESSION_KEYWORD        = 'Personal Makeup Session — Singapore';
 const EVENT_KEYWORD          = 'Japanese Makeup Preview';
 
+// 決済完了列のプルダウン設定
+function setDropdown(sheet, startRow, numRows) {
+  const rule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(['完了', '未確認'], true)
+    .setAllowInvalid(false)
+    .build();
+  sheet.getRange(startRow, 4, numRows, 1).setDataValidation(rule);
+}
+
 // -------------------------------------------------------
-// manualSync — 現在の正しいデータを直接スプレッドシートに書き込む
-// スプレッドシートが乱れたときに一回手動で実行する
+// manualSync — 現在の正しいデータを直接書き込む
 // -------------------------------------------------------
 function manualSync() {
   const ss = SpreadsheetApp.openById(SESSION_SPREADSHEET_ID);
   const sessionSheet = ss.getActiveSheet();
 
-  // セッションデータ（GitHub CSVからの正しいリスト）
   const sessionData = [
     ['2026/6/18 11:00', 'Michelle Poh',      250, '完了'],
     ['2026/6/18 12:00', 'ISHIDA EMIKO',      250, '未確認'],
@@ -64,12 +71,12 @@ function manualSync() {
     ['2026/7/2 11:00',  'Iswaran Meena',     250, '未確認'],
   ];
 
-  // シートをクリアして書き込む
   const lastRow = sessionSheet.getLastRow();
   if (lastRow > 1) sessionSheet.deleteRows(2, lastRow - 1);
   sessionSheet.getRange(2, 1, sessionData.length, 4).setValues(sessionData);
+  setDropdown(sessionSheet, 2, sessionData.length);
 
-  // イベントシートも同様に書き込む
+  // イベントシート
   const eventSS = SpreadsheetApp.openById(EVENT_SPREADSHEET_ID);
   let eventSheet = eventSS.getSheetByName(EVENT_SHEET_NAME);
   if (!eventSheet) {
@@ -84,12 +91,13 @@ function manualSync() {
     ['2026/7/10 19:00', 'Tan Tong',    88, '未確認'],
   ];
   eventSheet.getRange(2, 1, eventData.length, 4).setValues(eventData);
+  setDropdown(eventSheet, 2, eventData.length);
 
-  Logger.log('manualSync完了: ' + sessionData.length + '件書き込み完了');
+  Logger.log('manualSync完了: ' + sessionData.length + '件書き込み完了（プルダウン設定済み）');
 }
 
 // -------------------------------------------------------
-// メイン処理（毎朝5時に自動実行）— 未読メールのみ処理
+// メイン処理（毎朝5時に自動実行）
 // -------------------------------------------------------
 function checkBookingsAndUpdate() {
   const sessionSheet = SpreadsheetApp.openById(SESSION_SPREADSHEET_ID).getActiveSheet();
@@ -102,7 +110,7 @@ function checkBookingsAndUpdate() {
 
   const threads = GmailApp.search('from:hello@stores.jp is:unread');
   let sessionUpdated = false;
-  let eventUpdated = false;
+  let eventUpdated   = false;
 
   for (const thread of threads) {
     for (const message of thread.getMessages()) {
@@ -111,23 +119,13 @@ function checkBookingsAndUpdate() {
       const subject = message.getSubject();
       const body    = message.getPlainBody();
 
-      const isSession = body.includes(SESSION_KEYWORD) || body.includes('ココにサービス名');
-      const isEvent   = body.includes(EVENT_KEYWORD);
-
-      // 新規予約メール
       if (subject.includes('予約が入りました')) {
-        const isS = body.includes(SESSION_KEYWORD);
-        const isE = body.includes(EVENT_KEYWORD);
-        if (isS) { addNewBooking(sessionSheet, body, 250); sessionUpdated = true; }
-        if (isE) { addNewBooking(eventSheet,   body, 88);  eventUpdated   = true; }
-      }
-      // 変更メール
-      else if (subject.includes('が変更されました')) {
+        if (body.includes(SESSION_KEYWORD)) { addNewBooking(sessionSheet, body, 250); sessionUpdated = true; }
+        if (body.includes(EVENT_KEYWORD))   { addNewBooking(eventSheet,   body, 88);  eventUpdated   = true; }
+      } else if (subject.includes('が変更されました')) {
         if (body.includes(SESSION_KEYWORD)) { updateBooking(sessionSheet, body); sessionUpdated = true; }
         if (body.includes(EVENT_KEYWORD))   { updateBooking(eventSheet,   body); eventUpdated   = true; }
-      }
-      // キャンセルメール（件名パターンが2種類ある）
-      else if (subject.includes('キャンセル') || subject.includes('をキャンセルしました')) {
+      } else if (subject.includes('キャンセル') || subject.includes('をキャンセルしました')) {
         if (body.includes(SESSION_KEYWORD)) { cancelBooking(sessionSheet, body, subject); sessionUpdated = true; }
         if (body.includes(EVENT_KEYWORD))   { cancelBooking(eventSheet,   body, subject); eventUpdated   = true; }
       }
@@ -156,7 +154,10 @@ function addNewBooking(sheet, body, fee) {
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][0]) === dateStr && data[i][1] === name) return;
   }
+
+  const newRow = sheet.getLastRow() + 1;
   sheet.appendRow([dateStr, name, fee, '未確認']);
+  setDropdown(sheet, newRow, 1);
 }
 
 // -------------------------------------------------------
@@ -167,7 +168,7 @@ function updateBooking(sheet, body) {
   const beforeSection = body.match(/\[ 変更前 \]([\s\S]*)$/);
   if (!afterSection || !beforeSection) return;
 
-  const nameMatch      = beforeSection[1].match(/◆予約者:\s*\r?\n\s*(.+)/);
+  const nameMatch       = beforeSection[1].match(/◆予約者:\s*\r?\n\s*(.+)/);
   const beforeDateMatch = beforeSection[1].match(/◆予約日時:\s*\r?\n\s*(.+)/);
   const afterDateMatch  = afterSection[1].match(/◆予約日時:\s*\r?\n\s*(.+)/);
   if (!nameMatch || !beforeDateMatch || !afterDateMatch) return;
@@ -188,24 +189,18 @@ function updateBooking(sheet, body) {
 
 // -------------------------------------------------------
 // キャンセルを削除
-// メール形式1: ◆予約者が本文にある場合（店側キャンセルの場合など）
-// メール形式2: 件名に名前がある場合（"XXX 様の予約をキャンセルしました"）
 // -------------------------------------------------------
 function cancelBooking(sheet, body, subject) {
   let name;
-
-  // 形式1: 本文に ◆予約者 がある
   const nameInBody = body.match(/◆予約者:\s*\r?\n\s*(.+)/);
   if (nameInBody) {
     name = nameInBody[1].trim();
   } else {
-    // 形式2: 件名から名前を取得 "XXX 様の予約をキャンセルしました"
     const nameInSubject = subject && subject.match(/^(.+?)　?様の予約をキャンセル/);
     if (nameInSubject) name = nameInSubject[1].trim();
   }
   if (!name) return;
 
-  // 日付を取得（両形式共通）
   const dateMatch = body.match(/◆予約日時:\s*\r?\n?\s*(.+)/);
   if (!dateMatch) return;
   const dateStr = parseJapaneseDate(dateMatch[1].trim());
@@ -222,7 +217,6 @@ function cancelBooking(sheet, body, subject) {
 
 // -------------------------------------------------------
 // 日付文字列をパース
-// "2026年06月18日 (木) 13:00" → "2026/6/18 13:00"
 // -------------------------------------------------------
 function parseJapaneseDate(dateStr) {
   const match = dateStr.match(/(\d{4})年(\d{2})月(\d{2})日[^)]+\)\s*(\d{2}:\d{2})/);

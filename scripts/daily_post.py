@@ -130,11 +130,26 @@ def _ig_post(uid, tok, data):
     return d["id"]
 
 
+def _ig_wait_ready(tok, container_id, label="Container"):
+    for i in range(30):
+        time.sleep(5)
+        r = requests.get(f"{IG_API}/{container_id}",
+                         params={"fields": "status_code", "access_token": tok})
+        status = r.json().get("status_code", "UNKNOWN")
+        print(f"  {label} status: {status}")
+        if status == "FINISHED":
+            return
+        if status == "ERROR":
+            raise RuntimeError(f"Media container error: {r.json()}")
+    raise TimeoutError(f"{label} timed out")
+
+
 def post_instagram_single(image_url, caption):
     uid = os.environ["IG_USER_ID"]
     tok = os.environ["IG_ACCESS_TOKEN"]
     cid = _ig_post(uid, tok, {"image_url": image_url, "caption": caption})
     print(f"Media container: {cid}")
+    _ig_wait_ready(tok, cid, "Single image")
     r = requests.post(f"{IG_API}/{uid}/media_publish",
                       data={"creation_id": cid, "access_token": tok})
     d = r.json()
@@ -144,7 +159,6 @@ def post_instagram_single(image_url, caption):
 
 
 def post_instagram_carousel(image_urls, caption):
-    """Post multiple images as a carousel (up to 10)."""
     uid = os.environ["IG_USER_ID"]
     tok = os.environ["IG_ACCESS_TOKEN"]
 
@@ -154,12 +168,16 @@ def post_instagram_carousel(image_urls, caption):
         print(f"  Carousel item {i+1}: {cid}")
         item_ids.append(cid)
 
+    for i, item_id in enumerate(item_ids):
+        _ig_wait_ready(tok, item_id, f"Item {i+1}")
+
     carousel_id = _ig_post(uid, tok, {
         "media_type": "CAROUSEL",
         "children": ",".join(item_ids),
         "caption": caption,
     })
     print(f"Carousel container: {carousel_id}")
+    _ig_wait_ready(tok, carousel_id, "Carousel")
 
     r = requests.post(f"{IG_API}/{uid}/media_publish",
                       data={"creation_id": carousel_id, "access_token": tok})

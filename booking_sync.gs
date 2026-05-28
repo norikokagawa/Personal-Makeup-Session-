@@ -5,24 +5,79 @@
  * 1. Googleスプレッドシートを開く
  * 2. メニュー「拡張機能」→「Apps Script」をクリック
  * 3. このファイルの内容を貼り付けて保存（Ctrl+S）
- * 4. 上部の関数選択で「setDailyTrigger」を選び「実行」ボタンをクリック
+ * 4. 「初回セットアップ」:
+ *    a) 関数選択で「setDailyTrigger」を選び「実行」→毎朝5時自動実行のトリガーを設定
+ *    b) 関数選択で「fullRebuild」を選び「実行」→過去の全メールからスプレッドシートを再構築
  * 5. 権限を許可する（Gmailとスプレッドシートへのアクセス）
  * 6. 以降、毎朝5時（日本時間）に自動で実行されます
  */
 
-// Personal Makeup Session — Singapore 用スプレッドシートID
 const SESSION_SPREADSHEET_ID = '1Ndb9YHiGuWJ9UI_dW9tQ4Cbp8p2PwG-EL3FSdTA97PI';
-
-// Japanese Makeup Preview (イベント予約MO) 用スプレッドシートID
-// 別のスプレッドシートの場合はIDを変更してください
 const EVENT_SPREADSHEET_ID = '1Ndb9YHiGuWJ9UI_dW9tQ4Cbp8p2PwG-EL3FSdTA97PI';
-const EVENT_SHEET_NAME = 'Japanese Makeup Preview'; // シート名
+const EVENT_SHEET_NAME = 'Japanese Makeup Preview';
 
 const SESSION_KEYWORD = 'Personal Makeup Session — Singapore';
 const EVENT_KEYWORD = 'Japanese Makeup Preview';
 
 // -------------------------------------------------------
-// メイン処理（毎朝5時に自動実行）
+// フル再構築（初回セットアップ時やリセット時に手動実行）
+// 過去の全STORESメールを順に処理し、スプレッドシートを正しい状態に再構築する
+// -------------------------------------------------------
+function fullRebuild() {
+  const ss = SpreadsheetApp.openById(SESSION_SPREADSHEET_ID);
+  const sessionSheet = ss.getActiveSheet();
+
+  const eventSS = SpreadsheetApp.openById(EVENT_SPREADSHEET_ID);
+  let eventSheet = eventSS.getSheetByName(EVENT_SHEET_NAME);
+  if (!eventSheet) {
+    eventSheet = eventSS.insertSheet(EVENT_SHEET_NAME);
+  }
+
+  // シートをクリアしてヘッダーを再設定
+  clearSheet(sessionSheet);
+  clearSheet(eventSheet);
+
+  // 全STORESメールを取得（最大500スレッド）
+  const threads = GmailApp.search('from:hello@stores.jp subject:"[STORES 予約]"', 0, 500);
+
+  // メッセージを日付順（古い順）に並び替え
+  const messages = [];
+  for (const thread of threads) {
+    for (const msg of thread.getMessages()) {
+      messages.push(msg);
+    }
+  }
+  messages.sort((a, b) => a.getDate() - b.getDate());
+
+  // 時系列順に処理
+  for (const message of messages) {
+    const subject = message.getSubject();
+    const body = message.getPlainBody();
+
+    const isSession = body.includes(SESSION_KEYWORD);
+    const isEvent = body.includes(EVENT_KEYWORD);
+    if (!isSession && !isEvent) continue;
+
+    const targetSheet = isEvent ? eventSheet : sessionSheet;
+    const fee = isEvent ? 88 : 250;
+
+    if (subject.includes('予約が入りました')) {
+      addNewBooking(targetSheet, body, fee);
+    } else if (subject.includes('が変更されました')) {
+      updateBooking(targetSheet, body);
+    } else if (subject.includes('キャンセル')) {
+      cancelBooking(targetSheet, body);
+    }
+  }
+
+  sortByDate(sessionSheet);
+  sortByDate(eventSheet);
+
+  Logger.log('fullRebuild完了: session=' + (sessionSheet.getLastRow() - 1) + '件, event=' + (eventSheet.getLastRow() - 1) + '件');
+}
+
+// -------------------------------------------------------
+// メイン処理（毎朝5時に自動実行）— 未読メールのみ処理
 // -------------------------------------------------------
 function checkBookingsAndUpdate() {
   const sessionSheet = SpreadsheetApp.openById(SESSION_SPREADSHEET_ID).getActiveSheet();
@@ -139,6 +194,19 @@ function cancelBooking(sheet, body) {
       sheet.deleteRow(i + 1);
       return;
     }
+  }
+}
+
+// -------------------------------------------------------
+// シートをクリア（ヘッダーは残す）
+// -------------------------------------------------------
+function clearSheet(sheet) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow > 1) {
+    sheet.deleteRows(2, lastRow - 1);
+  }
+  if (lastRow === 0) {
+    sheet.appendRow(['日時', '名前', '料金 (SGD)', '決済完了']);
   }
 }
 

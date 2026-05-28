@@ -19,6 +19,12 @@ GMAIL_TOKEN_URL = "https://oauth2.googleapis.com/token"
 GMAIL_API = "https://gmail.googleapis.com/gmail/v1"
 IG_API = "https://graph.facebook.com/v19.0"
 CANVA_DESIGN_ID = os.environ.get("CANVA_DESIGN_ID", "DAGsRHlSvkw")
+SCHEDULE_PAGES = 6  # Canva design pages
+REPO_BASE = (
+    "https://raw.githubusercontent.com/norikokagawa/"
+    "Personal-Makeup-Session-/main"
+)
+FALLBACK_SINGLE = f"{REPO_BASE}/schedule.png"
 
 
 # ── Canva ──────────────────────────────────────────────────────────────────
@@ -65,14 +71,6 @@ def export_canva(token, num_pages=SCHEDULE_PAGES):
             raise RuntimeError(f"Canva export failed: {s}")
 
     raise TimeoutError("Canva export timed out")
-
-
-REPO_BASE = (
-    "https://raw.githubusercontent.com/norikokagawa/"
-    "Personal-Makeup-Session-/main"
-)
-FALLBACK_SINGLE = f"{REPO_BASE}/schedule.png"
-SCHEDULE_PAGES = 7  # Canva design pages
 
 
 # ── Gmail ──────────────────────────────────────────────────────────────────

@@ -22,7 +22,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install requests pytz
+        run: pip install requests pytz PyNaCl
 
       - name: Run daily post script
         env:
@@ -36,4 +36,6 @@ jobs:
           IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
           CANVA_DESIGN_ID: DAGsRHlSvkw
           DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+          GH_PAT: ${{ secrets.GH_PAT }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: python scripts/daily_post.py

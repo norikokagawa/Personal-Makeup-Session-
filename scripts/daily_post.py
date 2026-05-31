@@ -5,6 +5,7 @@
 2. Gmail で STORES 予約メールを確認
 3. Instagram に自動投稿
 """
+import base64
 import os
 import sys
 import time
@@ -26,6 +27,43 @@ REPO_BASE = (
     "Personal-Makeup-Session-/main"
 )
 FALLBACK_SINGLE = f"{REPO_BASE}/schedule.png"
+GITHUB_REPO = os.environ.get("GITHUB_REPOSITORY", "norikokagawa/Personal-Makeup-Session-")
+
+
+# ── GitHub secret rotation ─────────────────────────────────────────────────
+
+def _save_canva_refresh_token(new_token):
+    """Update CANVA_REFRESH_TOKEN in GitHub Secrets using GH_PAT."""
+    gh_pat = os.environ.get("GH_PAT", "").strip()
+    if not gh_pat:
+        print("  GH_PAT not set — cannot auto-save new refresh token")
+        return
+    try:
+        from nacl import encoding, public as nacl_public
+        headers = {
+            "Authorization": f"Bearer {gh_pat}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        }
+        r = requests.get(
+            f"https://api.github.com/repos/{GITHUB_REPO}/actions/secrets/public-key",
+            headers=headers,
+        )
+        r.raise_for_status()
+        key_data = r.json()
+        pub_key = nacl_public.PublicKey(key_data["key"].encode(), encoding.Base64Encoder())
+        encrypted = base64.b64encode(
+            nacl_public.SealedBox(pub_key).encrypt(new_token.encode())
+        ).decode()
+        r = requests.put(
+            f"https://api.github.com/repos/{GITHUB_REPO}/actions/secrets/CANVA_REFRESH_TOKEN",
+            headers=headers,
+            json={"encrypted_value": encrypted, "key_id": key_data["key_id"]},
+        )
+        r.raise_for_status()
+        print("  CANVA_REFRESH_TOKEN auto-updated in GitHub Secrets")
+    except Exception as e:
+        print(f"  Secret auto-update failed (non-fatal): {e}")
 
 
 # ── Canva ──────────────────────────────────────────────────────────────────
@@ -42,7 +80,11 @@ def canva_access_token():
     if not r.ok:
         print(f"Canva token error: {r.status_code} {r.text[:300]}")
     r.raise_for_status()
-    return r.json()["access_token"]
+    data = r.json()
+    if "refresh_token" in data:
+        print("  Canva issued new refresh token (rotating) — saving...")
+        _save_canva_refresh_token(data["refresh_token"])
+    return data["access_token"]
 
 
 def export_canva(token, num_pages=SCHEDULE_PAGES):

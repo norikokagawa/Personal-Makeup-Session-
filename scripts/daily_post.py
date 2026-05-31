@@ -30,11 +30,13 @@ FALLBACK_SINGLE = f"{REPO_BASE}/schedule.png"
 # ── Canva ──────────────────────────────────────────────────────────────────
 
 def canva_access_token():
+    secret = os.environ["CANVA_CLIENT_SECRET"].strip()
+    print(f"  Canva secret: {len(secret)} chars, starts with {secret[:6]}")
     r = requests.post(CANVA_TOKEN_URL, data={
         "grant_type": "refresh_token",
-        "refresh_token": os.environ["CANVA_REFRESH_TOKEN"],
-        "client_id": os.environ["CANVA_CLIENT_ID"],
-        "client_secret": os.environ["CANVA_CLIENT_SECRET"],
+        "refresh_token": os.environ["CANVA_REFRESH_TOKEN"].strip(),
+        "client_id": os.environ["CANVA_CLIENT_ID"].strip(),
+        "client_secret": secret,
     })
     if not r.ok:
         print(f"Canva token error: {r.status_code} {r.text[:300]}")

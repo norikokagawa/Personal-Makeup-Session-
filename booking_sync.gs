@@ -3,6 +3,7 @@
  *
  * 【関数一覧】
  * - manualSync()             : 現在の正しいデータを直接書き込む（リセット用）
+ * - setupSalesSheet()        : 売上管理シートを作成（初回のみ実行）
  * - checkBookingsAndUpdate() : 毎朝5時に自動実行（未読メールのみ処理）
  * - setDailyTrigger()        : 初回のみ手動実行してトリガーを設定
  */
@@ -10,6 +11,7 @@
 const SESSION_SPREADSHEET_ID = '1Ndb9YHiGuWJ9UI_dW9tQ4Cbp8p2PwG-EL3FSdTA97PI';
 const EVENT_SPREADSHEET_ID   = '1Ndb9YHiGuWJ9UI_dW9tQ4Cbp8p2PwG-EL3FSdTA97PI';
 const EVENT_SHEET_NAME       = 'Japanese Makeup Preview';
+const SALES_SHEET_NAME       = '売上管理';
 const SESSION_KEYWORD        = 'Personal Makeup Session — Singapore';
 const EVENT_KEYWORD          = 'Japanese Makeup Preview';
 
@@ -20,6 +22,44 @@ function setDropdown(sheet, startRow, numRows) {
     .setAllowInvalid(false)
     .build();
   sheet.getRange(startRow, 4, numRows, 1).setDataValidation(rule);
+}
+
+// -------------------------------------------------------
+// setupSalesSheet — 売上管理シートを新規作成（初回のみ実行）
+// -------------------------------------------------------
+function setupSalesSheet() {
+  const ss = SpreadsheetApp.openById(SESSION_SPREADSHEET_ID);
+  let salesSheet = ss.getSheetByName(SALES_SHEET_NAME);
+
+  if (salesSheet) {
+    Logger.log('売上管理シートはすでに存在します');
+    return;
+  }
+
+  salesSheet = ss.insertSheet(SALES_SHEET_NAME);
+
+  // ヘッダー設定
+  salesSheet.appendRow(['日付', '商品名', '販売チャネル', '金額 (SGD)']);
+
+  // ヘッダーのスタイル
+  const header = salesSheet.getRange(1, 1, 1, 4);
+  header.setFontWeight('bold');
+  header.setBackground('#f3f3f3');
+
+  // 列幅を調整
+  salesSheet.setColumnWidth(1, 130);
+  salesSheet.setColumnWidth(2, 200);
+  salesSheet.setColumnWidth(3, 120);
+  salesSheet.setColumnWidth(4, 120);
+
+  // 販売チャネルのプルダウン（データ入力用に100行分あらかじめ設定）
+  const channelRule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(['通販', '店頭'], true)
+    .setAllowInvalid(false)
+    .build();
+  salesSheet.getRange(2, 3, 100, 1).setDataValidation(channelRule);
+
+  Logger.log('売上管理シートを作成しました');
 }
 
 // -------------------------------------------------------

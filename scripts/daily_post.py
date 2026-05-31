@@ -13,6 +13,7 @@ import pytz
 from datetime import datetime
 
 JST = pytz.timezone("Asia/Tokyo")
+DRY_RUN = os.environ.get("DRY_RUN", "false").lower() == "true"
 CANVA_TOKEN_URL = "https://api.canva.com/rest/v1/oauth/token"
 CANVA_API = "https://api.canva.com/rest/v1"
 GMAIL_TOKEN_URL = "https://oauth2.googleapis.com/token"
@@ -224,11 +225,18 @@ def main():
             print("   No schedule_N.png found, using schedule.png")
 
     print(f"4. Posting to Instagram ({len(image_urls)} image(s))...")
-    if len(image_urls) == 1:
-        post_id = post_instagram_single(image_urls[0], caption)
+    if DRY_RUN:
+        print("   [DRY RUN] 実際には投稿しません")
+        print(f"   Caption: {caption}")
+        for i, u in enumerate(image_urls, 1):
+            print(f"   Image {i}: {u}")
+        print("\n✅ Dry run complete!")
     else:
-        post_id = post_instagram_carousel(image_urls, caption)
-    print(f"\n✅ Done! Instagram post ID: {post_id}")
+        if len(image_urls) == 1:
+            post_id = post_instagram_single(image_urls[0], caption)
+        else:
+            post_id = post_instagram_carousel(image_urls, caption)
+        print(f"\n✅ Done! Instagram post ID: {post_id}")
 
 
 if __name__ == "__main__":

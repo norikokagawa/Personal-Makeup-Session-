@@ -3,7 +3,13 @@ name: Daily Instagram Post 5:55 JST
 on:
   schedule:
     - cron: '55 8 * * *'   # 17:55 JST = 08:55 UTC
-  workflow_dispatch:        # 手動テスト用
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (投稿しない / no actual Instagram post)'
+        required: false
+        default: 'true'
+        type: boolean
 
 jobs:
   post-to-instagram:
@@ -29,4 +35,5 @@ jobs:
           IG_USER_ID: ${{ secrets.IG_USER_ID }}
           IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
           CANVA_DESIGN_ID: DAGsRHlSvkw
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
         run: python scripts/daily_post.py

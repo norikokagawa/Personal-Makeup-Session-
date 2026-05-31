@@ -49,9 +49,13 @@ def export_canva(token, num_pages=SCHEDULE_PAGES):
     headers = {"Authorization": f"Bearer {token}"}
 
     r = requests.post(
-        f"{CANVA_API}/designs/{CANVA_DESIGN_ID}/exports",
+        f"{CANVA_API}/exports",
         headers=headers,
-        json={"format": {"type": "png"}, "pages": list(range(1, num_pages + 1))},
+        json={
+            "design_id": CANVA_DESIGN_ID,
+            "format": {"type": "png"},
+            "pages": list(range(1, num_pages + 1)),
+        },
     )
     print(f"Export request: {r.status_code} {r.text[:200]}")
     r.raise_for_status()

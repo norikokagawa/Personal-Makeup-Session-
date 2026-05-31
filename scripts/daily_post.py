@@ -47,13 +47,6 @@ def canva_access_token():
 def export_canva(token, num_pages=SCHEDULE_PAGES):
     headers = {"Authorization": f"Bearer {token}"}
 
-    # Check design access first
-    check = requests.get(f"{CANVA_API}/designs/{CANVA_DESIGN_ID}", headers=headers)
-    print(f"Design access check: {check.status_code}")
-    if check.status_code != 200:
-        print(f"Response: {check.text[:300]}")
-        raise RuntimeError(f"Cannot access design {CANVA_DESIGN_ID}: HTTP {check.status_code}")
-
     r = requests.post(
         f"{CANVA_API}/designs/{CANVA_DESIGN_ID}/exports",
         headers=headers,

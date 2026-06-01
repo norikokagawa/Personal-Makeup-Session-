@@ -3,164 +3,22 @@
  *
  * 【関数一覧】
  * - manualSync()             : 現在の正しいデータを直接書き込む（リセット用）
- * - setupSalesSheet()        : 売上管理シートを作成（初回のみ実行）
- * - setupProductSheet()      : 商品一覧シートを作成（初回のみ実行）
- * - checkBookingsAndUpdate() : 毎朝5時に自動実行（未読メールのみ処理）
+ * - checkBookingsAndUpdate() : 毎朝5時に自動実行
  * - setDailyTrigger()        : 初回のみ手動実行してトリガーを設定
  */
 
 const SESSION_SPREADSHEET_ID = '1Ndb9YHiGuWJ9UI_dW9tQ4Cbp8p2PwG-EL3FSdTA97PI';
 const EVENT_SPREADSHEET_ID   = '1Ndb9YHiGuWJ9UI_dW9tQ4Cbp8p2PwG-EL3FSdTA97PI';
 const EVENT_SHEET_NAME       = 'Japanese Makeup Preview';
-const SALES_SHEET_NAME       = '売上管理';
-const PRODUCT_SHEET_NAME     = '商品一覧';
 const SESSION_KEYWORD        = 'Personal Makeup Session — Singapore';
 const EVENT_KEYWORD          = 'Japanese Makeup Preview';
 
-// 決済完了列のプルダウン設定
 function setDropdown(sheet, startRow, numRows) {
   const rule = SpreadsheetApp.newDataValidation()
     .requireValueInList(['完了', '未確認'], true)
     .setAllowInvalid(false)
     .build();
   sheet.getRange(startRow, 4, numRows, 1).setDataValidation(rule);
-}
-
-// -------------------------------------------------------
-// setupProductSheet — 商品一覧シートを新規作成（初回のみ実行）
-// -------------------------------------------------------
-function setupProductSheet() {
-  const ss = SpreadsheetApp.openById(SESSION_SPREADSHEET_ID);
-  let sheet = ss.getSheetByName(PRODUCT_SHEET_NAME);
-  if (sheet) {
-    sheet.clearContents();
-    sheet.clearConditionalFormatRules();
-  } else {
-    sheet = ss.insertSheet(PRODUCT_SHEET_NAME);
-  }
-
-  // ヘッダー
-  sheet.appendRow(['ブランド', 'カテゴリ', '商品名', '価格 (SGD)']);
-  const headerRange = sheet.getRange(1, 1, 1, 4);
-  headerRange.setFontWeight('bold');
-  headerRange.setBackground('#f3f3f3');
-
-  // 商品データ（PDFから抽出）ブランドは未記入のまま
-  const products = [
-    // Skin Care
-    ['', 'Skin Care', 'Skin Conditioner',            66],
-    ['', 'Skin Care', 'Tone',                         67],
-    ['', 'Skin Care', 'Moisturising Emulsion',        78],
-    ['', 'Skin Care', 'Eye Cream',                   184],
-    ['', 'Skin Care', 'Sunscreen & Whitening Serum', 144],
-    ['', 'Skin Care', 'Sunscreen',                    44],
-    // Base Makeup
-    ['', 'Base Makeup', 'Primer (A)',                 48],
-    ['', 'Base Makeup', 'Primer (B)',                 48],
-    ['', 'Base Makeup', 'Primer (C)',                 43],
-    ['', 'Base Makeup', 'Color Corrector',            42],
-    ['', 'Base Makeup', 'Concealer & Highlighter',    48],
-    ['', 'Base Makeup', 'Foundation',                120],
-    ['', 'Base Makeup', 'Face Powder (A)',             56],
-    ['', 'Base Makeup', 'Face Powder (B)',             60],
-    ['', 'Base Makeup', 'Face Powder (C)',             74],
-    // Eyes
-    ['', 'Eyes', 'Signature Color Eyes',              84],
-    ['', 'Eyes', 'Mono Look Eyes',                    47],
-    ['', 'Eyes', 'Nuance Eyeliner',                   40],
-    ['', 'Eyes', 'Mascara (A)',                        60],
-    ['', 'Eyes', 'Synchromatic Eye Shadow',            70],
-    ['', 'Eyes', 'Infinishade Single Eyes',            34],
-    ['', 'Eyes', 'Eye Defining Pencil',               36],
-    ['', 'Eyes', 'Mascara (B)',                        46],
-    ['', 'Eyes', 'Stargazing Eye Shadow Quad',        82],
-    ['', 'Eyes', 'Fun To Funky Liquid Eyeliner',      36],
-    ['', 'Eyes', 'Vatic Eyes',                        29],
-    ['', 'Eyes', 'MACH LINER',                        38],
-    // Cheeks
-    ['', 'Cheeks', 'Blurring Color Blush',            72],
-    ['', 'Cheeks', 'Complexion Face Colour Blush',    55],
-    ['', 'Cheeks', 'Pure Complexion Blush',           40],
-    // Lips
-    ['', 'Lips', 'Sheer Matte Lipstick',              60],
-    ['', 'Lips', 'Moisture Glaze Lipstick',           65],
-    ['', 'Lips', 'Velvet Fit Lipstick',               65],
-    ['', 'Lips', 'Lip Base Liner',                    30],
-    ['', 'Lips', 'Moisten Lip Drop',                  36],
-    // Eyebrows
-    ['', 'Eyebrows', 'Framing Eyebrow Liquid Pen',   40],
-    ['', 'Eyebrows', 'Coloring Eyebrow',              40],
-    ['', 'Eyebrows', 'Eyebrow Color',                 38],
-    ['', 'Eyebrows', 'Indicate Eyebrow Powder',       42],
-    // Brushes & Tools
-    ['', 'Brushes & Tools', 'Face Powder Brush',      84],
-    ['', 'Brushes & Tools', 'Blush Brush',            72],
-    ['', 'Brushes & Tools', 'Concealer Brush (A)',     38],
-    ['', 'Brushes & Tools', 'Lip Brush',              36],
-    ['', 'Brushes & Tools', 'Screw Brush',            17],
-    ['', 'Brushes & Tools', 'Concealer Brush (B)',     36],
-    ['', 'Brushes & Tools', 'Eyeshadow Brush (A)',     31],
-    ['', 'Brushes & Tools', 'Blending Brush',         31],
-    ['', 'Brushes & Tools', 'Eyebrow Brush',          38],
-    ['', 'Brushes & Tools', 'Eyeshadow Brush (D)',     24],
-    ['', 'Brushes & Tools', 'Eyeshadow Brush Refill',  7],
-    ['', 'Brushes & Tools', 'Eyelash Curler',          12],
-  ];
-
-  sheet.getRange(2, 1, products.length, 4).setValues(products);
-
-  // 列幅設定
-  sheet.setColumnWidth(1, 140);
-  sheet.setColumnWidth(2, 130);
-  sheet.setColumnWidth(3, 240);
-  sheet.setColumnWidth(4, 110);
-
-  // ブランドのプルダウン
-  const brandRule = SpreadsheetApp.newDataValidation()
-    .requireValueInList(['RMK', 'SUQQU', 'THREE', 'celvoke', 'ADDICTION', 'NOEVI', 'R blanc etoile', 'その他'], true)
-    .setAllowInvalid(true)
-    .build();
-  sheet.getRange(2, 1, products.length, 1).setDataValidation(brandRule);
-
-  // カテゴリのプルダウン
-  const categoryRule = SpreadsheetApp.newDataValidation()
-    .requireValueInList(['Skin Care', 'Base Makeup', 'Eyes', 'Cheeks', 'Lips', 'Eyebrows', 'Brushes & Tools'], true)
-    .setAllowInvalid(true)
-    .build();
-  sheet.getRange(2, 2, products.length, 1).setDataValidation(categoryRule);
-
-  // ヘッダー列を固定
-  sheet.setFrozenRows(1);
-
-  Logger.log('商品一覧シートを作成しました：' + products.length + '商品');
-}
-
-// -------------------------------------------------------
-// setupSalesSheet — 売上管理シートを新規作成（初回のみ実行）
-// -------------------------------------------------------
-function setupSalesSheet() {
-  const ss = SpreadsheetApp.openById(SESSION_SPREADSHEET_ID);
-  let salesSheet = ss.getSheetByName(SALES_SHEET_NAME);
-  if (salesSheet) {
-    Logger.log('売上管理シートはすでに存在します');
-    return;
-  }
-  salesSheet = ss.insertSheet(SALES_SHEET_NAME);
-  salesSheet.appendRow(['日付', '商品名', '販売チャネル', '金額 (SGD)']);
-  const header = salesSheet.getRange(1, 1, 1, 4);
-  header.setFontWeight('bold');
-  header.setBackground('#f3f3f3');
-  salesSheet.setColumnWidth(1, 130);
-  salesSheet.setColumnWidth(2, 200);
-  salesSheet.setColumnWidth(3, 120);
-  salesSheet.setColumnWidth(4, 120);
-  const channelRule = SpreadsheetApp.newDataValidation()
-    .requireValueInList(['通販', '店頭'], true)
-    .setAllowInvalid(false)
-    .build();
-  salesSheet.getRange(2, 3, 100, 1).setDataValidation(channelRule);
-  salesSheet.setFrozenRows(1);
-  Logger.log('売上管理シートを作成しました');
 }
 
 // -------------------------------------------------------
@@ -191,10 +49,12 @@ function manualSync() {
     ['2026/6/21 12:00', 'Satomi Fujimoto',   250, '未確認'],
     ['2026/6/21 14:00', 'H Su',              250, '完了'],
     ['2026/6/21 15:00', 'H Su',              250, '完了'],
-    ['2026/6/21 16:00', '永守 久美子',      250, '完了'],
+    ['2026/6/21 16:00', '永守 久美子', 250, '完了'],
     ['2026/6/21 17:30', 'Wong Jean',         250, '未確認'],
     ['2026/6/21 18:30', 'Caroline Lin',      250, '完了'],
     ['2026/6/23 11:00', 'Pan Kit mei',       250, '完了'],
+    ['2026/6/23 12:00', 'Liu Liling',        250, '未確認'],
+    ['2026/6/23 14:00', 'Wong Amanda',       250, '未確認'],
     ['2026/6/24 11:00', 'Voon Taylor',       250, '完了'],
     ['2026/6/25 11:00', 'Pei Lin Chua',      250, '未確認'],
     ['2026/6/25 12:00', 'Leung Erin',        250, '未確認'],
@@ -207,6 +67,7 @@ function manualSync() {
     ['2026/6/28 10:00', 'Elaine Wong',       250, '未確認'],
     ['2026/6/28 11:00', 'Lachman Sweeney',   250, '完了'],
     ['2026/6/28 14:00', 'Ng Amanda',         250, '未確認'],
+    ['2026/6/28 16:00', 'Elisa Montano',     250, '未確認'],
     ['2026/6/30 14:00', 'Tan Michelle',      250, '完了'],
     ['2026/7/2 11:00',  'Iswaran Meena',     250, '未確認'],
   ];
@@ -230,7 +91,7 @@ function manualSync() {
   ];
   eventSheet.getRange(2, 1, eventData.length, 4).setValues(eventData);
   setDropdown(eventSheet, 2, eventData.length);
-  Logger.log('manualSync完了: ' + sessionData.length + '件書き込み完了（プルダウン設定済み）');
+  Logger.log('manualSync完了: ' + sessionData.length + '件書き込み完了（プルダウン設定済）');
 }
 
 // -------------------------------------------------------
@@ -244,14 +105,23 @@ function checkBookingsAndUpdate() {
     eventSheet = eventSS.insertSheet(EVENT_SHEET_NAME);
     eventSheet.appendRow(['日時', '名前', '料金 (SGD)', '決済完了']);
   }
-  const threads = GmailApp.search('from:hello@stores.jp is:unread');
+
+  const props = PropertiesService.getScriptProperties();
+  const processedKey = 'processedIds';
+  const processedIds = new Set(JSON.parse(props.getProperty(processedKey) || '[]'));
+
+  const threads = GmailApp.search('from:hello@stores.jp newer_than:90d');
   let sessionUpdated = false;
   let eventUpdated   = false;
+
   for (const thread of threads) {
     for (const message of thread.getMessages()) {
-      if (!message.isUnread()) continue;
+      const msgId = message.getId();
+      if (processedIds.has(msgId)) continue;
+
       const subject = message.getSubject();
       const body    = message.getPlainBody();
+
       if (subject.includes('予約が入りました')) {
         if (body.includes(SESSION_KEYWORD)) { addNewBooking(sessionSheet, body, 250); sessionUpdated = true; }
         if (body.includes(EVENT_KEYWORD))   { addNewBooking(eventSheet,   body, 88);  eventUpdated   = true; }
@@ -262,9 +132,14 @@ function checkBookingsAndUpdate() {
         if (body.includes(SESSION_KEYWORD)) { cancelBooking(sessionSheet, body, subject); sessionUpdated = true; }
         if (body.includes(EVENT_KEYWORD))   { cancelBooking(eventSheet,   body, subject); eventUpdated   = true; }
       }
-      message.markRead();
+
+      processedIds.add(msgId);
     }
   }
+
+  const idsArray = Array.from(processedIds).slice(-1000);
+  props.setProperty(processedKey, JSON.stringify(idsArray));
+
   if (sessionUpdated) sortByDate(sessionSheet);
   if (eventUpdated)   sortByDate(eventSheet);
 }

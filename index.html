@@ -23,19 +23,19 @@
     .logo p { font-size: 0.75rem; color: #999; margin-top: 4px; }
     h2 { font-size: 0.95rem; color: #333; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid #f0e8e4; }
     .amount-badge { display: inline-block; background: #eaf5f0; color: #2d9c6e; border-radius: 6px; padding: 3px 10px; font-size: 0.8rem; font-weight: 600; margin-bottom: 16px; }
-    .scan-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
     .scan-area {
-      border: 2px dashed #e0d6d0; border-radius: 12px; padding: 14px 10px;
-      text-align: center; cursor: pointer;
+      border: 2px dashed #e0d6d0; border-radius: 12px; padding: 20px 16px;
+      text-align: center; cursor: pointer; margin-bottom: 16px;
       transition: border-color 0.2s, background 0.2s; position: relative;
     }
     .scan-area:hover { border-color: #c5766a; background: #fff8f6; }
     .scan-area.done { border-color: #25d366; border-style: solid; background: #f0fdf4; }
     .scan-area input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
-    .scan-icon { font-size: 1.6rem; margin-bottom: 4px; }
-    .scan-label { font-size: 0.72rem; color: #888; font-weight: 600; }
-    .scan-status { font-size: 0.68rem; color: #c5766a; margin-top: 4px; min-height: 14px; }
-    .scan-area.done .scan-status { color: #2d9c6e; }
+    .scan-icon { font-size: 2rem; margin-bottom: 6px; }
+    .scan-label { font-size: 0.85rem; color: #c5766a; font-weight: 600; margin-bottom: 2px; }
+    .scan-sub { font-size: 0.72rem; color: #aaa; }
+    .scan-result { display: none; margin-top: 10px; font-size: 0.78rem; color: #2d9c6e; background: #f0fdf4; border-radius: 6px; padding: 6px 10px; text-align: left; line-height: 1.6; }
+    .scan-area.done .scan-result { display: block; }
     .form-group { margin-bottom: 14px; }
     label { display: block; font-size: 0.8rem; color: #666; margin-bottom: 5px; font-weight: 500; }
     .label-hint { font-size: 0.72rem; color: #aaa; font-weight: 400; margin-left: 6px; }
@@ -75,22 +75,15 @@
       <p>WhatsApp Payment Guide Sender</p>
     </div>
 
-    <h2>Scan STORES screenshots</h2>
+    <h2>Scan STORES screenshot</h2>
     <div class="amount-badge">Fixed: 280 SGD</div>
 
-    <div class="scan-row">
-      <div class="scan-area" id="nameBox">
-        <input type="file" accept="image/*" onchange="scanName(event)" />
-        <div class="scan-icon">👤</div>
-        <div class="scan-label">NAME screenshot</div>
-        <div class="scan-status" id="nameStatus">Tap to scan</div>
-      </div>
-      <div class="scan-area" id="phoneBox">
-        <input type="file" accept="image/*" onchange="scanPhone(event)" />
-        <div class="scan-icon">📞</div>
-        <div class="scan-label">PHONE screenshot</div>
-        <div class="scan-status" id="phoneStatus">Tap to scan</div>
-      </div>
+    <div class="scan-area" id="scanBox">
+      <input type="file" accept="image/*" onchange="scanAll(event)" />
+      <div class="scan-icon">📸</div>
+      <div class="scan-label">Tap to scan STORES screenshot</div>
+      <div class="scan-sub">Name and phone will be auto-filled</div>
+      <div class="scan-result" id="scanResult"></div>
     </div>
 
     <div id="ocr-loading"></div>
@@ -205,42 +198,37 @@
       return result.data.text;
     }
 
-    async function scanName(event) {
+    async function scanAll(event) {
       const file = event.target.files[0]; if (!file) return;
       const loading = document.getElementById('ocr-loading');
-      const status = document.getElementById('nameStatus');
-      loading.style.display = 'block'; loading.textContent = '📖 Reading...';
-      status.textContent = 'Reading...';
+      const result = document.getElementById('scanResult');
+      const box = document.getElementById('scanBox');
+      loading.style.display = 'block'; loading.textContent = '📖 Reading screenshot...';
       try {
-        const text = await runOCR(file, p => { loading.textContent = `📖 Reading name... ${p}%`; });
+        const text = await runOCR(file, p => { loading.textContent = `📖 Reading... ${p}%`; });
+
         const full = extractName(text);
+        const phone = extractPhone(text);
+
+        let lines = [];
         if (full) {
           const first = guessFirstName(full);
           document.getElementById('firstName').value = first;
-          updatePreview();
-          status.textContent = '✅ ' + first;
-          document.getElementById('nameBox').classList.add('done');
-        } else { status.textContent = '⚠️ Not found — type manually'; }
-      } catch { status.textContent = '⚠️ Error'; }
-      loading.style.display = 'none';
-    }
-
-    async function scanPhone(event) {
-      const file = event.target.files[0]; if (!file) return;
-      const loading = document.getElementById('ocr-loading');
-      const status = document.getElementById('phoneStatus');
-      loading.style.display = 'block'; loading.textContent = '📖 Reading...';
-      status.textContent = 'Reading...';
-      try {
-        const text = await runOCR(file, p => { loading.textContent = `📖 Reading phone... ${p}%`; });
-        const phone = extractPhone(text);
+          lines.push(`👤 ${first}`);
+        } else {
+          lines.push('👤 Name not found — type manually');
+        }
         if (phone) {
           document.getElementById('phone').value = phone;
-          updatePreview();
-          status.textContent = '✅ ' + phone;
-          document.getElementById('phoneBox').classList.add('done');
-        } else { status.textContent = '⚠️ Not found — type manually'; }
-      } catch { status.textContent = '⚠️ Error'; }
+          lines.push(`📞 ${phone}`);
+        } else {
+          lines.push('📞 Phone not found — type manually');
+        }
+
+        result.innerHTML = lines.join('<br>');
+        box.classList.add('done');
+        updatePreview();
+      } catch { loading.textContent = '⚠️ Error reading screenshot.'; }
       loading.style.display = 'none';
     }
 

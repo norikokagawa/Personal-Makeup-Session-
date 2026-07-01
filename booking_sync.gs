@@ -7,11 +7,12 @@
  * - setDailyTrigger()        : 初回のみ手動実行してトリガーを設定
  */
 
-const SESSION_SPREADSHEET_ID = '1Ndb9YHiGuWJ9UI_dW9tQ4Cbp8p2PwG-EL3FSdTA97PI';
-const EVENT_SPREADSHEET_ID   = '1Ndb9YHiGuWJ9UI_dW9tQ4Cbp8p2PwG-EL3FSdTA97PI';
-const EVENT_SHEET_NAME       = 'Japanese Makeup Preview';
-const SESSION_KEYWORD        = 'Personal Makeup Session — Singapore';
-const EVENT_KEYWORD          = 'Japanese Makeup Preview';
+const SESSION_SPREADSHEET_ID  = '1Ndb9YHiGuWJ9UI_dW9tQ4Cbp8p2PwG-EL3FSdTA97PI';
+const EVENT_SPREADSHEET_ID    = '1Ndb9YHiGuWJ9UI_dW9tQ4Cbp8p2PwG-EL3FSdTA97PI';
+const EVENT_SHEET_NAME        = 'Japanese Makeup Preview';
+const SESSION_JUNEJULY_SHEET  = 'Personal Makeup Session 予約管理 June/July';
+const SESSION_KEYWORD         = 'Personal Makeup Session — Singapore';
+const EVENT_KEYWORD           = 'Japanese Makeup Preview';
 
 function setDropdown(sheet, startRow, numRows) {
   const rule = SpreadsheetApp.newDataValidation()
@@ -32,12 +33,46 @@ function getSessionFee(dateStr) {
   return 250;
 }
 
+// 月別シートを取得または新規作成
+function getOrCreateMonthSheet(ss, dateStr) {
+  const m = dateStr.match(/(\d{4})\/(\d+)\//);
+  if (!m) return ss.getSheetByName(SESSION_JUNEJULY_SHEET);
+  const year = parseInt(m[1]);
+  const month = parseInt(m[2]);
+  if (year === 2026 && (month === 6 || month === 7)) {
+    return ss.getSheetByName(SESSION_JUNEJULY_SHEET);
+  }
+  const sheetName = `${year}年${month}月`;
+  let sheet = ss.getSheetByName(sheetName);
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+    sheet.appendRow(['日時', '名前', '料金 (SGD)', '決済完了']);
+    const header = sheet.getRange(1, 1, 1, 4);
+    header.setFontWeight('bold');
+    header.setBackground('#f3f3f3');
+    sheet.setFrozenRows(1);
+    Logger.log(`新しいシートを作成しました：${sheetName}`);
+  }
+  return sheet;
+}
+
+// 全セッションシートを取得（変更・キャンセル時に全月を検索）
+function getAllSessionSheets(ss) {
+  const sheets = [];
+  const junJul = ss.getSheetByName(SESSION_JUNEJULY_SHEET);
+  if (junJul) sheets.push(junJul);
+  ss.getSheets().forEach(s => {
+    if (s.getName().match(/\d{4}年\d+月/)) sheets.push(s);
+  });
+  return sheets;
+}
+
 // -------------------------------------------------------
 // manualSync — 現在の正しいデータを直接書き込む
 // -------------------------------------------------------
 function manualSync() {
   const ss = SpreadsheetApp.openById(SESSION_SPREADSHEET_ID);
-  const sessionSheet = ss.getActiveSheet();
+  const sessionSheet = ss.getSheetByName(SESSION_JUNEJULY_SHEET) || ss.getActiveSheet();
   const sessionData = [
     ['2026/6/18 11:00', 'Michelle Poh',      250, '完了'],
     ['2026/6/18 12:00', 'ISHIDA EMIKO',      250, '未確認'],
@@ -60,7 +95,7 @@ function manualSync() {
     ['2026/6/21 12:00', 'Satomi Fujimoto',   250, '未確認'],
     ['2026/6/21 14:00', 'H Su',              250, '完了'],
     ['2026/6/21 15:00', 'H Su',              250, '完了'],
-    ['2026/6/21 16:00', '永守 久美子', 250, '完了'],
+    ['2026/6/21 16:00', '永守 久美子',      250, '完了'],
     ['2026/6/21 17:30', 'Wong Jean',         250, '未確認'],
     ['2026/6/21 18:30', 'Caroline Lin',      250, '完了'],
     ['2026/6/23 11:00', 'Pan Kit mei',       250, '完了'],
@@ -109,7 +144,7 @@ function manualSync() {
 // メイン処理（毎朝5時に自動実行）
 // -------------------------------------------------------
 function checkBookingsAndUpdate() {
-  const sessionSheet = SpreadsheetApp.openById(SESSION_SPREADSHEET_ID).getActiveSheet();
+  const ss = SpreadsheetApp.openById(SESSION_SPREADSHEET_ID);
   const eventSS = SpreadsheetApp.openById(EVENT_SPREADSHEET_ID);
   let eventSheet = eventSS.getSheetByName(EVENT_SHEET_NAME);
   if (!eventSheet) {
@@ -122,8 +157,8 @@ function checkBookingsAndUpdate() {
   const processedIds = new Set(JSON.parse(props.getProperty(processedKey) || '[]'));
 
   const threads = GmailApp.search('from:hello@stores.jp newer_than:90d');
-  let sessionUpdated = false;
-  let eventUpdated   = false;
+  const updatedSheets = new Set();
+  let eventUpdated = false;
 
   for (const thread of threads) {
     for (const message of thread.getMessages()) {
@@ -134,14 +169,25 @@ function checkBookingsAndUpdate() {
       const body    = message.getPlainBody();
 
       if (subject.includes('予約が入りました')) {
-        if (body.includes(SESSION_KEYWORD)) { addNewBooking(sessionSheet, body); sessionUpdated = true; }
-        if (body.includes(EVENT_KEYWORD))   { addNewBooking(eventSheet,   body, 88); eventUpdated = true; }
+        if (body.includes(SESSION_KEYWORD)) {
+          const sheet = addNewSessionBooking(ss, body);
+          if (sheet) updatedSheets.add(sheet);
+        }
+        if (body.includes(EVENT_KEYWORD)) {
+          addEventBooking(eventSheet, body, 88);
+          eventUpdated = true;
+        }
       } else if (subject.includes('が変更されました')) {
-        if (body.includes(SESSION_KEYWORD)) { updateBooking(sessionSheet, body); sessionUpdated = true; }
-        if (body.includes(EVENT_KEYWORD))   { updateBooking(eventSheet,   body); eventUpdated   = true; }
+        if (body.includes(SESSION_KEYWORD)) {
+          const sheet = updateSessionBooking(ss, body);
+          if (sheet) updatedSheets.add(sheet);
+        }
+        if (body.includes(EVENT_KEYWORD)) { updateBooking(eventSheet, body); eventUpdated = true; }
       } else if (subject.includes('キャンセル') || subject.includes('をキャンセルしました')) {
-        if (body.includes(SESSION_KEYWORD)) { cancelBooking(sessionSheet, body, subject); sessionUpdated = true; }
-        if (body.includes(EVENT_KEYWORD))   { cancelBooking(eventSheet,   body, subject); eventUpdated   = true; }
+        if (body.includes(SESSION_KEYWORD)) {
+          cancelSessionBooking(ss, body, subject);
+        }
+        if (body.includes(EVENT_KEYWORD)) { cancelBooking(eventSheet, body, subject); eventUpdated = true; }
       }
 
       processedIds.add(msgId);
@@ -151,19 +197,38 @@ function checkBookingsAndUpdate() {
   const idsArray = Array.from(processedIds).slice(-1000);
   props.setProperty(processedKey, JSON.stringify(idsArray));
 
-  if (sessionUpdated) sortByDate(sessionSheet);
-  if (eventUpdated)   sortByDate(eventSheet);
+  updatedSheets.forEach(sheet => sortByDate(sheet));
+  if (eventUpdated) sortByDate(eventSheet);
 }
 
-// fixedFeeを指定した場合はそれを使う（イベント用）、そうでなければ日付から自動判定
-function addNewBooking(sheet, body, fixedFee) {
+// セッション予約を正しい月のシートに追加
+function addNewSessionBooking(ss, body) {
+  const nameMatch = body.match(/◆予約者:\s*\r?\n\s*(.+)/);
+  const dateMatch = body.match(/◆予約日時:\s*\r?\n\s*(.+)/);
+  if (!nameMatch || !dateMatch) return null;
+  const name    = nameMatch[1].trim();
+  const dateStr = parseJapaneseDate(dateMatch[1].trim());
+  if (!dateStr) return null;
+  const fee   = getSessionFee(dateStr);
+  const sheet = getOrCreateMonthSheet(ss, dateStr);
+  const data  = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === dateStr && data[i][1] === name) return null;
+  }
+  const newRow = sheet.getLastRow() + 1;
+  sheet.appendRow([dateStr, name, fee, '未確認']);
+  setDropdown(sheet, newRow, 1);
+  return sheet;
+}
+
+// イベント予約を指定シートに追加
+function addEventBooking(sheet, body, fee) {
   const nameMatch = body.match(/◆予約者:\s*\r?\n\s*(.+)/);
   const dateMatch = body.match(/◆予約日時:\s*\r?\n\s*(.+)/);
   if (!nameMatch || !dateMatch) return;
   const name    = nameMatch[1].trim();
   const dateStr = parseJapaneseDate(dateMatch[1].trim());
   if (!dateStr) return;
-  const fee = (fixedFee !== undefined) ? fixedFee : getSessionFee(dateStr);
   const data = sheet.getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][0]) === dateStr && data[i][1] === name) return;
@@ -173,25 +238,43 @@ function addNewBooking(sheet, body, fixedFee) {
   setDropdown(sheet, newRow, 1);
 }
 
+// セッション予約を全月から検索して日時変更
+function updateSessionBooking(ss, body) {
+  const sheets = getAllSessionSheets(ss);
+  for (const sheet of sheets) {
+    if (updateBooking(sheet, body)) return sheet;
+  }
+  return null;
+}
+
+// セッション予約を全月から検索してキャンセル
+function cancelSessionBooking(ss, body, subject) {
+  const sheets = getAllSessionSheets(ss);
+  for (const sheet of sheets) {
+    if (cancelBooking(sheet, body, subject)) return;
+  }
+}
+
 function updateBooking(sheet, body) {
   const afterSection  = body.match(/\[ 変更後 \]([\s\S]*?)\[ 変更前 \]/);
   const beforeSection = body.match(/\[ 変更前 \]([\s\S]*)$/);
-  if (!afterSection || !beforeSection) return;
+  if (!afterSection || !beforeSection) return false;
   const nameMatch       = beforeSection[1].match(/◆予約者:\s*\r?\n\s*(.+)/);
   const beforeDateMatch = beforeSection[1].match(/◆予約日時:\s*\r?\n\s*(.+)/);
   const afterDateMatch  = afterSection[1].match(/◆予約日時:\s*\r?\n\s*(.+)/);
-  if (!nameMatch || !beforeDateMatch || !afterDateMatch) return;
+  if (!nameMatch || !beforeDateMatch || !afterDateMatch) return false;
   const name       = nameMatch[1].trim();
   const beforeDate = parseJapaneseDate(beforeDateMatch[1].trim());
   const afterDate  = parseJapaneseDate(afterDateMatch[1].trim());
-  if (!beforeDate || !afterDate) return;
+  if (!beforeDate || !afterDate) return false;
   const data = sheet.getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][0]) === beforeDate && data[i][1] === name) {
       sheet.getRange(i + 1, 1).setValue(afterDate);
-      return;
+      return true;
     }
   }
+  return false;
 }
 
 function cancelBooking(sheet, body, subject) {
@@ -203,18 +286,19 @@ function cancelBooking(sheet, body, subject) {
     const nameInSubject = subject && subject.match(/^(.+?)　?様の予約をキャンセル/);
     if (nameInSubject) name = nameInSubject[1].trim();
   }
-  if (!name) return;
+  if (!name) return false;
   const dateMatch = body.match(/◆予約日時:\s*\r?\n?\s*(.+)/);
-  if (!dateMatch) return;
+  if (!dateMatch) return false;
   const dateStr = parseJapaneseDate(dateMatch[1].trim());
-  if (!dateStr) return;
+  if (!dateStr) return false;
   const data = sheet.getDataRange().getValues();
   for (let i = data.length - 1; i >= 1; i--) {
     if (String(data[i][0]) === dateStr && data[i][1] === name) {
       sheet.deleteRow(i + 1);
-      return;
+      return true;
     }
   }
+  return false;
 }
 
 function parseJapaneseDate(dateStr) {

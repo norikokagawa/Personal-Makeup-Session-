@@ -96,6 +96,10 @@
       <label>WhatsApp number <span class="label-hint">with country code</span></label>
       <input type="tel" id="phone" placeholder="e.g. 6591264790" oninput="updatePreview()" />
     </div>
+    <div class="form-group">
+      <label>Appointment date &amp; time</label>
+      <input type="datetime-local" id="apptDate" oninput="updatePreview()" />
+    </div>
 
     <div class="divider"></div>
     <div class="preview-label">Message preview</div>
@@ -225,9 +229,24 @@
       loading.style.display = 'none';
     }
 
+    function formatAppt(value) {
+      if (!value) return null;
+      const d = new Date(value);
+      const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+      const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      const day = days[d.getDay()];
+      const date = d.getDate();
+      const month = months[d.getMonth()];
+      const hh = String(d.getHours()).padStart(2,'0');
+      const mm = String(d.getMinutes()).padStart(2,'0');
+      return `${day}, ${date} ${month} at ${hh}:${mm}`;
+    }
+
     function buildMessage() {
       const firstName = document.getElementById('firstName').value.trim() || '[Name]';
-      return `Hi ${firstName}\n\nThank you very much for booking a personal makeup session in Singapore 🇸🇬\n\nThe session fee is 280 SGD.\nTo confirm your booking, please kindly make the payment via PayNow below within 24 hours.\nAfter making the payment, please send me a screenshot of the transfer here for confirmation.\n\nYour booking will be officially confirmed once the payment is verified 😊\n\nI am looking forward to seeing you on the day.\nThank you 🕊️`;
+      const appt = formatAppt(document.getElementById('apptDate').value);
+      const apptLine = appt ? `\n📅 Your appointment: ${appt}\n` : '';
+      return `Hi ${firstName}\n\nThank you very much for booking a personal makeup session in Singapore 🇸🇬\n${apptLine}\nThe session fee is 280 SGD.\nTo confirm your booking, please kindly make the payment via PayNow below within 24 hours.\nAfter making the payment, please send me a screenshot of the transfer here for confirmation.\n\nYour booking will be officially confirmed once the payment is verified 😊\n\nI am looking forward to seeing you on the day.\nThank you 🕊️`;
     }
 
     function updatePreview() {

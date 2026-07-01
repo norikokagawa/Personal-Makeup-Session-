@@ -82,7 +82,7 @@
       <input type="file" accept="image/*" onchange="scanAll(event)" />
       <div class="scan-icon">📸</div>
       <div class="scan-label">Tap to scan STORES screenshot</div>
-      <div class="scan-sub">Name and phone will be auto-filled</div>
+      <div class="scan-sub">Name, phone &amp; date/time will be auto-filled</div>
       <div class="scan-result" id="scanResult"></div>
     </div>
 
@@ -97,7 +97,7 @@
       <input type="tel" id="phone" placeholder="e.g. 6591264790" oninput="updatePreview()" />
     </div>
     <div class="form-group">
-      <label>Appointment date &amp; time</label>
+      <label>Appointment date &amp; time <span class="badge">auto</span></label>
       <input type="datetime-local" id="apptDate" oninput="updatePreview()" />
     </div>
 
@@ -138,7 +138,11 @@
       'yin','yu','yue','zeng','zhang','zhao','zheng','zhou',
       'bin','binte','bte','bt'
     ]);
-    const SKIP = new Set(['personal','makeup','session','singapore','check','more','stores','booking','payment','cancel']);
+    const SKIP = new Set([
+      'personal','makeup','session','singapore','check','more','stores','booking','payment','cancel',
+      'reservation','saturday','sunday','monday','tuesday','wednesday','thursday','friday',
+      'january','february','march','april','june','july','august','september','october','november','december'
+    ]);
 
     let tesseractReady = false;
 
@@ -179,6 +183,35 @@
       return null;
     }
 
+    function extractDateTime(text) {
+      const MONTHS = {
+        'january':1,'february':2,'march':3,'april':4,'may':5,'june':6,
+        'july':7,'august':8,'september':9,'october':10,'november':11,'december':12
+      };
+      // English format: "Saturday, August 22, 2026 11:00"
+      const em = text.match(/(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)[,\s]+(\w+)\s+(\d{1,2})[,\s]+(\d{4})\s+(\d{1,2}):(\d{2})/i);
+      if (em) {
+        const month = MONTHS[em[1].toLowerCase()];
+        if (month) {
+          const year = em[3];
+          const day = String(parseInt(em[2])).padStart(2,'0');
+          const mon = String(month).padStart(2,'0');
+          const hour = String(parseInt(em[4])).padStart(2,'0');
+          return `${year}-${mon}-${day}T${hour}:${em[5]}`;
+        }
+      }
+      // Japanese format: 2026(noise)08(noise)22 followed by 11:00
+      const jm = text.match(/\b(202\d)\D{0,8}(\d{1,2})\D{0,8}(\d{1,2})/);
+      const tm = text.match(/\b(\d{1,2}):(\d{2})/);
+      if (jm && tm) {
+        const mo = parseInt(jm[2]), da = parseInt(jm[3]);
+        if (mo >= 1 && mo <= 12 && da >= 1 && da <= 31) {
+          return `${jm[1]}-${String(mo).padStart(2,'0')}-${String(da).padStart(2,'0')}T${String(parseInt(tm[1])).padStart(2,'0')}:${tm[2]}`;
+        }
+      }
+      return null;
+    }
+
     function extractPhone(text) {
       const m = text.match(/\b([689]\d{7})\b/);
       if (m) return '65' + m[1];
@@ -206,6 +239,7 @@
 
         const full = extractName(text);
         const phone = extractPhone(text);
+        const dt = extractDateTime(text);
 
         let lines = [];
         if (full) {
@@ -221,6 +255,13 @@
         } else {
           lines.push('📞 Phone not found — type manually');
         }
+        if (dt) {
+          document.getElementById('apptDate').value = dt;
+          const label = formatAppt(dt);
+          lines.push(`📅 ${label}`);
+        } else {
+          lines.push('📅 Date not found — enter manually');
+        }
 
         result.innerHTML = lines.join('<br>');
         box.classList.add('done');
@@ -231,15 +272,13 @@
 
     function formatAppt(value) {
       if (!value) return null;
-      const d = new Date(value);
+      const [datePart, timePart] = value.split('T');
+      const [yr, mo, da] = datePart.split('-').map(Number);
+      const [hr, mn] = (timePart || '00:00').split(':').map(Number);
+      const d = new Date(yr, mo - 1, da, hr, mn);
       const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
       const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-      const day = days[d.getDay()];
-      const date = d.getDate();
-      const month = months[d.getMonth()];
-      const hh = String(d.getHours()).padStart(2,'0');
-      const mm = String(d.getMinutes()).padStart(2,'0');
-      return `${day}, ${date} ${month} at ${hh}:${mm}`;
+      return `${days[d.getDay()]}, ${da} ${months[mo-1]} at ${String(hr).padStart(2,'0')}:${String(mn).padStart(2,'0')}`;
     }
 
     function buildMessage() {

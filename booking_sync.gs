@@ -21,6 +21,17 @@ function setDropdown(sheet, startRow, numRows) {
   sheet.getRange(startRow, 4, numRows, 1).setDataValidation(rule);
 }
 
+// 料金決定：2026年8月以降は280 SGD
+function getSessionFee(dateStr) {
+  if (!dateStr) return 250;
+  const m = dateStr.match(/(\d{4})\/(\d+)\//);
+  if (!m) return 250;
+  const year = parseInt(m[1]);
+  const month = parseInt(m[2]);
+  if (year > 2026 || (year === 2026 && month >= 8)) return 280;
+  return 250;
+}
+
 // -------------------------------------------------------
 // manualSync — 現在の正しいデータを直接書き込む
 // -------------------------------------------------------
@@ -123,8 +134,8 @@ function checkBookingsAndUpdate() {
       const body    = message.getPlainBody();
 
       if (subject.includes('予約が入りました')) {
-        if (body.includes(SESSION_KEYWORD)) { addNewBooking(sessionSheet, body, 250); sessionUpdated = true; }
-        if (body.includes(EVENT_KEYWORD))   { addNewBooking(eventSheet,   body, 88);  eventUpdated   = true; }
+        if (body.includes(SESSION_KEYWORD)) { addNewBooking(sessionSheet, body); sessionUpdated = true; }
+        if (body.includes(EVENT_KEYWORD))   { addNewBooking(eventSheet,   body, 88); eventUpdated = true; }
       } else if (subject.includes('が変更されました')) {
         if (body.includes(SESSION_KEYWORD)) { updateBooking(sessionSheet, body); sessionUpdated = true; }
         if (body.includes(EVENT_KEYWORD))   { updateBooking(eventSheet,   body); eventUpdated   = true; }
@@ -144,13 +155,15 @@ function checkBookingsAndUpdate() {
   if (eventUpdated)   sortByDate(eventSheet);
 }
 
-function addNewBooking(sheet, body, fee) {
+// fixedFeeを指定した場合はそれを使う（イベント用）、そうでなければ日付から自動判定
+function addNewBooking(sheet, body, fixedFee) {
   const nameMatch = body.match(/◆予約者:\s*\r?\n\s*(.+)/);
   const dateMatch = body.match(/◆予約日時:\s*\r?\n\s*(.+)/);
   if (!nameMatch || !dateMatch) return;
   const name    = nameMatch[1].trim();
   const dateStr = parseJapaneseDate(dateMatch[1].trim());
   if (!dateStr) return;
+  const fee = (fixedFee !== undefined) ? fixedFee : getSessionFee(dateStr);
   const data = sheet.getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][0]) === dateStr && data[i][1] === name) return;

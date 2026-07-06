@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>売上管理 | Personal Makeup Session SG</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Helvetica Neue', 'Hiragino Sans', 'Noto Sans JP', Arial, sans-serif;
+      background: #fdf6f0;
+      min-height: 100vh;
+      display: flex; align-items: flex-start; justify-content: center;
+      padding: 24px 16px;
+    }
+    .card {
+      background: #fff; border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      max-width: 560px; width: 100%; padding: 36px 28px;
+    }
+    .logo { text-align: center; margin-bottom: 24px; }
+    .logo h1 { font-size: 1rem; font-weight: 600; color: #c5766a; letter-spacing: 0.04em; }
+    .logo p { font-size: 0.75rem; color: #999; margin-top: 4px; }
+    h2 { font-size: 0.95rem; color: #333; margin: 28px 0 16px; padding-bottom: 10px; border-bottom: 1px solid #f0e8e4; }
+    h2:first-of-type { margin-top: 0; }
+
+    /* KPI tiles */
+    .kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .kpi { background: #fdfaf8; border: 1px solid #f0e8e4; border-radius: 10px; padding: 12px 14px; }
+    .kpi .kpi-label { font-size: 0.72rem; color: #999; margin-bottom: 4px; }
+    .kpi .kpi-value { font-size: 1.25rem; font-weight: 600; color: #333; }
+    .kpi .kpi-sub { font-size: 0.7rem; color: #aaa; margin-top: 4px; }
+    .kpi .delta-up { color: #2d9c6e; font-weight: 600; }
+    .kpi .delta-down { color: #c0504d; font-weight: 600; }
+
+    /* Chart */
+    .chart-wrap { position: relative; }
+    .chart-wrap svg { width: 100%; height: auto; display: block; }
+    .chart-tip {
+      position: absolute; display: none; pointer-events: none;
+      background: #333; color: #fff; border-radius: 8px;
+      padding: 7px 11px; font-size: 0.72rem; line-height: 1.6;
+      white-space: nowrap; transform: translate(-50%, -100%);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.18); z-index: 5;
+    }
+    .chart-hint { font-size: 0.7rem; color: #bbb; text-align: center; margin-top: 6px; }
+
+    /* Form */
+    .form-group { margin-bottom: 14px; }
+    label { display: block; font-size: 0.8rem; color: #666; margin-bottom: 5px; font-weight: 500; }
+    .label-hint { font-size: 0.72rem; color: #aaa; font-weight: 400; margin-left: 6px; }
+    input, textarea, select {
+      width: 100%; padding: 10px 14px; border: 1px solid #e0d6d0; border-radius: 8px;
+      font-size: 0.9rem; color: #333; background: #fdfaf8;
+      transition: border-color 0.2s; outline: none; font-family: inherit;
+    }
+    input:focus, textarea:focus, select:focus { border-color: #c5766a; background: #fff; }
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .chips { display: flex; gap: 8px; }
+    .chip {
+      flex: 1; padding: 9px 4px; border: 1px solid #e0d6d0; border-radius: 8px;
+      background: #fdfaf8; color: #666; font-size: 0.82rem; cursor: pointer;
+      text-align: center; transition: all 0.15s; font-family: inherit;
+    }
+    .chip.active { border-color: #c5766a; background: #fff8f6; color: #c5766a; font-weight: 600; }
+
+    .btn {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      width: 100%; padding: 13px; border: none; border-radius: 10px;
+      font-size: 0.95rem; font-weight: 600; cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s; font-family: inherit;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn-primary { background: #c5766a; color: #fff; }
+    .btn-primary:hover { opacity: 0.9; }
+    .btn-outline { background: #fff; color: #c5766a; border: 1.5px solid #c5766a; font-size: 0.85rem; padding: 10px; }
+    .btn-row { display: flex; gap: 8px; margin-top: 4px; }
+    .btn-row .btn { margin: 0; }
+    #cancelEditBtn { display: none; }
+
+    /* Records list */
+    .list-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .list-toolbar select { flex: 1; }
+    .list-total { font-size: 0.78rem; color: #666; white-space: nowrap; }
+    .list-total strong { color: #c5766a; }
+    .rec {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 4px; border-bottom: 1px solid #f7f1ee;
+    }
+    .rec-main { flex: 1; min-width: 0; }
+    .rec-name { font-size: 0.86rem; color: #333; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rec-meta { font-size: 0.7rem; color: #aaa; margin-top: 2px; }
+    .rec-amount { font-size: 0.88rem; font-weight: 600; color: #333; white-space: nowrap; }
+    .rec-actions { display: flex; gap: 4px; }
+    .rec-actions button {
+      border: none; background: none; cursor: pointer; font-size: 0.72rem;
+      color: #c5766a; padding: 4px 6px; border-radius: 6px; font-family: inherit;
+    }
+    .rec-actions button:hover { background: #fff8f6; }
+    .rec-actions .del { color: #c0504d; }
+    .empty { text-align: center; font-size: 0.8rem; color: #bbb; padding: 20px 0; }
+    .badge-method {
+      display: inline-block; font-size: 0.65rem; border-radius: 5px; padding: 1px 6px;
+      background: #f3e8f7; color: #7b2d8b; margin-right: 6px; vertical-align: 1px;
+    }
+
+    /* Monthly table */
+    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    th { text-align: left; color: #999; font-weight: 500; font-size: 0.72rem; padding: 6px 4px; border-bottom: 1px solid #f0e8e4; }
+    td { padding: 7px 4px; border-bottom: 1px solid #f7f1ee; color: #444; font-variant-numeric: tabular-nums; }
+    th.num, td.num { text-align: right; }
+
+    .note { font-size: 0.73rem; color: #bbb; text-align: center; margin-top: 14px; line-height: 1.7; }
+    .backlink { display: block; text-align: center; font-size: 0.75rem; color: #c5766a; margin-top: 10px; text-decoration: none; }
+    .backlink:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <h1>Personal Makeup Session — Singapore</h1>
+      <p>売上管理 / Sales Manager</p>
+    </div>
+
+    <h2>ダッシュボード</h2>
+    <div class="kpi-grid" id="kpiGrid"></div>
+
+    <h2>月別売上(直近12ヶ月・SGD)</h2>
+    <div class="chart-wrap" id="chartWrap">
+      <svg id="chart" viewBox="0 0 520 230" role="img" aria-label="月別売上の棒グラフ"></svg>
+      <div class="chart-tip" id="chartTip"></div>
+    </div>
+    <p class="chart-hint">棒をタップするとその月の記録を表示します</p>
+
+    <h2 id="formTitle">売上を記録</h2>
+    <div class="row2">
+      <div class="form-group">
+        <label>日付</label>
+        <input type="date" id="fDate" />
+      </div>
+      <div class="form-group">
+        <label>金額 <span class="label-hint">SGD</span></label>
+        <input type="number" id="fAmount" inputmode="decimal" step="0.01" min="0" value="280" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label>お客様名 <span class="label-hint">任意</span></label>
+      <input type="text" id="fName" placeholder="e.g. Narissa" />
+    </div>
+    <div class="form-group">
+      <label>支払方法</label>
+      <div class="chips" id="methodChips">
+        <button type="button" class="chip active" data-method="PayNow">PayNow</button>
+        <button type="button" class="chip" data-method="現金">現金</button>
+        <button type="button" class="chip" data-method="その他">その他</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>メモ <span class="label-hint">任意</span></label>
+      <input type="text" id="fMemo" placeholder="e.g. リピーター、友人紹介" />
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="saveBtn" onclick="saveEntry()">➕ 記録する</button>
+      <button class="btn btn-outline" id="cancelEditBtn" onclick="cancelEdit()">キャンセル</button>
+    </div>
+
+    <h2>記録一覧</h2>
+    <div class="list-toolbar">
+      <select id="monthFilter" onchange="renderList()"></select>
+      <div class="list-total" id="listTotal"></div>
+    </div>
+    <div id="recList"></div>
+
+    <h2>月別サマリー</h2>
+    <table>
+      <thead><tr><th>月</th><th class="num">件数</th><th class="num">売上 (SGD)</th></tr></thead>
+      <tbody id="summaryBody"></tbody>
+    </table>
+
+    <h2>データ管理</h2>
+    <div class="btn-row">
+      <button class="btn btn-outline" onclick="exportCSV()">📄 CSV出力</button>
+      <button class="btn btn-outline" onclick="exportJSON()">💾 バックアップ</button>
+      <button class="btn btn-outline" onclick="document.getElementById('importFile').click()">📥 復元</button>
+      <input type="file" id="importFile" accept=".json,application/json" style="display:none" onchange="importJSON(event)" />
+    </div>
+
+    <p class="note">
+      データはこの端末のブラウザ内(localStorage)にのみ保存されます。<br />
+      機種変更やブラウザのデータ削除に備えて、定期的に「バックアップ」を保存してください。
+    </p>
+    <a class="backlink" href="index.html">← WhatsApp Payment Guide に戻る</a>
+  </div>
+
+  <script>
+    const STORE_KEY = 'pms-sg-sales-v1';
+    const ACCENT = '#c5766a';
+
+    let records = [];
+    let editingId = null;
+
+    function load() {
+      try { records = JSON.parse(localStorage.getItem(STORE_KEY)) || []; }
+      catch (e) { records = []; }
+      if (!Array.isArray(records)) records = [];
+    }
+    function persist() { localStorage.setItem(STORE_KEY, JSON.stringify(records)); }
+
+    // ---------- helpers ----------
+    function esc(s) {
+      return String(s).replace(/[&<>"']/g, c => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+      ));
+    }
+    function money(n) {
+      const v = Number(n) || 0;
+      return v.toLocaleString('en-SG', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: Number.isInteger(v) ? 0 : 2
+      });
+    }
+    function monthKey(dateStr) { return (dateStr || '').slice(0, 7); }        // YYYY-MM
+    function monthLabel(key) {
+      const [y, m] = key.split('-');
+      return `${y}年${parseInt(m)}月`;
+    }
+    function todayStr() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+    function lastNMonthKeys(n) {
+      const keys = [];
+      const d = new Date();
+      d.setDate(1);
+      for (let i = n - 1; i >= 0; i--) {
+        const t = new Date(d.getFullYear(), d.getMonth() - i, 1);
+        keys.push(`${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}`);
+      }
+      return keys;
+    }
+    function sumByMonth() {
+      const map = {};
+      for (const r of records) {
+        const k = monthKey(r.date);
+        if (!k) continue;
+        if (!map[k]) map[k] = { total: 0, count: 0 };
+        map[k].total += Number(r.amount) || 0;
+        map[k].count += 1;
+      }
+      return map;
+    }
+    function selectedMethod() {
+      const el = document.querySelector('#methodChips .chip.active');
+      return el ? el.dataset.method : 'PayNow';
+    }
+
+    // ---------- form ----------
+    document.getElementById('methodChips').addEventListener('click', e => {
+      const chip = e.target.closest('.chip');
+      if (!chip) return;
+      document.querySelectorAll('#methodChips .chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+    });
+
+    function saveEntry() {
+      const date = document.getElementById('fDate').value;
+      const amount = parseFloat(document.getElementById('fAmount').value);
+      if (!date) { alert('日付を入力してください'); return; }
+      if (!(amount >= 0)) { alert('金額を入力してください'); return; }
+      const entry = {
+        id: editingId || (Date.now().toString(36) + Math.random().toString(36).slice(2, 7)),
+        date,
+        amount,
+        name: document.getElementById('fName').value.trim(),
+        method: selectedMethod(),
+        memo: document.getElementById('fMemo').value.trim()
+      };
+      if (editingId) {
+        const i = records.findIndex(r => r.id === editingId);
+        if (i >= 0) records[i] = entry; else records.push(entry);
+      } else {
+        records.push(entry);
+      }
+      persist();
+      cancelEdit();
+      renderAll();
+    }
+
+    function editEntry(id) {
+      const r = records.find(x => x.id === id);
+      if (!r) return;
+      editingId = id;
+      document.getElementById('fDate').value = r.date;
+      document.getElementById('fAmount').value = r.amount;
+      document.getElementById('fName').value = r.name || '';
+      document.getElementById('fMemo').value = r.memo || '';
+      document.querySelectorAll('#methodChips .chip').forEach(c =>
+        c.classList.toggle('active', c.dataset.method === r.method));
+      if (!document.querySelector('#methodChips .chip.active'))
+        document.querySelector('#methodChips .chip').classList.add('active');
+      document.getElementById('formTitle').textContent = '記録を編集';
+      document.getElementById('saveBtn').textContent = '✅ 更新する';
+      document.getElementById('cancelEditBtn').style.display = 'flex';
+      document.getElementById('formTitle').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function cancelEdit() {
+      editingId = null;
+      document.getElementById('fDate').value = todayStr();
+      document.getElementById('fAmount').value = 280;
+      document.getElementById('fName').value = '';
+      document.getElementById('fMemo').value = '';
+      document.querySelectorAll('#methodChips .chip').forEach(c =>
+        c.classList.toggle('active', c.dataset.method === 'PayNow'));
+      document.getElementById('formTitle').textContent = '売上を記録';
+      document.getElementById('saveBtn').textContent = '➕ 記録する';
+      document.getElementById('cancelEditBtn').style.display = 'none';
+    }
+
+    function deleteEntry(id) {
+      const r = records.find(x => x.id === id);
+      if (!r) return;
+      if (!confirm(`${r.date} ${r.name || ''} S$${money(r.amount)} の記録を削除しますか?`)) return;
+      records = records.filter(x => x.id !== id);
+      if (editingId === id) cancelEdit();
+      persist();
+      renderAll();
+    }
+
+    // ---------- KPI ----------
+    function renderKPIs() {
+      const byMonth = sumByMonth();
+      const now = new Date();
+      const thisKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const prevKey = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}`;
+      const cur = byMonth[thisKey] || { total: 0, count: 0 };
+      const last = byMonth[prevKey] || { total: 0, count: 0 };
+
+      const yearPrefix = `${now.getFullYear()}-`;
+      let yearTotal = 0, yearCount = 0;
+      for (const [k, v] of Object.entries(byMonth)) {
+        if (k.startsWith(yearPrefix)) { yearTotal += v.total; yearCount += v.count; }
+      }
+      const avg = yearCount ? yearTotal / yearCount : 0;
+
+      let deltaHtml = '<span class="kpi-sub">先月: データなし</span>';
+      if (last.total > 0) {
+        const pct = Math.round((cur.total - last.total) / last.total * 100);
+        const cls = pct >= 0 ? 'delta-up' : 'delta-down';
+        const arrow = pct >= 0 ? '▲' : '▼';
+        deltaHtml = `<span class="kpi-sub"><span class="${cls}">${arrow} ${Math.abs(pct)}%</span> 先月比</span>`;
+      }
+
+      document.getElementById('kpiGrid').innerHTML = `
+        <div class="kpi">
+          <div class="kpi-label">今月の売上</div>
+          <div class="kpi-value">S$${money(cur.total)}</div>
+          ${deltaHtml}
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">今月のセッション</div>
+          <div class="kpi-value">${cur.count}<span style="font-size:0.8rem;font-weight:500"> 件</span></div>
+          <span class="kpi-sub">先月 ${last.count} 件</span>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">${now.getFullYear()}年の売上累計</div>
+          <div class="kpi-value">S$${money(yearTotal)}</div>
+          <span class="kpi-sub">${yearCount} 件</span>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">平均単価(今年)</div>
+          <div class="kpi-value">S$${money(Math.round(avg))}</div>
+          <span class="kpi-sub">1セッションあたり</span>
+        </div>`;
+    }
+
+    // ---------- chart ----------
+    function niceMax(v) {
+      if (v <= 0) return 100;
+      const exp = Math.pow(10, Math.floor(Math.log10(v)));
+      for (const m of [1, 2, 2.5, 5, 10]) {
+        if (v <= m * exp) return m * exp;
+      }
+      return 10 * exp;
+    }
+
+    function renderChart() {
+      const byMonth = sumByMonth();
+      const keys = lastNMonthKeys(12);
+      const vals = keys.map(k => byMonth[k] || { total: 0, count: 0 });
+      const maxVal = niceMax(Math.max(...vals.map(v => v.total)));
+
+      const W = 520, H = 230, padL = 52, padR = 8, padT = 22, padB = 26;
+      const plotW = W - padL - padR, plotH = H - padT - padB;
+      const band = plotW / 12;
+      const barW = Math.min(24, band * 0.55);
+      const baseY = padT + plotH;
+
+      let svg = '';
+      // gridlines + y ticks (4 divisions, clean numbers)
+      for (let i = 0; i <= 4; i++) {
+        const val = maxVal / 4 * i;
+        const y = baseY - plotH * (i / 4);
+        svg += `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="${i === 0 ? '#e0d6d0' : '#f0e8e4'}" stroke-width="1"/>`;
+        svg += `<text x="${padL - 6}" y="${y + 3}" text-anchor="end" font-size="9" fill="#aaa">${val.toLocaleString()}</text>`;
+      }
+
+      const maxTotal = Math.max(...vals.map(v => v.total));
+      const nowIdx = keys.length - 1;
+
+      keys.forEach((k, i) => {
+        const v = vals[i];
+        const cx = padL + band * i + band / 2;
+        const x = cx - barW / 2;
+        const h = maxVal > 0 ? plotH * (v.total / maxVal) : 0;
+        const top = baseY - h;
+        const r = Math.min(4, h);
+        if (h > 0) {
+          svg += `<path d="M ${x} ${baseY} L ${x} ${top + r} Q ${x} ${top} ${x + r} ${top} L ${x + barW - r} ${top} Q ${x + barW} ${top} ${x + barW} ${top + r} L ${x + barW} ${baseY} Z" fill="${ACCENT}"/>`;
+        }
+        // selective value labels: current month + the max month only
+        if (v.total > 0 && (i === nowIdx || (v.total === maxTotal && maxTotal > 0))) {
+          svg += `<text x="${cx}" y="${top - 5}" text-anchor="middle" font-size="9" font-weight="600" fill="#333">${v.total.toLocaleString()}</text>`;
+        }
+        // x label
+        const [yy, mm] = k.split('-');
+        const isJanOrFirst = mm === '01' || i === 0;
+        svg += `<text x="${cx}" y="${baseY + 13}" text-anchor="middle" font-size="9" fill="#aaa">${parseInt(mm)}月</text>`;
+        if (isJanOrFirst) {
+          svg += `<text x="${cx}" y="${baseY + 23}" text-anchor="middle" font-size="8" fill="#ccc">${yy}</text>`;
+        }
+        // hover / tap hit area (full band height — larger than the mark)
+        svg += `<rect x="${padL + band * i}" y="${padT}" width="${band}" height="${plotH}" fill="transparent" style="cursor:pointer"
+                  data-key="${k}" data-total="${v.total}" data-count="${v.count}" data-cx="${cx}" data-top="${v.total > 0 ? top : baseY}"/>`;
+      });
+
+      document.getElementById('chart').innerHTML = svg;
+
+      const tip = document.getElementById('chartTip');
+      const svgEl = document.getElementById('chart');
+      svgEl.querySelectorAll('rect[data-key]').forEach(rect => {
+        rect.addEventListener('mouseenter', () => showTip(rect));
+        rect.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+        rect.addEventListener('click', () => {
+          showTip(rect);
+          const sel = document.getElementById('monthFilter');
+          if ([...sel.options].some(o => o.value === rect.dataset.key)) {
+            sel.value = rect.dataset.key;
+            renderList();
+          }
+        });
+      });
+
+      function showTip(rect) {
+        const wrap = document.getElementById('chartWrap');
+        const scale = wrap.clientWidth / W;
+        tip.innerHTML = `<strong>${monthLabel(rect.dataset.key)}</strong><br>S$${money(Number(rect.dataset.total))} ・ ${rect.dataset.count}件`;
+        tip.style.left = `${Number(rect.dataset.cx) * scale}px`;
+        tip.style.top = `${Math.max(0, (Number(rect.dataset.top)) * scale - 8)}px`;
+        tip.style.display = 'block';
+      }
+    }
+
+    // ---------- list ----------
+    function renderMonthFilter() {
+      const sel = document.getElementById('monthFilter');
+      const current = sel.value;
+      const keys = [...new Set(records.map(r => monthKey(r.date)).filter(Boolean))].sort().reverse();
+      sel.innerHTML = '<option value="">全期間</option>' +
+        keys.map(k => `<option value="${k}">${monthLabel(k)}</option>`).join('');
+      if ([...sel.options].some(o => o.value === current)) sel.value = current;
+    }
+
+    function renderList() {
+      const filter = document.getElementById('monthFilter').value;
+      const list = records
+        .filter(r => !filter || monthKey(r.date) === filter)
+        .sort((a, b) => b.date.localeCompare(a.date) || (b.id > a.id ? 1 : -1));
+
+      const total = list.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+      document.getElementById('listTotal').innerHTML =
+        `${list.length}件 ・ 合計 <strong>S$${money(total)}</strong>`;
+
+      const el = document.getElementById('recList');
+      if (!list.length) {
+        el.innerHTML = '<div class="empty">記録がありません</div>';
+        return;
+      }
+      el.innerHTML = list.map(r => `
+        <div class="rec">
+          <div class="rec-main">
+            <div class="rec-name">${esc(r.name) || '(名前なし)'}</div>
+            <div class="rec-meta">
+              <span class="badge-method">${esc(r.method || 'その他')}</span>${esc(r.date)}${r.memo ? ' ・ ' + esc(r.memo) : ''}
+            </div>
+          </div>
+          <div class="rec-amount">S$${money(r.amount)}</div>
+          <div class="rec-actions">
+            <button onclick="editEntry('${esc(r.id)}')">編集</button>
+            <button class="del" onclick="deleteEntry('${esc(r.id)}')">削除</button>
+          </div>
+        </div>`).join('');
+    }
+
+    // ---------- monthly summary table ----------
+    function renderSummary() {
+      const byMonth = sumByMonth();
+      const keys = Object.keys(byMonth).sort().reverse().slice(0, 12);
+      const body = document.getElementById('summaryBody');
+      if (!keys.length) {
+        body.innerHTML = '<tr><td colspan="3" class="empty" style="text-align:center;color:#bbb">記録がありません</td></tr>';
+        return;
+      }
+      body.innerHTML = keys.map(k => `
+        <tr>
+          <td>${monthLabel(k)}</td>
+          <td class="num">${byMonth[k].count}</td>
+          <td class="num">${money(byMonth[k].total)}</td>
+        </tr>`).join('');
+    }
+
+    // ---------- export / import ----------
+    function download(filename, content, mime) {
+      const blob = new Blob([content], { type: mime });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    function exportCSV() {
+      const q = s => `"${String(s ?? '').replace(/"/g, '""')}"`;
+      const rows = [['日付', 'お客様名', '金額(SGD)', '支払方法', 'メモ']];
+      const sorted = [...records].sort((a, b) => a.date.localeCompare(b.date));
+      for (const r of sorted) rows.push([r.date, r.name, r.amount, r.method, r.memo]);
+      const csv = '\ufeff' + rows.map(row => row.map(q).join(',')).join('\r\n');
+      download(`sales-sg-${todayStr()}.csv`, csv, 'text/csv;charset=utf-8');
+    }
+
+    function exportJSON() {
+      download(`sales-sg-backup-${todayStr()}.json`,
+        JSON.stringify({ app: 'pms-sg-sales', version: 1, exportedAt: new Date().toISOString(), records }, null, 2),
+        'application/json');
+    }
+
+    function importJSON(event) {
+      const file = event.target.files[0];
+      event.target.value = '';
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const data = JSON.parse(reader.result);
+          const list = Array.isArray(data) ? data : data.records;
+          if (!Array.isArray(list)) throw new Error('形式が不正です');
+          const clean = list
+            .filter(r => r && r.date)
+            .map(r => ({
+              id: String(r.id || (Date.now().toString(36) + Math.random().toString(36).slice(2, 7))),
+              date: String(r.date).slice(0, 10),
+              amount: Number(r.amount) || 0,
+              name: String(r.name || ''),
+              method: String(r.method || 'その他'),
+              memo: String(r.memo || '')
+            }));
+          if (!confirm(`${clean.length}件の記録を読み込みます。現在の${records.length}件の記録は置き換えられます。よろしいですか?`)) return;
+          records = clean;
+          persist();
+          renderAll();
+          alert('復元しました');
+        } catch (e) {
+          alert('読み込みに失敗しました: ' + e.message);
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // ---------- boot ----------
+    function renderAll() {
+      renderKPIs();
+      renderChart();
+      renderMonthFilter();
+      renderList();
+      renderSummary();
+    }
+
+    load();
+    document.getElementById('fDate').value = todayStr();
+    renderAll();
+  </script>
+</body>
+</html>

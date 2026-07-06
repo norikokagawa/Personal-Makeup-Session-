@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>物販・在庫管理 | Personal Makeup Session SG</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Helvetica Neue', 'Hiragino Sans', 'Noto Sans JP', Arial, sans-serif;
+      background: #fdf6f0;
+      min-height: 100vh;
+      display: flex; align-items: flex-start; justify-content: center;
+      padding: 24px 16px;
+    }
+    .card {
+      background: #fff; border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      max-width: 560px; width: 100%; padding: 32px 28px;
+    }
+    .logo { text-align: center; margin-bottom: 16px; }
+    .logo h1 { font-size: 1rem; font-weight: 600; color: #c5766a; letter-spacing: 0.04em; }
+    .logo p { font-size: 0.75rem; color: #999; margin-top: 4px; }
+
+    /* nav */
+    .nav { display: flex; gap: 6px; margin-bottom: 24px; }
+    .nav a {
+      flex: 1; text-align: center; font-size: 0.76rem; text-decoration: none;
+      color: #999; padding: 8px 4px; border-radius: 8px; border: 1px solid #f0e8e4;
+      background: #fdfaf8; transition: all 0.15s;
+    }
+    .nav a:hover { color: #c5766a; border-color: #e0d6d0; }
+    .nav a.active { color: #c5766a; font-weight: 600; border-color: #c5766a; background: #fff8f6; }
+
+    h2 { font-size: 0.95rem; color: #333; margin: 28px 0 16px; padding-bottom: 10px; border-bottom: 1px solid #f0e8e4; }
+    h2 .h2-hint { font-size: 0.72rem; color: #bbb; font-weight: 400; float: right; margin-top: 3px; }
+
+    /* KPI tiles */
+    .kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .kpi { background: #fdfaf8; border: 1px solid #f0e8e4; border-radius: 10px; padding: 12px 14px; }
+    .kpi .kpi-label { font-size: 0.72rem; color: #999; margin-bottom: 4px; }
+    .kpi .kpi-value { font-size: 1.25rem; font-weight: 600; color: #333; }
+    .kpi .kpi-sub { font-size: 0.7rem; color: #aaa; margin-top: 4px; }
+    .kpi .delta-up { color: #2d9c6e; font-weight: 600; }
+    .kpi .delta-down { color: #c0504d; font-weight: 600; }
+    .kpi.alert .kpi-value { color: #c0504d; }
+    .kpi.alert.zero .kpi-value { color: #2d9c6e; }
+
+    /* alert banner */
+    .stock-alert {
+      display: none; background: #fdf0ee; border: 1px solid #f3d5cf; border-radius: 10px;
+      padding: 12px 14px; margin-top: 14px; font-size: 0.8rem; color: #a04a3e; line-height: 1.7;
+    }
+    .stock-alert strong { display: block; margin-bottom: 4px; color: #8f3f34; }
+    .stock-alert.show { display: block; }
+
+    /* chart */
+    .chart-legend { display: flex; gap: 16px; justify-content: center; margin-bottom: 6px; font-size: 0.74rem; color: #666; }
+    .chart-legend span { display: inline-flex; align-items: center; gap: 5px; }
+    .swatch { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+    .chart-wrap { position: relative; }
+    .chart-wrap svg { width: 100%; height: auto; display: block; }
+    .chart-tip {
+      position: absolute; display: none; pointer-events: none;
+      background: #333; color: #fff; border-radius: 8px;
+      padding: 8px 11px; font-size: 0.72rem; line-height: 1.7;
+      white-space: nowrap; transform: translate(-50%, -100%);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.18); z-index: 5;
+    }
+    .chart-hint { font-size: 0.7rem; color: #bbb; text-align: center; margin-top: 6px; }
+
+    /* form */
+    .form-group { margin-bottom: 14px; }
+    label { display: block; font-size: 0.8rem; color: #666; margin-bottom: 5px; font-weight: 500; }
+    .label-hint { font-size: 0.72rem; color: #aaa; font-weight: 400; margin-left: 6px; }
+    input, textarea, select {
+      width: 100%; padding: 10px 14px; border: 1px solid #e0d6d0; border-radius: 8px;
+      font-size: 0.9rem; color: #333; background: #fdfaf8;
+      transition: border-color 0.2s; outline: none; font-family: inherit;
+    }
+    input:focus, textarea:focus, select:focus { border-color: #c5766a; background: #fff; }
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    .field-hint { font-size: 0.72rem; color: #999; margin-top: 5px; min-height: 1em; }
+    .field-hint.warn { color: #c0504d; }
+
+    .btn {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      width: 100%; padding: 13px; border: none; border-radius: 10px;
+      font-size: 0.95rem; font-weight: 600; cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s; font-family: inherit;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn-primary { background: #c5766a; color: #fff; }
+    .btn-primary:hover { opacity: 0.9; }
+    .btn-purchase { background: #7b6ca6; color: #fff; }
+    .btn-sale { background: #2d9c6e; color: #fff; }
+    .btn-outline { background: #fff; color: #c5766a; border: 1.5px solid #c5766a; font-size: 0.85rem; padding: 10px; }
+    .btn-row { display: flex; gap: 8px; margin-top: 4px; }
+    .btn-row .btn { margin: 0; }
+    .btn-cancel { display: none; }
+
+    /* tabs for purchase/sale */
+    .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+    .tab {
+      flex: 1; padding: 10px 4px; border: 1px solid #e0d6d0; border-radius: 8px;
+      background: #fdfaf8; color: #666; font-size: 0.86rem; cursor: pointer;
+      text-align: center; transition: all 0.15s; font-family: inherit; font-weight: 500;
+    }
+    .tab.active[data-tab="sale"] { border-color: #2d9c6e; background: #eef8f3; color: #2d9c6e; font-weight: 600; }
+    .tab.active[data-tab="purchase"] { border-color: #7b6ca6; background: #f1eef8; color: #6b5c96; font-weight: 600; }
+
+    /* products/stock table */
+    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    th { text-align: left; color: #999; font-weight: 500; font-size: 0.72rem; padding: 6px 4px; border-bottom: 1px solid #f0e8e4; }
+    td { padding: 8px 4px; border-bottom: 1px solid #f7f1ee; color: #444; vertical-align: middle; }
+    th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .prod-name { font-weight: 500; color: #333; }
+    .prod-cat { font-size: 0.68rem; color: #aaa; }
+    .status { display: inline-block; font-size: 0.66rem; border-radius: 5px; padding: 1px 7px; white-space: nowrap; }
+    .status.ok { background: #eef8f3; color: #2d9c6e; }
+    .status.low { background: #fef4e6; color: #c98500; }
+    .status.out { background: #fdecea; color: #c0504d; }
+    .tbl-actions button { border: none; background: none; cursor: pointer; font-size: 0.7rem; color: #c5766a; padding: 3px 4px; border-radius: 6px; font-family: inherit; }
+    .tbl-actions button:hover { background: #fff8f6; }
+    .tbl-actions .del { color: #c0504d; }
+
+    /* txn list */
+    .list-toolbar { display: flex; gap: 8px; margin-bottom: 12px; }
+    .list-toolbar select { flex: 1; }
+    .rec { display: flex; align-items: center; gap: 10px; padding: 10px 4px; border-bottom: 1px solid #f7f1ee; }
+    .rec-icon { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; flex-shrink: 0; }
+    .rec-icon.sale { background: #eef8f3; }
+    .rec-icon.purchase { background: #f1eef8; }
+    .rec-main { flex: 1; min-width: 0; }
+    .rec-name { font-size: 0.86rem; color: #333; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rec-meta { font-size: 0.7rem; color: #aaa; margin-top: 2px; }
+    .rec-amount { font-size: 0.88rem; font-weight: 600; white-space: nowrap; text-align: right; }
+    .rec-amount.sale { color: #2d9c6e; }
+    .rec-amount.purchase { color: #6b5c96; }
+    .rec-amount .qty { display: block; font-size: 0.68rem; color: #aaa; font-weight: 400; }
+    .rec-actions { display: flex; gap: 2px; }
+    .rec-actions button { border: none; background: none; cursor: pointer; font-size: 0.7rem; color: #c5766a; padding: 4px 5px; border-radius: 6px; font-family: inherit; }
+    .rec-actions button:hover { background: #fff8f6; }
+    .rec-actions .del { color: #c0504d; }
+    .empty { text-align: center; font-size: 0.8rem; color: #bbb; padding: 20px 0; }
+
+    .note { font-size: 0.73rem; color: #bbb; text-align: center; margin-top: 14px; line-height: 1.7; }
+    .backlink { display: block; text-align: center; font-size: 0.75rem; color: #c5766a; margin-top: 10px; text-decoration: none; }
+    .backlink:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <h1>Personal Makeup Session — Singapore</h1>
+      <p>物販・在庫管理 / Inventory &amp; Sales</p>
+    </div>
+    <nav class="nav">
+      <a href="index.html">支払案内</a>
+      <a href="sales.html">セッション売上</a>
+      <a href="products.html" class="active">物販・在庫</a>
+    </nav>
+
+    <h2>ダッシュボード</h2>
+    <div class="kpi-grid" id="kpiGrid"></div>
+    <div class="stock-alert" id="stockAlert"></div>
+
+    <h2>月別 物販売上 <span class="h2-hint">直近12ヶ月・SGD</span></h2>
+    <div class="chart-legend">
+      <span><i class="swatch" style="background:#c5766a"></i>原価</span>
+      <span><i class="swatch" style="background:#2d9c6e"></i>粗利</span>
+    </div>
+    <div class="chart-wrap" id="chartWrap">
+      <svg id="chart" viewBox="0 0 520 230" role="img" aria-label="月別の物販売上(原価と粗利の内訳)の積み上げ棒グラフ"></svg>
+      <div class="chart-tip" id="chartTip"></div>
+    </div>
+    <p class="chart-hint">棒の高さ=売上。緑=粗利、赤=原価。タップでその月の取引を表示</p>
+
+    <!-- ========== 仕入れ / 販売 ========== -->
+    <h2 id="txnTitle">取引を記録</h2>
+    <div class="tabs" id="txnTabs">
+      <button type="button" class="tab active" data-tab="sale" onclick="setTab('sale')">🛍️ 販売</button>
+      <button type="button" class="tab" data-tab="purchase" onclick="setTab('purchase')">📦 仕入れ</button>
+    </div>
+
+    <div class="form-group">
+      <label>商品</label>
+      <select id="tProduct" onchange="onProductPick()"></select>
+      <div class="field-hint" id="stockHint"></div>
+    </div>
+    <div class="row3">
+      <div class="form-group">
+        <label>日付</label>
+        <input type="date" id="tDate" />
+      </div>
+      <div class="form-group">
+        <label>数量</label>
+        <input type="number" id="tQty" inputmode="numeric" step="1" min="1" value="1" oninput="onProductPick()" />
+      </div>
+      <div class="form-group">
+        <label id="priceLabel">単価</label>
+        <input type="number" id="tPrice" inputmode="decimal" step="0.01" min="0" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label id="partyLabel">お客様名 <span class="label-hint">任意</span></label>
+      <input type="text" id="tParty" placeholder="e.g. Narissa" />
+    </div>
+    <div class="form-group">
+      <label>メモ <span class="label-hint">任意</span></label>
+      <input type="text" id="tMemo" placeholder="任意" />
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-sale" id="txnSaveBtn" onclick="saveTxn()">➕ 記録する</button>
+      <button class="btn btn-outline btn-cancel" id="txnCancelBtn" onclick="cancelTxnEdit()">キャンセル</button>
+    </div>
+
+    <!-- ========== 取引履歴 ========== -->
+    <h2>取引履歴</h2>
+    <div class="list-toolbar">
+      <select id="typeFilter" onchange="renderTxnList()">
+        <option value="">すべて</option>
+        <option value="sale">販売のみ</option>
+        <option value="purchase">仕入れのみ</option>
+      </select>
+      <select id="monthFilter" onchange="renderTxnList()"></select>
+    </div>
+    <div id="txnList"></div>
+
+    <!-- ========== 商品マスタ ========== -->
+    <h2>商品一覧・在庫 <span class="h2-hint">タップで在庫の内訳</span></h2>
+    <table>
+      <thead><tr><th>商品</th><th class="num">在庫</th><th class="num">在庫評価額</th><th></th></tr></thead>
+      <tbody id="stockBody"></tbody>
+    </table>
+
+    <h2 id="prodFormTitle">商品を追加</h2>
+    <div class="form-group">
+      <label>商品名</label>
+      <input type="text" id="pName" placeholder="e.g. リップ #04 ローズ" />
+    </div>
+    <div class="row2">
+      <div class="form-group">
+        <label>カテゴリ <span class="label-hint">任意</span></label>
+        <input type="text" id="pCat" placeholder="e.g. リップ" list="catList" />
+        <datalist id="catList"></datalist>
+      </div>
+      <div class="form-group">
+        <label>発注点 <span class="label-hint">任意</span></label>
+        <input type="number" id="pReorder" inputmode="numeric" step="1" min="0" placeholder="残りこの数で警告" />
+      </div>
+    </div>
+    <div class="row2">
+      <div class="form-group">
+        <label>標準仕入単価 <span class="label-hint">SGD</span></label>
+        <input type="number" id="pCost" inputmode="decimal" step="0.01" min="0" placeholder="0" />
+      </div>
+      <div class="form-group">
+        <label>標準販売単価 <span class="label-hint">SGD</span></label>
+        <input type="number" id="pPrice" inputmode="decimal" step="0.01" min="0" placeholder="0" />
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="prodSaveBtn" onclick="saveProduct()">➕ 商品を追加</button>
+      <button class="btn btn-outline btn-cancel" id="prodCancelBtn" onclick="cancelProdEdit()">キャンセル</button>
+    </div>
+
+    <!-- ========== データ管理 ========== -->
+    <h2>データ管理</h2>
+    <div class="btn-row" style="margin-bottom:8px">
+      <button class="btn btn-outline" onclick="exportTxnCSV()">📄 取引CSV</button>
+      <button class="btn btn-outline" onclick="exportStockCSV()">📊 在庫CSV</button>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-outline" onclick="exportJSON()">💾 バックアップ</button>
+      <button class="btn btn-outline" onclick="document.getElementById('importFile').click()">📥 復元</button>
+      <input type="file" id="importFile" accept=".json,application/json" style="display:none" onchange="importJSON(event)" />
+    </div>
+
+    <p class="note">
+      データはこの端末のブラウザ内(localStorage)にのみ保存されます。<br />
+      機種変更やデータ削除に備えて、定期的に「バックアップ」を保存してください。<br />
+      粗利は全仕入れの加重平均原価で概算しています。
+    </p>
+    <a class="backlink" href="index.html">← WhatsApp Payment Guide に戻る</a>
+  </div>
+
+  <script>
+    const STORE_KEY = 'pms-sg-products-v1';
+    const COLOR_COST = '#c5766a';
+    const COLOR_PROFIT = '#2d9c6e';
+
+    let store = { products: [], txns: [] };
+    let currentTab = 'sale';       // 'sale' | 'purchase'
+    let editingTxnId = null;
+    let editingProdId = null;
+
+    // ---------- persistence ----------
+    function load() {
+      try {
+        const raw = JSON.parse(localStorage.getItem(STORE_KEY));
+        if (raw && Array.isArray(raw.products) && Array.isArray(raw.txns)) store = raw;
+      } catch (e) { /* keep default */ }
+    }
+    function persist() { localStorage.setItem(STORE_KEY, JSON.stringify(store)); }
+
+    // ---------- helpers ----------
+    function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+      ));
+    }
+    function money(n) {
+      const v = Number(n) || 0;
+      return v.toLocaleString('en-SG', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: Number.isInteger(v) ? 0 : 2
+      });
+    }
+    function monthKey(d) { return (d || '').slice(0, 7); }
+    function monthLabel(k) { const [y, m] = k.split('-'); return `${y}年${parseInt(m)}月`; }
+    function todayStr() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+    function lastNMonthKeys(n) {
+      const keys = [], now = new Date();
+      for (let i = n - 1; i >= 0; i--) {
+        const t = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        keys.push(`${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}`);
+      }
+      return keys;
+    }
+    function niceMax(v) {
+      if (v <= 0) return 100;
+      const exp = Math.pow(10, Math.floor(Math.log10(v)));
+      for (const m of [1, 2, 2.5, 5, 10]) if (v <= m * exp) return m * exp;
+      return 10 * exp;
+    }
+    function productById(id) { return store.products.find(p => p.id === id); }
+    function productName(id) { const p = productById(id); return p ? p.name : '(削除済み商品)'; }
+
+    // ---------- derived metrics ----------
+    // Weighted-average cost across ALL purchases of a product (time-independent).
+    function avgCost(pid) {
+      let qty = 0, cost = 0;
+      for (const t of store.txns) {
+        if (t.type === 'purchase' && t.productId === pid) { qty += t.qty; cost += t.qty * t.unitPrice; }
+      }
+      if (qty > 0) return cost / qty;
+      const p = productById(pid);
+      return p ? (Number(p.cost) || 0) : 0;
+    }
+    function stockOf(pid) {
+      let s = 0;
+      for (const t of store.txns) {
+        if (t.productId !== pid) continue;
+        s += t.type === 'purchase' ? t.qty : -t.qty;
+      }
+      return s;
+    }
+    function stockStatus(pid) {
+      const s = stockOf(pid);
+      const p = productById(pid);
+      const reorder = p ? (Number(p.reorder) || 0) : 0;
+      if (s <= 0) return { cls: 'out', label: '在庫切れ', stock: s };
+      if (reorder > 0 && s <= reorder) return { cls: 'low', label: '残りわずか', stock: s };
+      return { cls: 'ok', label: '在庫あり', stock: s };
+    }
+    // month -> {revenue, cost, profit, units}
+    function monthlySales() {
+      const map = {};
+      for (const t of store.txns) {
+        if (t.type !== 'sale') continue;
+        const k = monthKey(t.date); if (!k) continue;
+        if (!map[k]) map[k] = { revenue: 0, cost: 0, profit: 0, units: 0 };
+        const rev = t.qty * t.unitPrice;
+        const cogs = t.qty * avgCost(t.productId);
+        map[k].revenue += rev; map[k].cost += cogs; map[k].profit += rev - cogs; map[k].units += t.qty;
+      }
+      return map;
+    }
+
+    // ---------- tab / form mode ----------
+    function setTab(tab) {
+      if (editingTxnId) cancelTxnEdit();
+      currentTab = tab;
+      document.querySelectorAll('#txnTabs .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+      const isSale = tab === 'sale';
+      document.getElementById('priceLabel').textContent = isSale ? '販売単価' : '仕入単価';
+      document.getElementById('partyLabel').innerHTML = (isSale ? 'お客様名' : '仕入先') + ' <span class="label-hint">任意</span>';
+      document.getElementById('tParty').placeholder = isSale ? 'e.g. Narissa' : 'e.g. 卸業者名';
+      const btn = document.getElementById('txnSaveBtn');
+      btn.className = 'btn ' + (isSale ? 'btn-sale' : 'btn-purchase');
+      btn.textContent = editingTxnId ? '✅ 更新する' : (isSale ? '➕ 販売を記録' : '➕ 仕入れを記録');
+      onProductPick();
+    }
+
+    function onProductPick() {
+      const pid = document.getElementById('tProduct').value;
+      const hint = document.getElementById('stockHint');
+      const priceEl = document.getElementById('tPrice');
+      const p = productById(pid);
+      if (!p) { hint.textContent = ''; hint.className = 'field-hint'; return; }
+      const s = stockOf(pid);
+      if (!editingTxnId || document.activeElement === document.getElementById('tProduct')) {
+        priceEl.value = currentTab === 'sale' ? (p.price || '') : (p.cost || '');
+      }
+      if (currentTab === 'sale') {
+        const qty = parseInt(document.getElementById('tQty').value) || 0;
+        if (qty > s) {
+          hint.textContent = `⚠️ 在庫 ${s} 点に対し ${qty} 点の販売です(記録は可能・在庫がマイナスになります)`;
+          hint.className = 'field-hint warn';
+        } else {
+          hint.textContent = `在庫: ${s} 点 ・ 平均原価 S$${money(avgCost(pid))}`;
+          hint.className = 'field-hint';
+        }
+      } else {
+        hint.textContent = `現在の在庫: ${s} 点`;
+        hint.className = 'field-hint';
+      }
+    }
+
+    function saveTxn() {
+      const pid = document.getElementById('tProduct').value;
+      if (!pid) { alert('商品を選択してください。先に「商品を追加」してください。'); return; }
+      const date = document.getElementById('tDate').value;
+      const qty = parseInt(document.getElementById('tQty').value);
+      const unitPrice = parseFloat(document.getElementById('tPrice').value);
+      if (!date) { alert('日付を入力してください'); return; }
+      if (!(qty >= 1)) { alert('数量を入力してください'); return; }
+      if (!(unitPrice >= 0)) { alert('単価を入力してください'); return; }
+
+      const entry = {
+        id: editingTxnId || uid(),
+        type: currentTab,
+        productId: pid,
+        date, qty, unitPrice,
+        party: document.getElementById('tParty').value.trim(),
+        memo: document.getElementById('tMemo').value.trim()
+      };
+      if (editingTxnId) {
+        const i = store.txns.findIndex(t => t.id === editingTxnId);
+        if (i >= 0) store.txns[i] = entry; else store.txns.push(entry);
+      } else {
+        store.txns.push(entry);
+      }
+      persist();
+      cancelTxnEdit();
+      renderAll();
+    }
+
+    function editTxn(id) {
+      const t = store.txns.find(x => x.id === id);
+      if (!t) return;
+      editingTxnId = id;
+      setTab(t.type);
+      document.getElementById('tProduct').value = t.productId;
+      document.getElementById('tDate').value = t.date;
+      document.getElementById('tQty').value = t.qty;
+      document.getElementById('tPrice').value = t.unitPrice;
+      document.getElementById('tParty').value = t.party || '';
+      document.getElementById('tMemo').value = t.memo || '';
+      document.getElementById('txnTitle').textContent = '取引を編集';
+      document.getElementById('txnSaveBtn').textContent = '✅ 更新する';
+      document.getElementById('txnCancelBtn').style.display = 'flex';
+      onProductPick();
+      document.getElementById('txnTitle').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function cancelTxnEdit() {
+      editingTxnId = null;
+      document.getElementById('tDate').value = todayStr();
+      document.getElementById('tQty').value = 1;
+      document.getElementById('tParty').value = '';
+      document.getElementById('tMemo').value = '';
+      document.getElementById('txnTitle').textContent = '取引を記録';
+      document.getElementById('txnCancelBtn').style.display = 'none';
+      const btn = document.getElementById('txnSaveBtn');
+      btn.textContent = currentTab === 'sale' ? '➕ 販売を記録' : '➕ 仕入れを記録';
+      onProductPick();
+    }
+
+    function deleteTxn(id) {
+      const t = store.txns.find(x => x.id === id);
+      if (!t) return;
+      const verb = t.type === 'sale' ? '販売' : '仕入れ';
+      if (!confirm(`${t.date} ${productName(t.productId)} の${verb}記録(${t.qty}点)を削除しますか?`)) return;
+      store.txns = store.txns.filter(x => x.id !== id);
+      if (editingTxnId === id) cancelTxnEdit();
+      persist();
+      renderAll();
+    }
+
+    // ---------- product master ----------
+    function saveProduct() {
+      const name = document.getElementById('pName').value.trim();
+      if (!name) { alert('商品名を入力してください'); return; }
+      const entry = {
+        id: editingProdId || uid(),
+        name,
+        category: document.getElementById('pCat').value.trim(),
+        reorder: parseInt(document.getElementById('pReorder').value) || 0,
+        cost: parseFloat(document.getElementById('pCost').value) || 0,
+        price: parseFloat(document.getElementById('pPrice').value) || 0
+      };
+      if (editingProdId) {
+        const i = store.products.findIndex(p => p.id === editingProdId);
+        if (i >= 0) store.products[i] = entry; else store.products.push(entry);
+      } else {
+        store.products.push(entry);
+      }
+      persist();
+      cancelProdEdit();
+      renderAll();
+    }
+
+    function editProduct(id) {
+      const p = productById(id);
+      if (!p) return;
+      editingProdId = id;
+      document.getElementById('pName').value = p.name;
+      document.getElementById('pCat').value = p.category || '';
+      document.getElementById('pReorder').value = p.reorder || '';
+      document.getElementById('pCost').value = p.cost || '';
+      document.getElementById('pPrice').value = p.price || '';
+      document.getElementById('prodFormTitle').textContent = '商品を編集';
+      document.getElementById('prodSaveBtn').textContent = '✅ 更新する';
+      document.getElementById('prodCancelBtn').style.display = 'flex';
+      document.getElementById('prodFormTitle').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function cancelProdEdit() {
+      editingProdId = null;
+      ['pName', 'pCat', 'pReorder', 'pCost', 'pPrice'].forEach(id => document.getElementById(id).value = '');
+      document.getElementById('prodFormTitle').textContent = '商品を追加';
+      document.getElementById('prodSaveBtn').textContent = '➕ 商品を追加';
+      document.getElementById('prodCancelBtn').style.display = 'none';
+    }
+
+    function deleteProduct(id) {
+      const p = productById(id);
+      if (!p) return;
+      const linked = store.txns.filter(t => t.productId === id).length;
+      if (linked > 0) {
+        alert(`「${p.name}」には ${linked} 件の取引があります。\n先にその取引を削除してから商品を削除してください。`);
+        return;
+      }
+      if (!confirm(`商品「${p.name}」を削除しますか?`)) return;
+      store.products = store.products.filter(x => x.id !== id);
+      if (editingProdId === id) cancelProdEdit();
+      persist();
+      renderAll();
+    }
+
+    // ---------- render: selects & datalist ----------
+    function renderProductSelect() {
+      const sel = document.getElementById('tProduct');
+      const cur = sel.value;
+      if (!store.products.length) {
+        sel.innerHTML = '<option value="">(商品未登録 — 下で追加)</option>';
+      } else {
+        sel.innerHTML = store.products
+          .slice().sort((a, b) => a.name.localeCompare(b.name, 'ja'))
+          .map(p => `<option value="${esc(p.id)}">${esc(p.name)}${p.category ? ' ・ ' + esc(p.category) : ''}</option>`).join('');
+        if (store.products.some(p => p.id === cur)) sel.value = cur;
+      }
+      const cats = [...new Set(store.products.map(p => p.category).filter(Boolean))];
+      document.getElementById('catList').innerHTML = cats.map(c => `<option value="${esc(c)}">`).join('');
+    }
+
+    function renderMonthFilter() {
+      const sel = document.getElementById('monthFilter');
+      const cur = sel.value;
+      const keys = [...new Set(store.txns.map(t => monthKey(t.date)).filter(Boolean))].sort().reverse();
+      sel.innerHTML = '<option value="">全期間</option>' + keys.map(k => `<option value="${k}">${monthLabel(k)}</option>`).join('');
+      if ([...sel.options].some(o => o.value === cur)) sel.value = cur;
+    }
+
+    // ---------- render: KPIs + alert ----------
+    function renderKPIs() {
+      const now = new Date();
+      const thisKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const prevKey = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}`;
+      const ms = monthlySales();
+      const cur = ms[thisKey] || { revenue: 0, cost: 0, profit: 0, units: 0 };
+      const last = ms[prevKey] || { revenue: 0, cost: 0, profit: 0, units: 0 };
+
+      let invValue = 0;
+      for (const p of store.products) invValue += Math.max(0, stockOf(p.id)) * avgCost(p.id);
+
+      const lowItems = store.products.filter(p => { const st = stockStatus(p.id); return st.cls !== 'ok'; });
+      const margin = cur.revenue > 0 ? Math.round(cur.profit / cur.revenue * 100) : 0;
+
+      let deltaHtml = '<span class="kpi-sub">先月: データなし</span>';
+      if (last.revenue > 0) {
+        const pct = Math.round((cur.revenue - last.revenue) / last.revenue * 100);
+        const cls = pct >= 0 ? 'delta-up' : 'delta-down';
+        deltaHtml = `<span class="kpi-sub"><span class="${cls}">${pct >= 0 ? '▲' : '▼'} ${Math.abs(pct)}%</span> 先月比</span>`;
+      }
+
+      document.getElementById('kpiGrid').innerHTML = `
+        <div class="kpi">
+          <div class="kpi-label">在庫評価額(原価)</div>
+          <div class="kpi-value">S$${money(Math.round(invValue))}</div>
+          <span class="kpi-sub">${store.products.length} 商品</span>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">今月の物販売上</div>
+          <div class="kpi-value">S$${money(cur.revenue)}</div>
+          ${deltaHtml}
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">今月の粗利</div>
+          <div class="kpi-value">S$${money(Math.round(cur.profit))}</div>
+          <span class="kpi-sub">粗利率 ${margin}% ・ ${cur.units}点</span>
+        </div>
+        <div class="kpi alert ${lowItems.length ? '' : 'zero'}">
+          <div class="kpi-label">在庫アラート</div>
+          <div class="kpi-value">${lowItems.length}<span style="font-size:0.8rem;font-weight:500"> 件</span></div>
+          <span class="kpi-sub">${lowItems.length ? '要発注の商品あり' : '在庫は十分です'}</span>
+        </div>`;
+
+      const alertEl = document.getElementById('stockAlert');
+      if (lowItems.length) {
+        alertEl.classList.add('show');
+        alertEl.innerHTML = '<strong>⚠️ 在庫が少ない商品</strong>' + lowItems.map(p => {
+          const st = stockStatus(p.id);
+          return `${esc(p.name)} — 残 ${st.stock}点${p.reorder ? ` (発注点 ${p.reorder})` : ''}`;
+        }).join('<br>');
+      } else {
+        alertEl.classList.remove('show');
+      }
+    }
+
+    // ---------- render: chart (stacked cost + profit = revenue) ----------
+    function renderChart() {
+      const ms = monthlySales();
+      const keys = lastNMonthKeys(12);
+      const rows = keys.map(k => ms[k] || { revenue: 0, cost: 0, profit: 0, units: 0 });
+      const maxRev = niceMax(Math.max(0, ...rows.map(r => r.revenue)));
+
+      const W = 520, H = 230, padL = 52, padR = 8, padT = 22, padB = 26;
+      const plotW = W - padL - padR, plotH = H - padT - padB;
+      const band = plotW / 12;
+      const barW = Math.min(24, band * 0.55);
+      const baseY = padT + plotH;
+      const GAP = 2;
+      const maxRevRaw = Math.max(0, ...rows.map(r => r.revenue));
+      const nowIdx = keys.length - 1;
+
+      let svg = '';
+      for (let i = 0; i <= 4; i++) {
+        const val = maxRev / 4 * i;
+        const y = baseY - plotH * (i / 4);
+        svg += `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="${i === 0 ? '#e0d6d0' : '#f0e8e4'}" stroke-width="1"/>`;
+        svg += `<text x="${padL - 6}" y="${y + 3}" text-anchor="end" font-size="9" fill="#aaa">${val.toLocaleString()}</text>`;
+      }
+
+      keys.forEach((k, i) => {
+        const r = rows[i];
+        const cx = padL + band * i + band / 2;
+        const x = cx - barW / 2;
+        const scale = maxRev > 0 ? plotH / maxRev : 0;
+        // clamp so segments always sum to revenue even on a loss
+        const shownProfit = Math.max(0, r.profit);
+        const shownCost = Math.max(0, r.revenue - shownProfit);
+        const hCost = shownCost * scale;
+        const hProfit = shownProfit * scale;
+
+        if (r.revenue > 0) {
+          // cost segment (bottom, square)
+          if (hCost > 0.5) {
+            svg += `<rect x="${x}" y="${baseY - hCost}" width="${barW}" height="${hCost}" fill="${COLOR_COST}"/>`;
+          }
+          // profit segment (top, rounded top), separated by a surface gap
+          if (hProfit > 0.5) {
+            const pTop = baseY - hCost - GAP - hProfit;
+            const rad = Math.min(4, hProfit);
+            svg += `<path d="M ${x} ${pTop + hProfit} L ${x} ${pTop + rad} Q ${x} ${pTop} ${x + rad} ${pTop} L ${x + barW - rad} ${pTop} Q ${x + barW} ${pTop} ${x + barW} ${pTop + rad} L ${x + barW} ${pTop + hProfit} Z" fill="${COLOR_PROFIT}"/>`;
+          }
+          // selective revenue label: current month + peak month
+          if (i === nowIdx || (r.revenue === maxRevRaw && maxRevRaw > 0)) {
+            const topY = baseY - hCost - (hProfit > 0.5 ? GAP + hProfit : 0);
+            svg += `<text x="${cx}" y="${topY - 5}" text-anchor="middle" font-size="9" font-weight="600" fill="#333">${r.revenue.toLocaleString()}</text>`;
+          }
+        }
+
+        const [yy, mm] = k.split('-');
+        svg += `<text x="${cx}" y="${baseY + 13}" text-anchor="middle" font-size="9" fill="#aaa">${parseInt(mm)}月</text>`;
+        if (mm === '01' || i === 0) svg += `<text x="${cx}" y="${baseY + 23}" text-anchor="middle" font-size="8" fill="#ccc">${yy}</text>`;
+
+        svg += `<rect x="${padL + band * i}" y="${padT}" width="${band}" height="${plotH}" fill="transparent" style="cursor:pointer"
+                  data-key="${k}" data-rev="${r.revenue}" data-cost="${Math.round(r.cost)}" data-profit="${Math.round(r.profit)}" data-units="${r.units}"
+                  data-cx="${cx}" data-top="${r.revenue > 0 ? baseY - hCost - (hProfit > 0.5 ? GAP + hProfit : 0) : baseY}"/>`;
+      });
+
+      document.getElementById('chart').innerHTML = svg;
+
+      const tip = document.getElementById('chartTip');
+      document.getElementById('chart').querySelectorAll('rect[data-key]').forEach(rect => {
+        rect.addEventListener('mouseenter', () => showTip(rect));
+        rect.addEventListener('mouseleave', () => tip.style.display = 'none');
+        rect.addEventListener('click', () => {
+          showTip(rect);
+          const sel = document.getElementById('monthFilter');
+          if ([...sel.options].some(o => o.value === rect.dataset.key)) { sel.value = rect.dataset.key; renderTxnList(); }
+        });
+      });
+      function showTip(rect) {
+        const wrap = document.getElementById('chartWrap');
+        const sc = wrap.clientWidth / W;
+        const rev = Number(rect.dataset.rev), profit = Number(rect.dataset.profit);
+        const margin = rev > 0 ? Math.round(profit / rev * 100) : 0;
+        tip.innerHTML = `<strong>${monthLabel(rect.dataset.key)}</strong><br>売上 S$${money(rev)} ・ ${rect.dataset.units}点<br>粗利 S$${money(profit)} (${margin}%)`;
+        tip.style.left = `${Number(rect.dataset.cx) * sc}px`;
+        tip.style.top = `${Math.max(0, Number(rect.dataset.top) * sc - 8)}px`;
+        tip.style.display = 'block';
+      }
+    }
+
+    // ---------- render: stock table ----------
+    function renderStockTable() {
+      const body = document.getElementById('stockBody');
+      if (!store.products.length) {
+        body.innerHTML = '<tr><td colspan="4" class="empty" style="text-align:center">商品が未登録です。下のフォームから追加してください。</td></tr>';
+        return;
+      }
+      const rows = store.products.slice().sort((a, b) => (a.category || '').localeCompare(b.category || '', 'ja') || a.name.localeCompare(b.name, 'ja'));
+      body.innerHTML = rows.map(p => {
+        const st = stockStatus(p.id);
+        const val = Math.max(0, st.stock) * avgCost(p.id);
+        return `
+        <tr>
+          <td>
+            <div class="prod-name">${esc(p.name)}</div>
+            <div class="prod-cat">${p.category ? esc(p.category) + ' ・ ' : ''}原価 S$${money(avgCost(p.id))} / 売価 S$${money(p.price)}</div>
+          </td>
+          <td class="num">
+            ${st.stock}<br><span class="status ${st.cls}">${st.label}</span>
+          </td>
+          <td class="num">S$${money(Math.round(val))}</td>
+          <td class="tbl-actions" style="text-align:right;white-space:nowrap">
+            <button onclick="editProduct('${esc(p.id)}')">編集</button>
+            <button class="del" onclick="deleteProduct('${esc(p.id)}')">削除</button>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    // ---------- render: txn list ----------
+    function renderTxnList() {
+      const typeF = document.getElementById('typeFilter').value;
+      const monthF = document.getElementById('monthFilter').value;
+      const list = store.txns
+        .filter(t => (!typeF || t.type === typeF) && (!monthF || monthKey(t.date) === monthF))
+        .sort((a, b) => b.date.localeCompare(a.date) || (b.id > a.id ? 1 : -1));
+
+      const el = document.getElementById('txnList');
+      if (!list.length) { el.innerHTML = '<div class="empty">取引がありません</div>'; return; }
+
+      el.innerHTML = list.map(t => {
+        const isSale = t.type === 'sale';
+        const amt = t.qty * t.unitPrice;
+        return `
+        <div class="rec">
+          <div class="rec-icon ${t.type}">${isSale ? '🛍️' : '📦'}</div>
+          <div class="rec-main">
+            <div class="rec-name">${esc(productName(t.productId))}</div>
+            <div class="rec-meta">${esc(t.date)}${t.party ? ' ・ ' + esc(t.party) : ''}${t.memo ? ' ・ ' + esc(t.memo) : ''}</div>
+          </div>
+          <div class="rec-amount ${t.type}">
+            ${isSale ? '+' : '−'}S$${money(amt)}
+            <span class="qty">${t.qty}点 × S$${money(t.unitPrice)}</span>
+          </div>
+          <div class="rec-actions">
+            <button onclick="editTxn('${esc(t.id)}')">編集</button>
+            <button class="del" onclick="deleteTxn('${esc(t.id)}')">削除</button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    // ---------- export / import ----------
+    function download(filename, content, mime) {
+      const blob = new Blob([content], { type: mime });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+    const csvQuote = s => `"${String(s == null ? '' : s).replace(/"/g, '""')}"`;
+
+    function exportTxnCSV() {
+      const rows = [['日付', '種別', '商品', 'カテゴリ', '数量', '単価(SGD)', '金額(SGD)', '取引先', 'メモ']];
+      const sorted = [...store.txns].sort((a, b) => a.date.localeCompare(b.date));
+      for (const t of sorted) {
+        const p = productById(t.productId);
+        rows.push([t.date, t.type === 'sale' ? '販売' : '仕入れ', productName(t.productId),
+          p ? p.category : '', t.qty, t.unitPrice, t.qty * t.unitPrice, t.party, t.memo]);
+      }
+      download(`products-txn-${todayStr()}.csv`, '﻿' + rows.map(r => r.map(csvQuote).join(',')).join('\r\n'), 'text/csv;charset=utf-8');
+    }
+
+    function exportStockCSV() {
+      const rows = [['商品', 'カテゴリ', '在庫数', '平均原価(SGD)', '在庫評価額(SGD)', '標準売価(SGD)', '発注点', '状態']];
+      for (const p of store.products) {
+        const st = stockStatus(p.id);
+        rows.push([p.name, p.category, st.stock, Math.round(avgCost(p.id) * 100) / 100,
+          Math.round(Math.max(0, st.stock) * avgCost(p.id)), p.price, p.reorder || '', st.label]);
+      }
+      download(`products-stock-${todayStr()}.csv`, '﻿' + rows.map(r => r.map(csvQuote).join(',')).join('\r\n'), 'text/csv;charset=utf-8');
+    }
+
+    function exportJSON() {
+      download(`products-backup-${todayStr()}.json`,
+        JSON.stringify({ app: 'pms-sg-products', version: 1, exportedAt: new Date().toISOString(), ...store }, null, 2),
+        'application/json');
+    }
+
+    function importJSON(event) {
+      const file = event.target.files[0];
+      event.target.value = '';
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const data = JSON.parse(reader.result);
+          if (!Array.isArray(data.products) || !Array.isArray(data.txns)) throw new Error('形式が不正です');
+          const products = data.products.filter(p => p && p.name).map(p => ({
+            id: String(p.id || uid()), name: String(p.name), category: String(p.category || ''),
+            reorder: Number(p.reorder) || 0, cost: Number(p.cost) || 0, price: Number(p.price) || 0
+          }));
+          const txns = data.txns.filter(t => t && t.date && t.productId).map(t => ({
+            id: String(t.id || uid()), type: t.type === 'purchase' ? 'purchase' : 'sale',
+            productId: String(t.productId), date: String(t.date).slice(0, 10),
+            qty: Number(t.qty) || 0, unitPrice: Number(t.unitPrice) || 0,
+            party: String(t.party || ''), memo: String(t.memo || '')
+          }));
+          if (!confirm(`商品 ${products.length} 件・取引 ${txns.length} 件を読み込みます。\n現在のデータ(商品 ${store.products.length}・取引 ${store.txns.length})は置き換えられます。よろしいですか?`)) return;
+          store = { products, txns };
+          persist();
+          renderAll();
+          alert('復元しました');
+        } catch (e) {
+          alert('読み込みに失敗しました: ' + e.message);
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // ---------- boot ----------
+    function renderAll() {
+      renderProductSelect();
+      renderKPIs();
+      renderChart();
+      renderMonthFilter();
+      renderTxnList();
+      renderStockTable();
+    }
+
+    load();
+    document.getElementById('tDate').value = todayStr();
+    setTab('sale');
+    renderAll();
+  </script>
+</body>
+</html>

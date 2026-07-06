@@ -18,9 +18,17 @@
       box-shadow: 0 4px 24px rgba(0,0,0,0.08);
       max-width: 560px; width: 100%; padding: 36px 28px;
     }
-    .logo { text-align: center; margin-bottom: 24px; }
+    .logo { text-align: center; margin-bottom: 16px; }
     .logo h1 { font-size: 1rem; font-weight: 600; color: #c5766a; letter-spacing: 0.04em; }
     .logo p { font-size: 0.75rem; color: #999; margin-top: 4px; }
+    .nav { display: flex; gap: 6px; margin-bottom: 24px; }
+    .nav a {
+      flex: 1; text-align: center; font-size: 0.76rem; text-decoration: none;
+      color: #999; padding: 8px 4px; border-radius: 8px; border: 1px solid #f0e8e4;
+      background: #fdfaf8; transition: all 0.15s;
+    }
+    .nav a:hover { color: #c5766a; border-color: #e0d6d0; }
+    .nav a.active { color: #c5766a; font-weight: 600; border-color: #c5766a; background: #fff8f6; }
     h2 { font-size: 0.95rem; color: #333; margin: 28px 0 16px; padding-bottom: 10px; border-bottom: 1px solid #f0e8e4; }
     h2:first-of-type { margin-top: 0; }
 
@@ -121,6 +129,11 @@
       <h1>Personal Makeup Session — Singapore</h1>
       <p>売上管理 / Sales Manager</p>
     </div>
+    <nav class="nav">
+      <a href="index.html">支払案内</a>
+      <a href="sales.html" class="active">セッション売上</a>
+      <a href="products.html">物販・在庫</a>
+    </nav>
 
     <h2>ダッシュボード</h2>
     <div class="kpi-grid" id="kpiGrid"></div>

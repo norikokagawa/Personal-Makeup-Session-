@@ -90,7 +90,10 @@
 
     <div class="form-group highlight">
       <label>First name <span class="label-hint">editable</span></label>
-      <input type="text" id="firstName" placeholder="e.g. Narissa" oninput="updatePreview()" />
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="text" id="firstName" placeholder="e.g. Narissa" oninput="updatePreview()" style="flex:1;" />
+        <button type="button" onclick="swapName()" id="swapBtn" title="Swap name" style="display:none;flex-shrink:0;padding:8px 12px;border:1px solid #e0d6d0;border-radius:8px;background:#fdfaf8;font-size:0.85rem;cursor:pointer;color:#c5766a;">↔</button>
+      </div>
     </div>
     <div class="form-group highlight">
       <label>WhatsApp number <span class="label-hint">with country code</span></label>
@@ -164,12 +167,28 @@
       });
     }
 
+    let _nameParts = [];
+
     function guessFirstName(fullName) {
       const parts = fullName.trim().split(/\s+/);
+      _nameParts = parts;
       if (parts.length <= 1) return parts[0] || '';
-      if (parts.length === 2 && parts[1].length === 1) return parts[0];
+      // Last word is a single initial → first word is the given name (e.g. "Narissa S")
+      if (parts[parts.length - 1].length === 1) return parts[0];
+      // Known SG/Chinese surname first → second word is given name (e.g. "Lim Pui Kei" → "Pui")
       if (SG_SURNAMES.has(parts[0].toLowerCase())) return parts[1];
-      return parts[0];
+      // Unknown surname order: Singapore is majority surname-first (Chinese convention)
+      // → use the LAST word as the given name
+      return parts[parts.length - 1];
+    }
+
+    function swapName() {
+      if (_nameParts.length < 2) return;
+      const current = document.getElementById('firstName').value.trim();
+      const first = _nameParts[0];
+      const last = _nameParts[_nameParts.length - 1];
+      document.getElementById('firstName').value = (current === last) ? first : last;
+      updatePreview();
     }
 
     function extractName(text) {
@@ -245,6 +264,7 @@
         if (full) {
           const first = guessFirstName(full);
           document.getElementById('firstName').value = first;
+          if (_nameParts.length >= 2) document.getElementById('swapBtn').style.display = 'block';
           lines.push(`👤 ${first}`);
         } else {
           lines.push('👤 Name not found — type manually');

@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Salon de Singa — 売上・在庫管理</title>
+<style>
+  :root{
+    --bg:#fdf6f0; --card:#ffffff; --ink:#3a3230; --sub:#8a7d78;
+    --accent:#c5766a; --accent-d:#a85c50; --line:#f0e8e4; --soft:#fdfaf8;
+    --green:#2d9c6e; --green-bg:#eaf5f0; --amber:#c78a2d; --amber-bg:#fdf4e3;
+    --red:#c25151; --red-bg:#fbecec; --violet:#7b2d8b; --violet-bg:#f3e8f7;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Helvetica Neue',Arial,'Hiragino Sans','Yu Gothic',sans-serif;background:var(--bg);color:var(--ink);line-height:1.6;padding-bottom:60px}
+  header{background:#fff;border-bottom:1px solid var(--line);padding:16px 20px;position:sticky;top:0;z-index:20}
+  .brand{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+  .brand h1{font-size:1.05rem;font-weight:700;color:var(--accent);letter-spacing:.02em}
+  .brand span{font-size:.72rem;color:var(--sub)}
+  nav{display:flex;gap:4px;margin-top:12px;flex-wrap:wrap}
+  nav button{background:none;border:1px solid transparent;color:var(--sub);font-size:.82rem;font-weight:600;padding:7px 14px;border-radius:20px;cursor:pointer;transition:.15s;font-family:inherit}
+  nav button:hover{background:var(--soft);color:var(--accent)}
+  nav button.active{background:var(--accent);color:#fff}
+  main{max-width:1080px;margin:0 auto;padding:22px 18px}
+  .tab{display:none}
+  .tab.active{display:block;animation:fade .25s}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  h2.sec{font-size:.95rem;margin-bottom:14px;color:var(--ink);display:flex;align-items:center;gap:8px}
+  h2.sec small{font-size:.72rem;color:var(--sub);font-weight:400}
+  .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:18px}
+  select,input,button.act{font-family:inherit;font-size:.85rem;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--soft);color:var(--ink);outline:none}
+  select:focus,input:focus{border-color:var(--accent);background:#fff}
+  button.act{background:var(--accent);color:#fff;border:none;font-weight:600;cursor:pointer;transition:.15s}
+  button.act:hover{background:var(--accent-d)}
+  button.ghost{background:#fff;color:var(--accent);border:1px solid var(--accent)}
+  button.ghost:hover{background:var(--soft)}
+  /* KPI grid */
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:22px}
+  .kpi{background:var(--card);border-radius:14px;padding:16px 18px;box-shadow:0 2px 12px rgba(0,0,0,.04);border-left:3px solid var(--accent)}
+  .kpi .lbl{font-size:.72rem;color:var(--sub);margin-bottom:6px}
+  .kpi .val{font-size:1.5rem;font-weight:700;letter-spacing:-.01em}
+  .kpi .val small{font-size:.7rem;font-weight:600;color:var(--sub);margin-left:3px}
+  .kpi .sub{font-size:.7rem;color:var(--sub);margin-top:4px}
+  .kpi.green{border-color:var(--green)} .kpi.green .val{color:var(--green)}
+  .kpi.violet{border-color:var(--violet)} .kpi.violet .val{color:var(--violet)}
+  .kpi.amber{border-color:var(--amber)}
+  /* cards & tables */
+  .card{background:var(--card);border-radius:14px;padding:18px;box-shadow:0 2px 12px rgba(0,0,0,.04);margin-bottom:20px}
+  .card h3{font-size:.85rem;margin-bottom:12px;color:var(--ink)}
+  table{width:100%;border-collapse:collapse;font-size:.82rem}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line)}
+  th{font-size:.72rem;color:var(--sub);font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  tbody tr:hover{background:var(--soft)}
+  .bar{height:6px;border-radius:3px;background:var(--accent);display:inline-block;vertical-align:middle;margin-right:6px}
+  .tag{display:inline-block;font-size:.68rem;font-weight:600;padding:2px 8px;border-radius:20px}
+  .tag.g{background:var(--green-bg);color:var(--green)}
+  .tag.a{background:var(--amber-bg);color:var(--amber)}
+  .tag.r{background:var(--red-bg);color:var(--red)}
+  .tag.v{background:var(--violet-bg);color:var(--violet)}
+  .tag.n{background:var(--soft);color:var(--sub)}
+  .scroll{overflow-x:auto}
+  .muted{color:var(--sub)}
+  .right{margin-left:auto}
+  .pill{font-size:.7rem;padding:3px 9px;border-radius:20px;background:var(--soft);border:1px solid var(--line);cursor:pointer}
+  .pill.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  @media(max-width:720px){.grid2{grid-template-columns:1fr}}
+  /* modal */
+  .overlay{display:none;position:fixed;inset:0;background:rgba(50,40,38,.45);z-index:50;align-items:flex-start;justify-content:center;padding:24px;overflow-y:auto}
+  .overlay.open{display:flex}
+  .modal{background:#fff;border-radius:16px;max-width:560px;width:100%;padding:24px;box-shadow:0 12px 48px rgba(0,0,0,.2)}
+  .modal h3{font-size:1rem;margin-bottom:4px;color:var(--accent)}
+  .modal .hint{font-size:.75rem;color:var(--sub);margin-bottom:16px}
+  .field{margin-bottom:13px}
+  .field label{display:block;font-size:.76rem;color:var(--sub);margin-bottom:5px;font-weight:600}
+  .field input,.field select,.field textarea{width:100%}
+  textarea{font-family:inherit;font-size:.85rem;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--soft);resize:vertical;min-height:56px;outline:none}
+  textarea:focus{border-color:var(--accent);background:#fff}
+  .parsebox{background:var(--soft);border:1px dashed var(--line);border-radius:10px;padding:12px;font-size:.78rem;margin:6px 0 14px}
+  .parsebox .li{display:flex;justify-content:space-between;padding:3px 0;gap:8px}
+  .row2{display:flex;gap:10px}.row2>*{flex:1}
+  .modal-actions{display:flex;gap:10px;margin-top:18px}
+  .modal-actions button{flex:1;padding:12px}
+  .close-x{float:right;cursor:pointer;color:var(--sub);font-size:1.3rem;line-height:1;margin-top:-6px}
+  .alert-banner{background:var(--amber-bg);border:1px solid #f0dcb4;color:#8a6420;border-radius:10px;padding:10px 14px;font-size:.8rem;margin-bottom:16px}
+  .flagrow{background:#fdf7ef}
+  .note-sm{font-size:.72rem;color:var(--sub);margin-top:2px}
+  .inv-input{width:64px;text-align:right;padding:5px 8px}
+  .legend{font-size:.72rem;color:var(--sub);display:flex;gap:14px;flex-wrap:wrap;margin-top:8px}
+  .legend span::before{content:"●";margin-right:4px}
+  @media print{
+    header,nav,.toolbar,.no-print{display:none!important}
+    body{background:#fff;padding:0}
+    .tab{display:none!important}.tab.active{display:block!important}
+    .card{box-shadow:none;border:1px solid #ddd}
+  }
+  .inv-doc{max-width:640px}
+  .inv-doc .head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid var(--accent);padding-bottom:14px;margin-bottom:18px}
+  .inv-doc .head h3{font-size:1.3rem;color:var(--accent);letter-spacing:.08em}
+  .inv-doc .totrow{display:flex;justify-content:space-between;padding:8px 0;font-size:.9rem}
+  .inv-doc .totrow.big{border-top:2px solid var(--ink);margin-top:8px;padding-top:12px;font-size:1.1rem;font-weight:700}
+  .bank{background:var(--soft);border-radius:10px;padding:14px;margin-top:18px;font-size:.82rem}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <h1>Salon de Singa</h1><span>売上・在庫管理 &nbsp;|&nbsp; Personal Makeup Session (Singapore)</span>
+  </div>
+  <nav id="nav">
+    <button data-tab="dash" class="active">ダッシュボード</button>
+    <button data-tab="inv">在庫</button>
+    <button data-tab="tx">取引</button>
+    <button data-tab="sets">セット</button>
+    <button data-tab="invoice">請求書</button>
+  </nav>
+</header>
+
+<main>
+  <!-- DASHBOARD -->
+  <section id="dash" class="tab active">
+    <div class="toolbar">
+      <h2 class="sec" style="margin:0">月次サマリー</h2>
+      <select id="monthSel" class="right"></select>
+    </div>
+    <div id="kpis" class="kpis"></div>
+    <div class="grid2">
+      <div class="card"><h3>ブランド別 物販売上</h3><div class="scroll"><table id="brandTbl"></table></div></div>
+      <div class="card"><h3>商品別 売上ランキング</h3><div class="scroll"><table id="prodRankTbl"></table></div></div>
+    </div>
+    <div class="card">
+      <h3>粗利サマリー <small class="muted">ポイント還元前 / 還元後（対象ブランドの原価×0.9）</small></h3>
+      <div class="scroll"><table id="marginTbl"></table></div>
+    </div>
+    <div id="lowAlertCard" class="card"></div>
+  </section>
+
+  <!-- INVENTORY -->
+  <section id="inv" class="tab">
+    <div class="toolbar">
+      <h2 class="sec" style="margin:0">在庫一覧 <small>基準日 2026/07/07</small></h2>
+      <label class="muted" style="font-size:.78rem">アラート閾値 ≤
+        <input id="threshold" type="number" value="2" min="0" style="width:56px" class="inv-input"></label>
+      <span id="invBrandFilter" class="right"></span>
+    </div>
+    <div class="alert-banner" id="invNote">
+      セット販売・新規取引を「取引」タブで登録すると、構成商品の在庫がここに反映されます（基準在庫はサンプル取引を反映済みの 2026/07/07 時点）。
+    </div>
+    <div class="card scroll"><table id="invTbl"></table></div>
+    <div class="legend">
+      <span style="color:var(--red)">在庫切れ / マイナス（取り置き・発注待ち）</span>
+      <span style="color:var(--amber)">閾値以下</span>
+      <span style="color:var(--green)">十分</span>
+    </div>
+  </section>
+
+  <!-- TRANSACTIONS -->
+  <section id="tx" class="tab">
+    <div class="toolbar">
+      <h2 class="sec" style="margin:0">取引一覧</h2>
+      <select id="txMonth"></select>
+      <span id="txTypeFilter"></span>
+      <button class="act right" onclick="openTxModal()">＋ 取引を追加</button>
+    </div>
+    <div class="alert-banner" id="txSummary"></div>
+    <div class="card scroll"><table id="txTbl"></table></div>
+    <p class="note-sm">※「解決」列＝自由記述から自動で商品を名寄せした結果。<span class="tag r">要確認</span> は金額不一致や未解決の記述があるもの。行をクリックで内訳を表示。</p>
+  </section>
+
+  <!-- SETS -->
+  <section id="sets" class="tab">
+    <h2 class="sec">セット定義 <small>販売時は構成商品を各1個ずつ在庫から減算</small></h2>
+    <div id="setCards"></div>
+  </section>
+
+  <!-- INVOICE -->
+  <section id="invoice" class="tab">
+    <div class="toolbar no-print">
+      <h2 class="sec" style="margin:0">会場宛 月次請求書</h2>
+      <select id="invMonth" class="right"></select>
+      <button class="ghost" onclick="window.print()">印刷 / PDF</button>
+    </div>
+    <div class="card inv-doc" id="invoiceDoc"></div>
+  </section>
+</main>
+
+<!-- ADD TX MODAL -->
+<div class="overlay" id="txOverlay">
+  <div class="modal">
+    <span class="close-x" onclick="closeTxModal()">×</span>
+    <h3>取引を追加</h3>
+    <p class="hint">商品は自由記述でOK（例: <em>NOEVIR Concealer N, Mach Liner DBR, Base Makeup Set(Dry)</em>）。入力すると自動で名寄せします。</p>
+    <div class="row2">
+      <div class="field"><label>日付</label><input type="date" id="f_date"></div>
+      <div class="field"><label>時刻</label><input type="time" id="f_time"></div>
+    </div>
+    <div class="field"><label>顧客名</label><input type="text" id="f_cust" placeholder="Customer name"></div>
+    <div class="row2">
+      <div class="field"><label>種別</label>
+        <select id="f_type">
+          <option value="session">Personal Makeup Session（会場費20%）</option>
+          <option value="retail">Retail（物販のみ・会場費なし）</option>
+        </select></div>
+      <div class="field"><label>セッション料 (SGD)</label><input type="number" id="f_fee" value="250"></div>
+    </div>
+    <div class="field"><label>購入商品（自由記述）</label>
+      <textarea id="f_desc" placeholder="カンマ / スラッシュ / ＋ 区切り"></textarea></div>
+    <div class="parsebox" id="f_parse"><span class="muted">商品を入力すると解決結果を表示します。</span></div>
+    <div class="row2">
+      <div class="field"><label>決済額 合計 (SGD)</label><input type="number" id="f_pay" placeholder="0"></div>
+      <div class="field"><label>備考</label><input type="text" id="f_notes" placeholder="送料 / 割引 / 配送 など"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="ghost" onclick="closeTxModal()">キャンセル</button>
+      <button class="act" onclick="saveTx()">保存（在庫に反映）</button>
+    </div>
+  </div>
+</div>
+
+<!-- TX DETAIL MODAL -->
+<div class="overlay" id="detailOverlay">
+  <div class="modal">
+    <span class="close-x" onclick="document.getElementById('detailOverlay').classList.remove('open')">×</span>
+    <h3 id="d_title">取引内訳</h3>
+    <div id="d_body"></div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   DATA (embedded masters + seed transactions)
+============================================================ */
+const PRODUCTS = [
+ {id:"P001",brand:"NOEVIR",name:"Blanc Protector",jpy:13200,sgd:124,cost:89.01,pb:0},
+ {id:"P002",brand:"NOEVIR",name:"Concealer & Highlighter",jpy:4400,sgd:48,cost:29.67,pb:0},
+ {id:"P003",brand:"NOEVIR",name:"Sunscreen (Raysela UV gel)",jpy:4070,sgd:44,cost:27.45,pb:0},
+ {id:"P004",brand:"NOEVIR",name:"Skin Conditioner",jpy:6050,sgd:60,cost:40.8,pb:0},
+ {id:"P005",brand:"NOEVIR",name:"Toner (Lotion Aqua)",jpy:6380,sgd:62,cost:43.02,pb:0},
+ {id:"P006",brand:"NOEVIR",name:"Moisturising Emulsion (Emulsion Aqua)",jpy:7150,sgd:70,cost:48.22,pb:0},
+ {id:"P007",brand:"NOEVIR",name:"Eye Cream (Biosign)",jpy:16500,sgd:164,cost:111.27,pb:0},
+ {id:"P008",brand:"NOEVIR",name:"Eyebrow Brush",jpy:770,sgd:14,cost:5.19,pb:0},
+ {id:"P009",brand:"NOEVIR",name:"Lip Brush",jpy:770,sgd:14,cost:5.19,pb:0},
+ {id:"P010",brand:"NOEVIR",name:"Screw Brush",jpy:770,sgd:14,cost:5.19,pb:0},
+ {id:"P011",brand:"NOEVIR",name:"Cleansing Lotion (N2)",jpy:3300,sgd:36,cost:26.61,pb:0},
+ {id:"P012",brand:"SUQQU",name:"Mascara (3D Eyelash, Black)",jpy:4730,sgd:60,cost:38.98,pb:10},
+ {id:"P013",brand:"SUQQU",name:"The Foundation #110",jpy:11000,sgd:120,cost:90.65,pb:10},
+ {id:"P014",brand:"SUQQU",name:"The Foundation #115",jpy:11000,sgd:120,cost:90.65,pb:10},
+ {id:"P015",brand:"Blanc Etoile",name:"MACH LINER (BK)",jpy:3080,sgd:38,cost:25.38,pb:0},
+ {id:"P016",brand:"Blanc Etoile",name:"MACH LINER (Dark Brown)",jpy:3080,sgd:38,cost:25.38,pb:0},
+ {id:"P017",brand:"Blanc Etoile",name:"MACH LINER (Pink Brown)",jpy:3080,sgd:38,cost:25.38,pb:0},
+ {id:"P018",brand:"RMK",name:"Makeup Base (primer)",jpy:4070,sgd:52,cost:33.55,pb:10},
+ {id:"P019",brand:"RMK",name:"Poreless Base (primer)",jpy:4180,sgd:52,cost:34.45,pb:10},
+ {id:"P020",brand:"RMK",name:"Setting Powder (face powder)",jpy:5500,sgd:60,cost:45.33,pb:10},
+ {id:"P021",brand:"RMK",name:"Eyeshadow Brush (A)",jpy:2860,sgd:33,cost:23.57,pb:10},
+ {id:"P022",brand:"RMK",name:"Eyeshadow Brush (B)",jpy:2860,sgd:33,cost:23.57,pb:10},
+ {id:"P023",brand:"RMK",name:"Eyeshadow Brush (D)",jpy:2200,sgd:26,cost:18.13,pb:10},
+ {id:"P024",brand:"RMK",name:"Eyeshadow Brush (refill)",jpy:660,sgd:8,cost:5.44,pb:10},
+ {id:"P025",brand:"THREE",name:"Concealer Brush (M)",jpy:3300,sgd:40,cost:27.2,pb:10},
+ {id:"P026",brand:"Celvoke",name:"Indicate Eyebrow Powder",jpy:3850,sgd:48,cost:31.73,pb:10},
+ {id:"P027",brand:"ADDICTION",name:"Silky Balm Stick (primer)",jpy:4180,sgd:48,cost:34.45,pb:10},
+];
+const BASE_STOCK = {P001:9,P002:21,P003:3,P004:17,P005:3,P006:4,P007:4,P008:1,P009:4,P010:2,P011:2,P012:15,P013:1,P014:9,P015:1,P016:6,P017:4,P018:1,P019:8,P020:9,P021:5,P022:3,P023:7,P024:7,P025:2,P026:9,P027:7};
+const SETS = [
+ {id:"SET001",name:"Skincare Starter Set",price:180,comp:["P004","P005","P006"]},
+ {id:"SET002",name:"Skincare Complete Set",price:440,comp:["P004","P005","P006","P007","P001"]},
+ {id:"SET003",name:"Base Makeup Set (Dry Skin)",price:260,comp:["P019","P014","P002","P020"]},
+ {id:"SET004",name:"Base Makeup Set (Oily Skin)",price:260,comp:["P018","P013","P002","P020"]},
+];
+const SEED_TX = [
+ {id:"T0001",date:"2026/6/18",time:"11:00",cust:"Michelle Poh",fee:250,type:"session",desc:"",pay:0,notes:""},
+ {id:"T0002",date:"2026/6/18",time:"12:00",cust:"Emiko Ishida",fee:250,type:"session",desc:"NOEVIR Concealer&Highlighter, Eyeliner (MACH LINER, Dark Brown)",pay:86,notes:""},
+ {id:"T0003",date:"2026/6/18",time:"13:00",cust:"Fion Histed",fee:250,type:"session",desc:"Skin Conditioner, Toner (Lotion Aqua), Moisturising Emulsion (Emulsion Aqua), Mascara",pay:271,notes:""},
+ {id:"T0004",date:"2026/6/18",time:"14:00",cust:"Charmaine Low",fee:250,type:"session",desc:"Mascara",pay:60,notes:""},
+ {id:"T0005",date:"2026/6/19",time:"11:00",cust:"Narissa S",fee:250,type:"session",desc:"",pay:0,notes:""},
+ {id:"T0006",date:"2026/6/19",time:"12:00",cust:"Veana Lee",fee:250,type:"session",desc:"",pay:0,notes:""},
+ {id:"T0007",date:"2026/6/19",time:"13:00",cust:"Nicole Lu",fee:250,type:"session",desc:"NOEVIR Concealer&Highlighter",pay:48,notes:""},
+ {id:"T0008",date:"2026/6/19",time:"14:00",cust:"Cheryl Chan",fee:250,type:"session",desc:"NOEVIR Concealer&Highlighter, Celvoke Eyebrow powder, eyeshadow brush (A), eyeshadow brush (D), eyeshadow brush (refill)",pay:163,notes:""},
+ {id:"T0009",date:"2026/6/20",time:"10:00",cust:"Jessica Novia",fee:250,type:"session",desc:"RMK Poreless Base (Skin Base 01)",pay:52,notes:""},
+ {id:"T0010",date:"2026/6/20",time:"11:00",cust:"Gwend Lim",fee:250,type:"session",desc:"Eyeliner (MACH LINER, Dark Brown), NOEVIR Concealer&Highlighter, SUQQU Foundation #115, RMK Poreless Base (primer)",pay:258,notes:""},
+ {id:"T0011",date:"2026/6/20",time:"12:00",cust:"Kar Enn Ho",fee:250,type:"session",desc:"Eyeliner (MACH LINER, Pink Brown), SUQQU Mascara (Black), SUQQU Foundation #110",pay:218,notes:""},
+ {id:"T0012",date:"2026/6/20",time:"14:00",cust:"Angela Ong",fee:250,type:"session",desc:"",pay:0,notes:""},
+ {id:"T0013",date:"2026/6/20",time:"15:00",cust:"Shermin Xie",fee:250,type:"session",desc:"RMK Makeup Base (primer), eyeshadow brush (D), eyeshadow brush (refill)",pay:86,notes:""},
+ {id:"T0014",date:"2026/6/20",time:"16:00",cust:"Shirley Deng",fee:250,type:"session",desc:"RMK Poreless Base (primer), SUQQU Foundation #110, NOEVIR Concealer&Highlighter",pay:220,notes:""},
+ {id:"T0015",date:"2026/6/20",time:"17:30",cust:"Jennifer Leow",fee:250,type:"session",desc:"Skin Conditioner, Toner, Moisturising Emulsion, NOEVIR Blanc Protector, RMK Poreless Base (primer), NOEVIR Concealer&Highlighter, SUQQU Foundation #110, Celvoke Eyebrow powder",pay:603,notes:""},
+ {id:"T0016",date:"2026/6/21",time:"10:00",cust:"Serene Liew",fee:250,type:"session",desc:"Skin Conditioner, Toner, Moisturising Emulsion, RMK Poreless Base (primer), NOEVIR Concealer&Highlighter, Eyeliner (MACH LINER, Dark Brown)",pay:330,notes:""},
+ {id:"T0017",date:"2026/6/21",time:"11:00",cust:"Sophia Susanto",fee:250,type:"session",desc:"NOEVIR Concealer&Highlighter, concealer brush (M), Eyeliner (MACH LINER, Pink Brown)",pay:126,notes:""},
+ {id:"T0018",date:"2026/6/21",time:"12:00",cust:"Satomi Fujimoto",fee:250,type:"session",desc:"NOEVIR Eyebrow Brush",pay:14,notes:""},
+ {id:"T0019",date:"2026/6/21",time:"14:00",cust:"Su H",fee:250,type:"session",desc:"Sunscreen (UV gel), Eyeliner (MACH LINER, Dark Brown), SUQQU Mascara (Black), NOEVIR Concealer&Highlighter",pay:190,notes:""},
+ {id:"T0020",date:"2026/6/21",time:"15:00",cust:"Kristy T",fee:250,type:"session",desc:"SUQQU Mascara (Black), Eyeliner (MACH LINER, Dark Brown), NOEVIR eyebrow brush, Celvoke Eyebrow powder, RMK Makeup Base (primer), SUQQU Foundation #110, NOEVIR Concealer&Highlighter, Sunscreen (UV gel), eyeshadow brush (A), eyeshadow brush (D), eyeshadow brush (refill), RMK face powder",pay:551,notes:""},
+ {id:"T0021",date:"2026/6/21",time:"16:00",cust:"Kumiko Nagamori",fee:250,type:"session",desc:"",pay:0,notes:""},
+ {id:"T0022",date:"2026/6/21",time:"17:30",cust:"Jean Wong",fee:250,type:"session",desc:"NOEVIR Concealer&Highlighter, Eyeliner (MACH LINER, Dark Brown), Moisturising Emulsion",pay:156,notes:""},
+ {id:"T0023",date:"2026/6/23",time:"11:00",cust:"Kit mei Pan",fee:250,type:"session",desc:"NOEVIR Eye Cream (Biosign, promo), Blanc Protector",pay:288,notes:""},
+ {id:"T0024",date:"2026/6/23",time:"12:00",cust:"Liling Liu",fee:250,type:"session",desc:"NOEVIR Moisturising Emulsion (Emulsion Aqua, promo)",pay:70,notes:""},
+ {id:"T0025",date:"2026/6/23",time:"13:00",cust:"Kesinee Kongthong",fee:250,type:"session",desc:"Celvoke Eyebrow powder, SUQQU Mascara (Black), RMK eyeshadow brush (A)",pay:141,notes:""},
+ {id:"T0026",date:"2026/6/23",time:"14:00",cust:"Amanda Wong",fee:250,type:"session",desc:"NOEVIR Concealer&Highlighter, SUQQU Mascara (Black), Eyeliner (MACH LINER, Dark Brown), RMK eyeshadow brush (A), Celvoke Eyebrow powder",pay:227,notes:""},
+ {id:"T0027",date:"2026/6/23",time:"—",cust:"Ashley",fee:null,type:"retail",desc:"RMK Poreless Base (primer, special 44), SUQQU Foundation #115",pay:164,notes:"翌日受取 / pickup next day"},
+ {id:"T0028",date:"2026/6/23",time:"—",cust:"Gwend Lim",fee:null,type:"retail",desc:"Celvoke Eyebrow powder, RMK face powder (special 50), Delivery 5",pay:103,notes:"配送 Serangoon North / 送料SGD5込"},
+ {id:"T0029",date:"2026/6/24",time:"—",cust:"Emily Chung",fee:null,type:"retail",desc:"ADDICTION Silky Balm Stick (primer), NOEVIR Cleansing Lotion (N2), Skin Conditioner, Toner (Lotion Aqua N4)",pay:206,notes:"配送無料 / free delivery"},
+ {id:"T0030",date:"2026/6/24",time:"11:00",cust:"Taylor Voon",fee:250,type:"session",desc:"NOEVIR Concealer&Highlighter, SUQQU Foundation #115, RMK Poreless Base (primer), Eyeliner (MACH LINER, Dark Brown)",pay:258,notes:""},
+ {id:"T0031",date:"2026/6/24",time:"12:00",cust:"平野 明日香",fee:250,type:"session",desc:"",pay:0,notes:""},
+ {id:"T0032",date:"2026/6/25",time:"11:00",cust:"Pei Lin Chua",fee:250,type:"session",desc:"NOEVIR Concealer&Highlighter, Eyeliner (MACH LINER, Dark Brown), Celvoke Eyebrow powder, SUQQU Mascara (Black), NOEVIR Sunscreen (Raysela)",pay:238,notes:""},
+ {id:"T0033",date:"2026/6/25",time:"12:00",cust:"Erin Leung",fee:250,type:"session",desc:"SUQQU Foundation #115",pay:120,notes:""},
+ {id:"T0034",date:"2026/6/25",time:"13:00",cust:"Jocelyn Yong",fee:250,type:"session",desc:"",pay:0,notes:""},
+ {id:"T0035",date:"2026/6/25",time:"—",cust:"Pei Lin Chua (2nd)",fee:null,type:"retail",desc:"RMK Makeup Base (primer), RMK Setting Powder (face powder)",pay:112,notes:"決済済 / 店頭お渡し"},
+ {id:"T0036",date:"2026/6/25",time:"—",cust:"Liling Liu (2nd)",fee:null,type:"retail",desc:"NOEVIR Concealer&Highlighter",pay:48,notes:"配送完了 / 送料SGD4 Noriko負担"},
+ {id:"T0037",date:"2026/6/25",time:"—",cust:"Erica YT",fee:null,type:"retail",desc:"Eyeliner (MACH LINER, Dark Brown)",pay:38,notes:"明日店頭お渡し"},
+ {id:"T0038",date:"2026/6/25",time:"—",cust:"Mei Ling",fee:null,type:"retail",desc:"NOEVIR Concealer&Highlighter, NOEVIR Screw Brush",pay:62,notes:"明後日店頭お渡し"},
+ {id:"T0039",date:"2026/6/25",time:"—",cust:"Sarah",fee:null,type:"retail",desc:"NOEVIR Concealer&Highlighter",pay:48,notes:"配送完了 / 送料SGD4 Noriko負担"},
+ {id:"T0040",date:"2026/6/25",time:"—",cust:"Ziling",fee:null,type:"retail",desc:"NOEVIR Concealer&Highlighter ×2",pay:96,notes:"配送完了 / 送料SGD4 Noriko負担(2個1便)"},
+ {id:"T0041",date:"2026/6/27",time:"10:00",cust:"Jessica Leong",fee:250,type:"session",desc:"NOEVIR Skin Conditioner, Toner (Lotion Aqua N4), ADDICTION Silky Balm Stick (primer)",pay:170,notes:""},
+ {id:"T0042",date:"2026/6/27",time:"11:00",cust:"Chiean Hong Ang",fee:250,type:"session",desc:"NOEVIR Concealer&Highlighter, RMK Makeup Base (primer), ADDICTION Silky Balm Stick (primer), NOEVIR Eye Cream (Biosign)",pay:312,notes:""},
+ {id:"T0043",date:"2026/6/27",time:"12:00",cust:"Tan Li Shan",fee:250,type:"session",desc:"NOEVIR Concealer&Highlighter, THREE Concealer Brush (M)",pay:88,notes:""},
+ {id:"T0044",date:"2026/6/27",time:"14:00",cust:"Rachel Lee",fee:250,type:"session",desc:"NOEVIR Concealer&Highlighter, Celvoke Eyebrow powder, RMK Makeup Base (primer), ADDICTION Silky Balm Stick (primer), SUQQU Mascara (Black), NOEVIR Skin Conditioner",pay:316,notes:""},
+ {id:"T0045",date:"2026/6/27",time:"15:00",cust:"Ivy Serafico",fee:250,type:"session",desc:"NOEVIR Concealer&Highlighter, SUQQU Mascara (Black)",pay:108,notes:""},
+ {id:"T0046",date:"2026/6/27",time:"16:00",cust:"Sally Hsu",fee:250,type:"session",desc:"Celvoke Eyebrow powder, ADDICTION Silky Balm Stick (primer), RMK Poreless Base (primer)",pay:148,notes:""},
+ {id:"T0047",date:"2026/6/27",time:"17:30",cust:"Soh Wee Lie",fee:250,type:"session",desc:"",pay:0,notes:""},
+ {id:"T0048",date:"2026/6/27",time:"—",cust:"Josephine",fee:null,type:"retail",desc:"NOEVIR Concealer&Highlighter, Eyeliner (MACH LINER, Dark Brown ×2), Eyeliner (MACH LINER, Black ×1)",pay:162,notes:"配送・送料無料(フリーシッピングDM)"},
+ {id:"T0049",date:"2026/6/28",time:"10:00",cust:"Elaine Wong",fee:250,type:"session",desc:"ADDICTION Silky Balm Stick (primer), Eyeliner (MACH LINER, Dark Brown), NOEVIR Eyebrow Brush",pay:100,notes:""},
+ {id:"T0050",date:"2026/6/28",time:"12:00",cust:"Serena Li",fee:250,type:"session",desc:"NOEVIR Blanc Protector",pay:124,notes:""},
+ {id:"T0051",date:"2026/6/28",time:"15:00",cust:"Su Fong Yew",fee:250,type:"session",desc:"NOEVIR Concealer&Highlighter, RMK Setting Powder (face powder), Eyeliner (MACH LINER, Dark Brown)",pay:146,notes:""},
+ {id:"T0052",date:"2026/6/28",time:"16:00",cust:"Montano Elisa",fee:250,type:"session",desc:"SUQQU The Foundation #115, ADDICTION Silky Balm Stick (primer), Eyeliner (MACH LINER, Dark Brown), SUQQU Mascara (Black), Celvoke Eyebrow powder, RMK Makeup Base (primer), NOEVIR Eyebrow Brush, NOEVIR Concealer&Highlighter",pay:428,notes:""},
+ {id:"T0053",date:"2026/6/28",time:"11:00",cust:"Sweeney Lachman",fee:250,type:"session",desc:"",pay:0,notes:""},
+ {id:"T0054",date:"2026/6/28",time:"14:00",cust:"Ong Jin Xia",fee:250,type:"session",desc:"",pay:0,notes:""},
+ {id:"T0055",date:"2026/6/28",time:"—",cust:"Su Fong Yew",fee:null,type:"retail",desc:"NOEVIR Skin Conditioner, NOEVIR Toner (Lotion Aqua), Celvoke Indicate Eyebrow Powder",pay:170,notes:"配送・送料無料(フリーシッピングDM) / Blk 4 Bedok Reservoir View"},
+ {id:"T0056",date:"2026/6/30",time:"12:00",cust:"Midori Yamanaka",fee:250,type:"session",desc:"",pay:0,notes:"物販なし"},
+ {id:"T0057",date:"2026/6/30",time:"14:00",cust:"Michelle Tan",fee:250,type:"session",desc:"",pay:0,notes:"物販なし"},
+ {id:"T0058",date:"2026/6/1",time:"—",cust:"Beverly",fee:null,type:"retail",desc:"NOEVIR Speciale Lotion / Speciale Cream / Extra Cleansing Massage Cream / Extra Cleansing Foam",pay:1300,notes:"注文番号2026-B-0601 / Special Discount -137適用後"},
+ {id:"T0059",date:"2026/7/1",time:"11:00",cust:"Amanda Teo",fee:250,type:"session",desc:"RMK Make Up Base / NOEVIR Milk Lotion Aqua N5",pay:122,notes:"決済済 11:48"},
+ {id:"T0060",date:"2026/7/1",time:"12:00",cust:"Dawn Ng",fee:250,type:"session",desc:"Blanc Etoile Mach Liner DBR / THREE Concealer Brush M / NOEVIR Screw Brush",pay:92,notes:"決済済 13:01"},
+ {id:"T0061",date:"2026/7/1",time:"13:00",cust:"Yvonne Tan",fee:250,type:"session",desc:"SUQQU The Liquid Foundation 115 / RMK Poreless Base 01 / NOEVIR Concealer N / RMK Silk Fit Setting Powder",pay:280,notes:"決済済 14:02"},
+ {id:"T0062",date:"2026/7/1",time:"14:00",cust:"Jenifer Peh",fee:250,type:"session",desc:"Blanc Etoile Mach Liner DBR / NOEVIR Concealer N",pay:86,notes:"決済済 15:18"},
+ {id:"T0063",date:"2026/7/5",time:"10:00",cust:"R Arista",fee:250,type:"session",desc:"",pay:0,notes:"物販なし"},
+ {id:"T0064",date:"2026/7/5",time:"11:00",cust:"Lim Joanne",fee:250,type:"session",desc:"NOEVIR Skincare Complete Set(Toner/Emulsion/EyeCream/BlanProtector)+RMK Poreless Base+RMK Setting Powder+ADDICTION Silky Balm+SUQQU 3D Mascara+Mach Liner DBR",pay:698,notes:"決済済12:11/セット"},
+ {id:"T0065",date:"2026/7/5",time:"12:00",cust:"Samantha Chia",fee:250,type:"session",desc:"NOEVIR Skin Conditioner+Mach Liner DBR",pay:98,notes:"決済済13:13"},
+ {id:"T0066",date:"2026/7/5",time:"14:00",cust:"Chloe Yeong",fee:250,type:"session",desc:"",pay:0,notes:"物販なし"},
+ {id:"T0067",date:"2026/7/5",time:"15:00",cust:"Miki Ito",fee:250,type:"session",desc:"Blanc Etoile Mach Liner (Dark Brown)",pay:38,notes:"決済済16:09"},
+ {id:"T0068",date:"2026/7/5",time:"16:30",cust:"Tara Monica Rante",fee:250,type:"session",desc:"NOEVIR Biosign Wrinkle Eye Cream",pay:164,notes:"決済済18:08"},
+ {id:"T0069",date:"2026/7/5",time:"17:30",cust:"Jaline Ejercito",fee:250,type:"session",desc:"",pay:0,notes:"物販なし"},
+ {id:"T0070",date:"2026/7/2",time:"",cust:"Meena Iswaran",fee:250,type:"session",desc:"",pay:0,notes:"物販なし"},
+ {id:"T0071",date:"2026/7/2",time:"",cust:"Ellis Lim",fee:250,type:"session",desc:"Base Makeup Set(Dry)+ADDICTION Silky Balm+Mach Liner DBR",pay:346,notes:"決済済/セット"},
+ {id:"T0072",date:"2026/7/2",time:"",cust:"Ling Tiong",fee:250,type:"session",desc:"",pay:0,notes:"物販なし"},
+ {id:"T0073",date:"2026/7/2",time:"",cust:"Amanda Ng",fee:250,type:"session",desc:"Base Makeup Set+NOEVIR Emulsion Aqua",pay:330,notes:"決済済/セット"},
+ {id:"T0074",date:"2026/7/4",time:"",cust:"Siew Yan Tan",fee:250,type:"session",desc:"",pay:0,notes:"物販なし"},
+ {id:"T0075",date:"2026/7/4",time:"",cust:"Cara G",fee:250,type:"session",desc:"NOEVIR Concealer N/Celvoke Eyebrow02/ADDICTION Silky Balm/RMK Setting Powder",pay:204,notes:"決済済"},
+ {id:"T0076",date:"2026/7/4",time:"",cust:"Kasey Leong",fee:250,type:"session",desc:"RMK Make Up Base",pay:52,notes:"決済①"},
+ {id:"T0077",date:"2026/7/4",time:"",cust:"Kasey Leong (2nd)",fee:null,type:"retail",desc:"Celvoke Eyebrow Powder02",pay:48,notes:"決済②"},
+ {id:"T0078",date:"2026/7/4",time:"",cust:"Akiko Sakurai",fee:250,type:"session",desc:"",pay:0,notes:"物販なし"},
+ {id:"T0079",date:"2026/7/4",time:"",cust:"Cynthia Beh",fee:250,type:"session",desc:"Skincare Starter Set+SUQQU 3D Mascara+RMK Poreless+Celvoke Eyebrow02+Mach Liner DBR+NOEVIR Screw Brush",pay:392,notes:"決済済/セット"},
+ {id:"T0080",date:"2026/7/4",time:"",cust:"Shi Ying Lui",fee:250,type:"session",desc:"Skincare Complete Set+Base Makeup Set+SUQQU 3D Mascara+Celvoke Eyebrow02+Mach Liner DBR+ADDICTION Silky Balm",pay:894,notes:"決済済/セット2件"},
+ {id:"T0081",date:"2026/7/4",time:"",cust:"Precilia Wong",fee:250,type:"session",desc:"",pay:0,notes:"物販なし"},
+ {id:"T0082",date:"2026/7/7",time:"",cust:"Denise Xie",fee:250,type:"session",desc:"NOEVIR Skincare Starter Set(Skin Conditioner/Toner/Emulsion)",pay:180,notes:"決済済11:50/セット"},
+ {id:"T0083",date:"2026/7",time:"",cust:"Serene (0621Rin)",fee:null,type:"retail",desc:"RMK Setting Powder + NOEVIR Screw Brush",pay:74,notes:"決済済07:36/送料SGD3込み"},
+ {id:"T0084",date:"2026/7/7",time:"",cust:"Shi Yin (0704)",fee:null,type:"retail",desc:"NOEVIR Lip Brush",pay:14,notes:"決済済07:36/送料SGD3込み"},
+ {id:"T0085",date:"2026/7/7",time:"",cust:"Poh Ingrid",fee:250,type:"session",desc:"Base Makeup Set(RMK Poreless+SUQQU Foundation115+NOEVIR ConcealerN+RMK SettingPowder)+Blanc Etoile Mach Liner PBR",pay:298,notes:"決済済/セット"},
+ {id:"T0086",date:"2026/7/7",time:"",cust:"Yuka Tan",fee:250,type:"session",desc:"",pay:0,notes:"物販なし"},
+];
+
+/* ============================================================
+   NAME RESOLUTION ENGINE
+============================================================ */
+const P = {}; PRODUCTS.forEach(p=>P[p.id]=p);
+const SET = {}; SETS.forEach(s=>SET[s.id]=s);
+const POINTBACK_BRANDS = new Set(["SUQQU","RMK","THREE","Celvoke","ADDICTION"]);
+const isPB = p => p.pb>0;
+const effCost = p => isPB(p) ? +(p.cost*0.9).toFixed(2) : p.cost;
+const SGD_TO_JPY = 125;
+
+// Set aliases (matched & stripped BEFORE products to avoid double counting components)
+const SET_ALIASES = [
+ {id:"SET002", pats:["skincare complete set","complete set"]},
+ {id:"SET001", pats:["skincare starter set","starter set"]},
+ {id:"SET003", pats:["base makeup set(dry)","base makeup set (dry","base makeup set"]}, // generic Base Makeup Set -> Dry (default); trailing "(...)" component list is auto-stripped
+ {id:"SET004", pats:["base makeup set (oily"]},
+];
+// Product aliases. Order matters: more specific / disambiguating first.
+// Each entry: {id, pats:[lowercased substrings]}
+const PROD_ALIASES = [
+ // NOEVIR skincare — specific lotions first to avoid "lotion" clashes
+ {id:"P011",pats:["cleansing lotion"]},
+ {id:"P006",pats:["moisturising emulsion","emulsion aqua","milk lotion","emulsion"]},
+ {id:"P005",pats:["toner (lotion aqua","toner(lotion","lotion aqua","toner"]},
+ {id:"P004",pats:["skin conditioner"]},
+ {id:"P007",pats:["eye cream (biosign","biosign wrinkle eye cream","biosign","eye cream"]},
+ {id:"P001",pats:["blanc protector"]},
+ {id:"P003",pats:["sunscreen","raysela","uv gel"]},
+ // NOEVIR brushes
+ {id:"P008",pats:["eyebrow brush"]},
+ {id:"P009",pats:["lip brush"]},
+ {id:"P010",pats:["screw brush"]},
+ // SUQQU
+ {id:"P014",pats:["foundation #115","the foundation 115","liquid foundation 115","foundation115","foundation 115","#115","115"]},
+ {id:"P013",pats:["foundation #110","the foundation 110","liquid foundation 110","foundation110","foundation 110","#110","110"]},
+ {id:"P012",pats:["3d mascara","mascara (3d","suqqu mascara","mascara (black","3d eyelash","mascara"]},
+ // RMK — poreless before makeup base; setting powder variants
+ {id:"P019",pats:["poreless base","poreless"]},
+ {id:"P018",pats:["makeup base","make up base"]},
+ {id:"P020",pats:["setting powder","silk fit setting powder","silkfit","face powder","settingpowder"]},
+ {id:"P021",pats:["eyeshadow brush (a","eyeshadow brush(a"]},
+ {id:"P022",pats:["eyeshadow brush (b","eyeshadow brush(b"]},
+ {id:"P023",pats:["eyeshadow brush (d","eyeshadow brush(d"]},
+ {id:"P024",pats:["eyeshadow brush (refill","eyeshadow brush(refill","brush (refill","refill"]},
+ // THREE
+ {id:"P025",pats:["concealer brush (m","concealer brush(m","concealer brush m","concealer brush"]},
+ // Celvoke
+ {id:"P026",pats:["indicate eyebrow powder","celvoke eyebrow powder02","celvoke eyebrow powder","celvoke eyebrow02","celvoke eyebrow","eyebrow powder"]},
+ // ADDICTION
+ {id:"P027",pats:["silky balm stick","silky balm"]},
+ // NOEVIR concealer LAST — generic "concealer" must not swallow "concealer brush" (P025)
+ {id:"P002",pats:["concealer&highlighter","concealer & highlighter","concealer n","concealern","concealer"]},
+];
+
+function norm(s){return (s||"").toLowerCase().replace(/\s+/g," ").trim();}
+
+// Detect Mach Liner mentions (color + qty) separately because of color variants & qty like ×2
+function extractLiners(text){
+  const out=[]; const re=/(?:mach liner|eyeliner)[^,+/]*?(?:\(mach liner[^)]*\)|(?:mach liner)?)[^,+/]*/gi;
+  // simpler: find each occurrence of "mach liner" and read a small window
+  const low=text.toLowerCase(); let idx=0;
+  while((idx=low.indexOf("mach liner",idx))!==-1){
+    const win = low.slice(idx, idx+50);
+    let id="P016"; // default Dark Brown
+    if(/pink brown|pbr/.test(win)) id="P017";
+    else if(/\bbk\b|black/.test(win)) id="P015";
+    else if(/dark brown|dbr/.test(win)) id="P016";
+    const qm = win.match(/[×x]\s*(\d+)/);
+    const qty = qm ? parseInt(qm[1]) : 1;
+    out.push({id, qty});
+    idx += 10;
+  }
+  return out;
+}
+
+// Main resolver: raw string -> {items:[{id,qty}], sets:[id], unresolved:[str]}
+function resolve(raw){
+  const res={items:[], sets:[], unresolved:[]};
+  if(!raw || !raw.trim()) return res;
+  let work = " "+norm(raw)+" ";
+
+  // 1) Sets first (strip alias + following parenthetical component list)
+  for(const s of SET_ALIASES){
+    for(const pat of s.pats){
+      let i;
+      while((i=work.indexOf(pat))!==-1){
+        res.sets.push(s.id);
+        let end=i+pat.length;
+        // strip following (...) group if present
+        const after=work.slice(end).replace(/^\s+/,"");
+        if(after.startsWith("(")){
+          const close=work.indexOf(")",end);
+          if(close!==-1) end=close+1;
+        }
+        work = work.slice(0,i)+" ~ "+work.slice(end);
+      }
+    }
+  }
+
+  // 2) Liners (color-aware) — handle then strip
+  extractLiners(work).forEach(l=>res.items.push(l));
+  work = work.replace(/mach liner/g," ~ ").replace(/eyeliner/g," ~ ");
+
+  // 3) Products by alias scan
+  for(const a of PROD_ALIASES){
+    for(const pat of a.pats){
+      let i;
+      while((i=work.indexOf(pat))!==-1){
+        let end=i+pat.length;
+        // qty look-ahead (e.g. "×2")
+        const win = work.slice(end, end+16);
+        const qm = win.match(/^[^a-z0-9]*[×x]\s*(\d+)/);
+        const qty = qm ? parseInt(qm[1]) : 1;
+        // strip a trailing "(...)" that belongs to this item (e.g. "Emulsion (Emulsion Aqua)")
+        const pm = work.slice(end).match(/^\s*\([^)]*\)/);
+        if(pm) end += pm[0].length;
+        res.items.push({id:a.id, qty});
+        work = work.slice(0,i)+" ~ "+work.slice(end);
+      }
+    }
+  }
+
+  // 4) Leftover meaningful tokens -> unresolved (strip brand/colour/promo noise words)
+  const STOP=new Set(("primer promo special delivery free black dark brown pink bk dbr pbr the base makeup make up "+
+    "set session retail store noevir suqqu rmk three celvoke addiction blanc etoile silk fit face raysela uv gel "+
+    "aqua n2 n3 n4 n5 skin 2nd payment").split(" "));
+  work.split(/[,+/]|~/).forEach(tok=>{
+    const cleaned=tok.replace(/\([^)]*\)/g," ").replace(/[^a-z0-9 ]/g," ").replace(/\s+/g," ").trim();
+    const words=cleaned.split(" ").filter(w=>w && w.length>1 && !STOP.has(w) && !/^\d+$/.test(w));
+    const rest=words.join(" ").trim();
+    if(rest.length>2) res.unresolved.push(rest);
+  });
+  // merge duplicate items
+  const merged={};
+  res.items.forEach(it=>{merged[it.id]=(merged[it.id]||0)+it.qty;});
+  res.items=Object.keys(merged).map(id=>({id,qty:merged[id]}));
+  return res;
+}
+
+// financials for a resolved transaction
+function txFinance(tx){
+  const r=resolve(tx.desc);
+  let listPrice=0, cost=0, costPB=0, brand={};
+  const addProd=(id,qty,viaSet)=>{
+    const p=P[id]; if(!p) return;
+    if(!viaSet) listPrice += p.sgd*qty; // set list price counted at set level
+    cost += p.cost*qty;
+    costPB += effCost(p)*qty;
+    brand[p.brand]=(brand[p.brand]||0)+ (viaSet?0:p.sgd*qty);
+  };
+  r.items.forEach(it=>addProd(it.id,it.qty,false));
+  r.sets.forEach(sid=>{
+    const s=SET[sid]; if(!s) return;
+    listPrice += s.price;
+    brand["(Set) "+s.name]=(brand["(Set) "+s.name]||0)+s.price;
+    s.comp.forEach(cid=>addProd(cid,1,true));
+  });
+  const sessionRev = tx.type==="session" ? (tx.fee||0) : 0;
+  // In this data, payment_amount_sgd is the PRODUCT-only total (session fee is tracked separately).
+  const productCash = (tx.pay||0);
+  const gross = listPrice - cost;          // before point rebate (list based)
+  const grossPB = listPrice - costPB;      // after point rebate
+  const flagged = r.unresolved.length>0 || (r.items.length===0 && r.sets.length===0 && productCash>0)
+                  || Math.abs(listPrice - productCash) > 6;
+  return {r, listPrice, cost, costPB, brand, sessionRev, productCash, gross, grossPB, flagged};
+}
+
+/* ============================================================
+   STATE (localStorage for user-added tx & inventory)
+============================================================ */
+const LS_KEY="salon_de_singa_v1";
+let store = loadStore();
+function loadStore(){
+  try{return JSON.parse(localStorage.getItem(LS_KEY))||{userTx:[]};}
+  catch(e){return {userTx:[]};}
+}
+function saveStore(){localStorage.setItem(LS_KEY,JSON.stringify(store));}
+function allTx(){return SEED_TX.concat(store.userTx);}
+
+// current inventory = base - units sold in USER tx only (seed already reflected in base)
+function currentStock(){
+  const stock={}; PRODUCTS.forEach(p=>stock[p.id]=BASE_STOCK[p.id]);
+  store.userTx.forEach(tx=>{
+    const r=resolve(tx.desc);
+    r.items.forEach(it=>{ if(stock[it.id]!=null) stock[it.id]-=it.qty; });
+    r.sets.forEach(sid=>{ (SET[sid]?.comp||[]).forEach(cid=>{ if(stock[cid]!=null) stock[cid]-=1; }); });
+  });
+  return stock;
+}
+
+function ym(dateStr){ // "2026/6/18" -> "2026-06"; "2026/7" -> "2026-07"
+  const m=(dateStr||"").split("/"); if(m.length<2) return "unknown";
+  return m[0]+"-"+String(parseInt(m[1])).padStart(2,"0");
+}
+function fmt(n){return (Math.round(n*100)/100).toLocaleString("en-US",{minimumFractionDigits:0,maximumFractionDigits:2});}
+function esc(s){return (s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+
+/* ============================================================
+   RENDERING
+============================================================ */
+function months(){
+  const set=new Set(allTx().map(t=>ym(t.date))); return [...set].filter(m=>m!=="unknown").sort();
+}
+
+function renderDash(){
+  const sel=document.getElementById("monthSel");
+  const ms=months();
+  if(!sel.dataset.init){
+    sel.innerHTML='<option value="ALL">全期間</option>'+ms.map(m=>`<option>${m}</option>`).join("");
+    sel.value=ms[ms.length-1]||"ALL"; sel.dataset.init="1";
+    sel.onchange=renderDash;
+  }
+  const mo=sel.value;
+  const txs=allTx().filter(t=>mo==="ALL"||ym(t.date)===mo);
+  let sessions=0, sessRev=0, prodCash=0, gross=0, grossPB=0;
+  const brandAgg={}, prodAgg={};
+  txs.forEach(t=>{
+    const f=txFinance(t);
+    if(t.type==="session"){sessions++; sessRev+=f.sessionRev;}
+    prodCash+=Math.max(0,f.productCash);
+    gross+=f.gross; grossPB+=f.grossPB;
+    Object.entries(f.brand).forEach(([b,v])=>brandAgg[b]=(brandAgg[b]||0)+v);
+    f.r.items.forEach(it=>{prodAgg[it.id]=(prodAgg[it.id]||0)+it.qty;});
+    f.r.sets.forEach(sid=>SET[sid].comp.forEach(cid=>prodAgg[cid]=(prodAgg[cid]||0)+1));
+  });
+  const reward = sessRev*0.8;
+  const venueFee = sessRev*0.2;
+  const invoiceTotal = reward + prodCash;
+
+  document.getElementById("kpis").innerHTML=`
+    <div class="kpi"><div class="lbl">セッション数</div><div class="val">${sessions}<small>回</small></div><div class="sub">セッション売上 S$${fmt(sessRev)}</div></div>
+    <div class="kpi green"><div class="lbl">報酬（セッション80%）</div><div class="val">S$${fmt(reward)}</div><div class="sub">会場費(20%) S$${fmt(venueFee)}</div></div>
+    <div class="kpi"><div class="lbl">物販売上（実収）</div><div class="val">S$${fmt(prodCash)}</div><div class="sub">全額が報酬</div></div>
+    <div class="kpi violet"><div class="lbl">請求額 合計</div><div class="val">S$${fmt(invoiceTotal)}</div><div class="sub">報酬80% + 物販全額</div></div>
+    <div class="kpi amber"><div class="lbl">物販粗利（還元後）</div><div class="val">S$${fmt(grossPB)}</div><div class="sub">還元前 S$${fmt(gross)}</div></div>
+    <div class="kpi"><div class="lbl">円換算（請求額）</div><div class="val">¥${fmt(invoiceTotal*SGD_TO_JPY)}</div><div class="sub">@125円/SGD</div></div>`;
+
+  // brand table
+  const bmax=Math.max(1,...Object.values(brandAgg));
+  const brows=Object.entries(brandAgg).sort((a,b)=>b[1]-a[1]).map(([b,v])=>
+    `<tr><td>${esc(b)}</td><td class="num">S$${fmt(v)}</td><td style="width:40%"><span class="bar" style="width:${Math.round(v/bmax*100)}%"></span></td></tr>`).join("")
+    ||`<tr><td colspan="3" class="muted">この月の物販はありません</td></tr>`;
+  document.getElementById("brandTbl").innerHTML=`<thead><tr><th>ブランド / セット</th><th class="num">売上(参考価)</th><th></th></tr></thead><tbody>${brows}</tbody>`;
+
+  // product ranking
+  const prows=Object.entries(prodAgg).map(([id,q])=>({id,q,rev:q*(P[id]?.sgd||0)}))
+    .sort((a,b)=>b.q-a.q).slice(0,12).map(x=>
+    `<tr><td>${esc(P[x.id]?.name||x.id)} <span class="tag n">${esc(P[x.id]?.brand||"")}</span></td><td class="num">${x.q}</td><td class="num">S$${fmt(x.rev)}</td></tr>`).join("")
+    ||`<tr><td colspan="3" class="muted">データなし</td></tr>`;
+  document.getElementById("prodRankTbl").innerHTML=`<thead><tr><th>商品</th><th class="num">数量</th><th class="num">売上</th></tr></thead><tbody>${prows}</tbody>`;
+
+  // margin table (per brand)
+  const mAgg={};
+  txs.forEach(t=>{const f=txFinance(t);
+    f.r.items.forEach(it=>{const p=P[it.id];if(!p)return;mAgg[p.brand]=mAgg[p.brand]||{rev:0,c:0,cpb:0};mAgg[p.brand].rev+=p.sgd*it.qty;mAgg[p.brand].c+=p.cost*it.qty;mAgg[p.brand].cpb+=effCost(p)*it.qty;});
+    f.r.sets.forEach(sid=>SET[sid].comp.forEach(cid=>{const p=P[cid];mAgg[p.brand]=mAgg[p.brand]||{rev:0,c:0,cpb:0};mAgg[p.brand].rev+=p.sgd;mAgg[p.brand].c+=p.cost;mAgg[p.brand].cpb+=effCost(p);}));
+  });
+  const mrows=Object.entries(mAgg).sort((a,b)=>b[1].rev-a[1].rev).map(([b,v])=>{
+    const pb=POINTBACK_BRANDS.has(b);
+    return `<tr><td>${esc(b)} ${pb?'<span class="tag v">10%還元</span>':''}</td><td class="num">S$${fmt(v.rev)}</td><td class="num">S$${fmt(v.rev-v.c)}</td><td class="num" style="color:var(--green)">S$${fmt(v.rev-v.cpb)}</td><td class="num">${fmt((v.rev-v.cpb)/v.rev*100)}%</td></tr>`;
+  }).join("")||`<tr><td colspan="5" class="muted">データなし</td></tr>`;
+  document.getElementById("marginTbl").innerHTML=`<thead><tr><th>ブランド</th><th class="num">参考売上</th><th class="num">粗利(還元前)</th><th class="num">粗利(還元後)</th><th class="num">粗利率</th></tr></thead><tbody>${mrows}</tbody>`;
+
+  // low stock alert
+  renderLowAlert("lowAlertCard");
+}
+
+function renderLowAlert(elId){
+  const th=parseInt(document.getElementById("threshold")?.value||"2");
+  const stock=currentStock();
+  const low=PRODUCTS.filter(p=>stock[p.id]<=th).sort((a,b)=>stock[a.id]-stock[b.id]);
+  const el=document.getElementById(elId); if(!el) return;
+  el.innerHTML=`<h3>在庫アラート <small class="muted">（現在庫 ≤ ${th}）</small></h3>`+
+    (low.length? `<div class="scroll"><table><thead><tr><th>商品</th><th>ブランド</th><th class="num">現在庫</th><th>状態</th></tr></thead><tbody>`+
+    low.map(p=>{const s=stock[p.id];const cls=s<=0?"r":"a";const lbl=s<=0?"要発注":"残少";
+      return `<tr><td>${esc(p.name)}</td><td>${esc(p.brand)}</td><td class="num">${s}</td><td><span class="tag ${cls}">${lbl}</span></td></tr>`;}).join("")+
+    `</tbody></table></div>` : `<p class="muted">閾値以下の商品はありません。</p>`);
+}
+
+function renderInv(){
+  const stock=currentStock();
+  const th=parseInt(document.getElementById("threshold").value||"2");
+  document.getElementById("threshold").oninput=()=>{renderInv();};
+  // brand filter chips
+  const brands=[...new Set(PRODUCTS.map(p=>p.brand))];
+  const fEl=document.getElementById("invBrandFilter");
+  if(!fEl.dataset.init){
+    fEl.innerHTML=`<span class="pill on" data-b="ALL">全ブランド</span>`+brands.map(b=>`<span class="pill" data-b="${esc(b)}">${esc(b)}</span>`).join(" ");
+    fEl.dataset.init="1";
+    fEl.querySelectorAll(".pill").forEach(pl=>pl.onclick=()=>{fEl.querySelectorAll(".pill").forEach(x=>x.classList.remove("on"));pl.classList.add("on");renderInv();});
+  }
+  const bf=fEl.querySelector(".pill.on")?.dataset.b||"ALL";
+  const list=PRODUCTS.filter(p=>bf==="ALL"||p.brand===bf);
+  const rows=list.map(p=>{
+    const s=stock[p.id]; const sold=BASE_STOCK[p.id]; // base already = stock after seed
+    const cls=s<=0?"r":(s<=th?"a":"g");
+    const val=s*p.cost;
+    return `<tr class="${s<=0?'flagrow':''}">
+      <td>${esc(p.id)}</td>
+      <td>${esc(p.name)}<div class="note-sm">${isPB(p)?'ポイント還元10%':''}</div></td>
+      <td>${esc(p.brand)}</td>
+      <td class="num">S$${p.sgd}</td>
+      <td class="num">S$${fmt(effCost(p))}</td>
+      <td class="num"><span class="tag ${cls}">${s}</span></td>
+      <td class="num">S$${fmt(val)}</td></tr>`;
+  }).join("");
+  const totVal=list.reduce((a,p)=>a+stock[p.id]*p.cost,0);
+  document.getElementById("invTbl").innerHTML=
+    `<thead><tr><th>ID</th><th>商品</th><th>ブランド</th><th class="num">売価</th><th class="num">原価(還元後)</th><th class="num">現在庫</th><th class="num">在庫評価額</th></tr></thead>
+     <tbody>${rows}</tbody>
+     <tfoot><tr><th colspan="6">在庫評価額 合計（原価ベース）</th><th class="num">S$${fmt(totVal)}</th></tr></tfoot>`;
+}
+
+function renderTx(){
+  const sel=document.getElementById("txMonth");
+  const ms=months();
+  if(!sel.dataset.init){
+    sel.innerHTML='<option value="ALL">全期間</option>'+ms.map(m=>`<option>${m}</option>`).join("");
+    sel.dataset.init="1"; sel.onchange=renderTx;
+  }
+  // type filter
+  const tf=document.getElementById("txTypeFilter");
+  if(!tf.dataset.init){
+    tf.innerHTML=`<span class="pill on" data-t="ALL">全て</span> <span class="pill" data-t="session">Session</span> <span class="pill" data-t="retail">Retail</span>`;
+    tf.dataset.init="1";
+    tf.querySelectorAll(".pill").forEach(pl=>pl.onclick=()=>{tf.querySelectorAll(".pill").forEach(x=>x.classList.remove("on"));pl.classList.add("on");renderTx();});
+  }
+  const mo=sel.value, ty=tf.querySelector(".pill.on")?.dataset.t||"ALL";
+  const txs=allTx().filter(t=>(mo==="ALL"||ym(t.date)===mo)&&(ty==="ALL"||t.type===ty));
+  let flagCount=0, sessTot=0, prodTot=0;
+  const rows=txs.map(t=>{
+    const f=txFinance(t);
+    if(f.flagged) flagCount++;
+    if(t.type==="session") sessTot+=f.sessionRev;
+    prodTot+=Math.max(0,f.productCash);
+    const itemsTxt = f.r.sets.map(s=>`<span class="tag v">${esc(SET[s].name)}</span>`).join(" ")+" "+
+      f.r.items.map(it=>`${esc(P[it.id]?.name||it.id)}${it.qty>1?"×"+it.qty:""}`).join(", ");
+    const isUser=store.userTx.some(u=>u.id===t.id);
+    return `<tr onclick='showDetail("${t.id}")' style="cursor:pointer">
+      <td>${esc(t.id)}${isUser?' <span class="tag g">新規</span>':''}</td>
+      <td>${esc(t.date)}<div class="note-sm">${esc(t.time||"")}</div></td>
+      <td>${esc(t.cust)}</td>
+      <td>${t.type==="session"?'<span class="tag n">Session</span>':'<span class="tag a">Retail</span>'}</td>
+      <td class="num">S$${fmt(t.pay)}</td>
+      <td>${itemsTxt.trim()||'<span class="muted">—</span>'}</td>
+      <td>${f.flagged?'<span class="tag r">要確認</span>':'<span class="tag g">OK</span>'}</td></tr>`;
+  }).join("");
+  document.getElementById("txTbl").innerHTML=
+    `<thead><tr><th>ID</th><th>日付</th><th>顧客</th><th>種別</th><th class="num">決済</th><th>解決（商品）</th><th>状態</th></tr></thead><tbody>${rows}</tbody>`;
+  document.getElementById("txSummary").innerHTML=
+    `表示 ${txs.length} 件 ／ セッション売上 S$${fmt(sessTot)}（報酬 S$${fmt(sessTot*0.8)}）／ 物販 S$${fmt(prodTot)} ／ <b>要確認 ${flagCount} 件</b>`;
+}
+
+function showDetail(id){
+  const t=allTx().find(x=>x.id===id); if(!t)return;
+  const f=txFinance(t);
+  let html=`<p class="hint">${esc(t.date)} ${esc(t.time||"")} ・ ${esc(t.cust)} ・ ${t.type==="session"?"Session":"Retail"}</p>`;
+  html+=`<div class="parsebox">`;
+  if(!t.desc){html+=`<span class="muted">物販なし（セッションのみ）</span>`;}
+  f.r.sets.forEach(s=>{html+=`<div class="li"><span><span class="tag v">SET</span> ${esc(SET[s].name)} <span class="muted">(${SET[s].comp.join("+")})</span></span><span>S$${fmt(SET[s].price)}</span></div>`;});
+  f.r.items.forEach(it=>{const p=P[it.id];html+=`<div class="li"><span>${esc(p?.name||it.id)} <span class="tag n">${esc(p?.brand||"")}</span></span><span>${it.qty}×S$${p?.sgd} = S$${fmt(it.qty*(p?.sgd||0))}</span></div>`;});
+  f.r.unresolved.forEach(u=>{html+=`<div class="li"><span class="tag r">未解決</span><span>${esc(u)}</span></div>`;});
+  html+=`</div>`;
+  html+=`<table style="font-size:.8rem"><tbody>
+    <tr><td>参考価格 合計</td><td class="num">S$${fmt(f.listPrice)}</td></tr>
+    <tr><td>物販 実収（決済−セッション）</td><td class="num">S$${fmt(f.productCash)}</td></tr>
+    <tr><td>原価（還元前 / 還元後）</td><td class="num">S$${fmt(f.cost)} / S$${fmt(f.costPB)}</td></tr>
+    <tr><td>粗利（還元後・参考価ベース）</td><td class="num" style="color:var(--green)">S$${fmt(f.grossPB)}</td></tr>
+    ${t.type==="session"?`<tr><td>セッション報酬(80%)</td><td class="num">S$${fmt(f.sessionRev*0.8)}</td></tr>`:''}
+  </tbody></table>`;
+  if(f.flagged) html+=`<p class="note-sm" style="color:var(--red)">⚠ 参考価格と実収に差（${fmt(f.listPrice-f.productCash)}）、または未解決の記述があります。プロモ・割引・送料が含まれる可能性があります。備考: ${esc(t.notes)||"—"}</p>`;
+  document.getElementById("d_title").textContent=t.id+" 内訳";
+  document.getElementById("d_body").innerHTML=html;
+  document.getElementById("detailOverlay").classList.add("open");
+}
+
+function renderSets(){
+  document.getElementById("setCards").innerHTML=SETS.map(s=>{
+    const comps=s.comp.map(id=>P[id]);
+    const listSum=comps.reduce((a,p)=>a+p.sgd,0);
+    const costSum=comps.reduce((a,p)=>a+effCost(p),0);
+    const save=listSum-s.price;
+    return `<div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:baseline">
+        <h3>${esc(s.name)} <span class="tag v">${s.id}</span></h3>
+        <div style="font-size:1.2rem;font-weight:700;color:var(--accent)">S$${s.price}</div>
+      </div>
+      <div class="scroll"><table><thead><tr><th>構成商品</th><th>ブランド</th><th class="num">単品価格</th><th class="num">原価(還元後)</th></tr></thead>
+      <tbody>${comps.map(p=>`<tr><td>${esc(p.name)}</td><td>${esc(p.brand)}</td><td class="num">S$${p.sgd}</td><td class="num">S$${fmt(effCost(p))}</td></tr>`).join("")}</tbody>
+      <tfoot><tr><th>合計</th><th></th><th class="num">S$${fmt(listSum)}</th><th class="num">S$${fmt(costSum)}</th></tr></tfoot></table></div>
+      <p class="note-sm">単品合計 S$${fmt(listSum)} → セット S$${s.price}（お得 <b style="color:var(--green)">S$${fmt(save)}</b>）／ セット粗利(還元後) <b>S$${fmt(s.price-costSum)}</b></p>
+    </div>`;
+  }).join("");
+}
+
+function renderInvoice(){
+  const sel=document.getElementById("invMonth");
+  const ms=months();
+  if(!sel.dataset.init){
+    sel.innerHTML=ms.map(m=>`<option>${m}</option>`).join("");
+    sel.value=ms[ms.length-1]; sel.dataset.init="1"; sel.onchange=renderInvoice;
+  }
+  const mo=sel.value;
+  const txs=allTx().filter(t=>ym(t.date)===mo);
+  let sessRev=0, prodCash=0, sessCount=0;
+  txs.forEach(t=>{const f=txFinance(t);if(t.type==="session"){sessCount++;sessRev+=f.sessionRev;}prodCash+=Math.max(0,f.productCash);});
+  const reward=sessRev*0.8, total=reward+prodCash;
+  const [y,m]=mo.split("-");
+  document.getElementById("invoiceDoc").innerHTML=`
+    <div class="head">
+      <div><h3>INVOICE</h3><div class="muted" style="font-size:.8rem">請求書 ・ ${y}年${parseInt(m)}月分</div></div>
+      <div style="text-align:right;font-size:.8rem"><b>KAGAWA NORIKO</b><br>Personal Makeup Session</div>
+    </div>
+    <div style="font-size:.85rem;margin-bottom:14px">
+      <b>宛先:</b> SALON DE SINGA PTE. LTD.<br>
+      <b>発行日:</b> ${new Date().toISOString().slice(0,10)}<br>
+      <b>対象期間:</b> ${y}-${m}
+    </div>
+    <div class="totrow"><span>Personal Makeup Session（${sessCount}回 × 実施分）売上</span><span>S$${fmt(sessRev)}</span></div>
+    <div class="totrow"><span>　└ 会場費控除（20%）</span><span>− S$${fmt(sessRev*0.2)}</span></div>
+    <div class="totrow"><span><b>セッション報酬（80%）</b></span><span><b>S$${fmt(reward)}</b></span></div>
+    <div class="totrow"><span>物販売上（全額）</span><span>S$${fmt(prodCash)}</span></div>
+    <div class="totrow big"><span>ご請求額 合計</span><span>S$${fmt(total)}</span></div>
+    <div class="totrow"><span class="muted">円換算（@125円/SGD）</span><span class="muted">¥${fmt(total*SGD_TO_JPY)}</span></div>
+    <div class="bank">
+      <b>お振込先</b><br>
+      Account Name: KAGAWA NORIKO<br>
+      Bank: DBS &nbsp; Account No: 271-888622-6
+    </div>
+    <p class="note-sm" style="margin-top:12px">※ キャンセルは含まず、実施分のセッションのみ計上。物販には会場費はかかりません。</p>`;
+}
+
+/* ============================================================
+   ADD TX MODAL
+============================================================ */
+function openTxModal(){
+  document.getElementById("f_date").value=new Date().toISOString().slice(0,10);
+  ["f_time","f_cust","f_desc","f_pay","f_notes"].forEach(i=>document.getElementById(i).value="");
+  document.getElementById("f_type").value="session";
+  document.getElementById("f_fee").value="250";
+  document.getElementById("f_parse").innerHTML='<span class="muted">商品を入力すると解決結果を表示します。</span>';
+  document.getElementById("txOverlay").classList.add("open");
+}
+function closeTxModal(){document.getElementById("txOverlay").classList.remove("open");}
+document.getElementById("f_desc").addEventListener("input",updateParse);
+function updateParse(){
+  const raw=document.getElementById("f_desc").value;
+  const r=resolve(raw);
+  const box=document.getElementById("f_parse");
+  if(!raw.trim()){box.innerHTML='<span class="muted">商品を入力すると解決結果を表示します。</span>';return;}
+  let html="", total=0;
+  r.sets.forEach(s=>{total+=SET[s].price;html+=`<div class="li"><span><span class="tag v">SET</span> ${esc(SET[s].name)}</span><span>S$${SET[s].price}</span></div>`;});
+  r.items.forEach(it=>{const p=P[it.id];total+=(p?.sgd||0)*it.qty;html+=`<div class="li"><span>${esc(p?.name||it.id)} ${it.qty>1?"×"+it.qty:""}</span><span>S$${fmt((p?.sgd||0)*it.qty)}</span></div>`;});
+  r.unresolved.forEach(u=>html+=`<div class="li"><span class="tag r">未解決</span><span>${esc(u)}</span></div>`);
+  html+=`<div class="li" style="border-top:1px solid var(--line);margin-top:4px;padding-top:6px"><b>参考価格 合計</b><b>S$${fmt(total)}</b></div>`;
+  box.innerHTML=html;
+}
+function saveTx(){
+  const desc=document.getElementById("f_desc").value.trim();
+  const type=document.getElementById("f_type").value;
+  const cust=document.getElementById("f_cust").value.trim()||"（無名）";
+  const date=(document.getElementById("f_date").value||"").replace(/-/g,"/").replace(/^(\d+)\/0?(\d+)\/0?(\d+)$/,"$1/$2/$3");
+  const fee=type==="session"?(parseInt(document.getElementById("f_fee").value)||0):null;
+  const pay=parseFloat(document.getElementById("f_pay").value)||0;
+  const tx={
+    id:"U"+String(Date.now()).slice(-6),
+    date, time:document.getElementById("f_time").value,
+    cust, fee, type, desc,
+    pay, notes:document.getElementById("f_notes").value.trim()
+  };
+  store.userTx.push(tx); saveStore();
+  closeTxModal();
+  renderAll();
+  switchTab("tx");
+  alert("保存しました。在庫と月次サマリーに反映されています。");
+}
+
+/* ============================================================
+   NAV
+============================================================ */
+function switchTab(id){
+  document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+  document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("active",b.dataset.tab===id));
+  window.scrollTo(0,0);
+}
+document.querySelectorAll("#nav button").forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
+
+function renderAll(){renderDash();renderInv();renderTx();renderSets();renderInvoice();}
+renderAll();
+</script>
+</body>
+</html>

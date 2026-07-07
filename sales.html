@@ -190,7 +190,7 @@
   <div class="modal">
     <span class="close-x" onclick="closeTxModal()">×</span>
     <h3>取引を追加</h3>
-    <p class="hint">商品は自由記述でOK（例: <em>NOEVIR Concealer N, Mach Liner DBR, Base Makeup Set(Dry)</em>）。入力すると自動で名寄せします。</p>
+    <p class="hint">商品は自由記述でOK（例: <em>NOEVIR Concealer N, Mach Liner DBR, Base Makeup Set(Dry)</em>）。入力すると自動で名寄せします。<br>セッション料は日付に応じ自動設定（〜2026/7 S$250 ／ 2026/8〜 S$280）。</p>
     <div class="row2">
       <div class="field"><label>日付</label><input type="date" id="f_date"></div>
       <div class="field"><label>時刻</label><input type="time" id="f_time"></div>
@@ -259,8 +259,13 @@ const PRODUCTS = [
  {id:"P025",brand:"THREE",name:"Concealer Brush (M)",jpy:3300,sgd:40,cost:27.2,pb:10},
  {id:"P026",brand:"Celvoke",name:"Indicate Eyebrow Powder",jpy:3850,sgd:48,cost:31.73,pb:10},
  {id:"P027",brand:"ADDICTION",name:"Silky Balm Stick (primer)",jpy:4180,sgd:48,cost:34.45,pb:10},
+ // Special-order NOEVIR items (from T0058). Prices pending — enter jpy to auto-compute cost.
+ {id:"P028",brand:"NOEVIR",name:"Speciale Lotion",jpy:null,sgd:null,cost:null,pb:0,tbd:true},
+ {id:"P029",brand:"NOEVIR",name:"Speciale Cream",jpy:null,sgd:null,cost:null,pb:0,tbd:true},
+ {id:"P030",brand:"NOEVIR",name:"Extra Cleansing Massage Cream",jpy:null,sgd:null,cost:null,pb:0,tbd:true},
+ {id:"P031",brand:"NOEVIR",name:"Extra Cleansing Foam",jpy:null,sgd:null,cost:null,pb:0,tbd:true},
 ];
-const BASE_STOCK = {P001:9,P002:21,P003:3,P004:17,P005:3,P006:4,P007:4,P008:1,P009:4,P010:2,P011:2,P012:15,P013:1,P014:9,P015:1,P016:6,P017:4,P018:1,P019:8,P020:9,P021:5,P022:3,P023:7,P024:7,P025:2,P026:9,P027:7};
+const BASE_STOCK = {P001:9,P002:21,P003:3,P004:17,P005:3,P006:4,P007:4,P008:1,P009:4,P010:2,P011:2,P012:15,P013:1,P014:9,P015:1,P016:6,P017:4,P018:1,P019:8,P020:9,P021:5,P022:3,P023:7,P024:7,P025:2,P026:9,P027:7,P028:0,P029:0,P030:0,P031:0};
 const SETS = [
  {id:"SET001",name:"Skincare Starter Set",price:180,comp:["P004","P005","P006"]},
  {id:"SET002",name:"Skincare Complete Set",price:440,comp:["P004","P005","P006","P007","P001"]},
@@ -363,8 +368,10 @@ const P = {}; PRODUCTS.forEach(p=>P[p.id]=p);
 const SET = {}; SETS.forEach(s=>SET[s.id]=s);
 const POINTBACK_BRANDS = new Set(["SUQQU","RMK","THREE","Celvoke","ADDICTION"]);
 const isPB = p => p.pb>0;
-const effCost = p => isPB(p) ? +(p.cost*0.9).toFixed(2) : p.cost;
+const effCost = p => p.cost==null ? 0 : (isPB(p) ? +(p.cost*0.9).toFixed(2) : p.cost);
 const SGD_TO_JPY = 125;
+// Session fee: S$250 through Jul 2026, S$280 from Aug 2026 (price rise).
+const sessionFeeFor = dateStr => (ym(dateStr) >= "2026-08" ? 280 : 250);
 
 // Set aliases (matched & stripped BEFORE products to avoid double counting components)
 const SET_ALIASES = [
@@ -376,6 +383,11 @@ const SET_ALIASES = [
 // Product aliases. Order matters: more specific / disambiguating first.
 // Each entry: {id, pats:[lowercased substrings]}
 const PROD_ALIASES = [
+ // NOEVIR special-order items (specific multi-word names first)
+ {id:"P030",pats:["extra cleansing massage cream","cleansing massage cream","massage cream"]},
+ {id:"P031",pats:["extra cleansing foam","cleansing foam"]},
+ {id:"P028",pats:["speciale lotion"]},
+ {id:"P029",pats:["speciale cream"]},
  // NOEVIR skincare — specific lotions first to avoid "lotion" clashes
  {id:"P011",pats:["cleansing lotion"]},
  {id:"P006",pats:["moisturising emulsion","emulsion aqua","milk lotion","emulsion"]},
@@ -501,10 +513,11 @@ function txFinance(tx){
   let listPrice=0, cost=0, costPB=0, brand={};
   const addProd=(id,qty,viaSet)=>{
     const p=P[id]; if(!p) return;
-    if(!viaSet) listPrice += p.sgd*qty; // set list price counted at set level
-    cost += p.cost*qty;
+    const sgd=p.sgd||0, c=p.cost||0;
+    if(!viaSet) listPrice += sgd*qty; // set list price counted at set level
+    cost += c*qty;
     costPB += effCost(p)*qty;
-    brand[p.brand]=(brand[p.brand]||0)+ (viaSet?0:p.sgd*qty);
+    brand[p.brand]=(brand[p.brand]||0)+ (viaSet?0:sgd*qty);
   };
   r.items.forEach(it=>addProd(it.id,it.qty,false));
   r.sets.forEach(sid=>{
@@ -652,14 +665,16 @@ function renderInv(){
   const rows=list.map(p=>{
     const s=stock[p.id]; const sold=BASE_STOCK[p.id]; // base already = stock after seed
     const cls=s<=0?"r":(s<=th?"a":"g");
-    const val=s*p.cost;
-    return `<tr class="${s<=0?'flagrow':''}">
+    const val=s*(p.cost||0);
+    const priceCell = p.tbd ? '<span class="tag a">要価格入力</span>' : 'S$'+p.sgd;
+    const costCell = p.tbd ? '—' : 'S$'+fmt(effCost(p));
+    return `<tr class="${s<=0&&!p.tbd?'flagrow':''}">
       <td>${esc(p.id)}</td>
-      <td>${esc(p.name)}<div class="note-sm">${isPB(p)?'ポイント還元10%':''}</div></td>
+      <td>${esc(p.name)}<div class="note-sm">${p.tbd?'特別注文（要価格登録）':(isPB(p)?'ポイント還元10%':'')}</div></td>
       <td>${esc(p.brand)}</td>
-      <td class="num">S$${p.sgd}</td>
-      <td class="num">S$${fmt(effCost(p))}</td>
-      <td class="num"><span class="tag ${cls}">${s}</span></td>
+      <td class="num">${priceCell}</td>
+      <td class="num">${costCell}</td>
+      <td class="num"><span class="tag ${p.tbd?'n':cls}">${s}</span></td>
       <td class="num">S$${fmt(val)}</td></tr>`;
   }).join("");
   const totVal=list.reduce((a,p)=>a+stock[p.id]*p.cost,0);
@@ -792,13 +807,25 @@ function renderInvoice(){
    ADD TX MODAL
 ============================================================ */
 function openTxModal(){
-  document.getElementById("f_date").value=new Date().toISOString().slice(0,10);
+  const today=new Date().toISOString().slice(0,10);
+  document.getElementById("f_date").value=today;
   ["f_time","f_cust","f_desc","f_pay","f_notes"].forEach(i=>document.getElementById(i).value="");
   document.getElementById("f_type").value="session";
-  document.getElementById("f_fee").value="250";
+  syncFee();
   document.getElementById("f_parse").innerHTML='<span class="muted">商品を入力すると解決結果を表示します。</span>';
   document.getElementById("txOverlay").classList.add("open");
 }
+// keep session fee in step with the date (S$250 →Jul 2026 / S$280 Aug 2026→)
+function syncFee(){
+  const d=(document.getElementById("f_date").value||"").replace(/-/g,"/").replace(/^(\d+)\/0?(\d+).*/,"$1/$2");
+  const isSession=document.getElementById("f_type").value==="session";
+  const fee=sessionFeeFor(d);
+  const feeEl=document.getElementById("f_fee");
+  feeEl.value = isSession ? fee : 0;
+  feeEl.disabled = !isSession;
+}
+document.getElementById("f_date").addEventListener("change",syncFee);
+document.getElementById("f_type").addEventListener("change",syncFee);
 function closeTxModal(){document.getElementById("txOverlay").classList.remove("open");}
 document.getElementById("f_desc").addEventListener("input",updateParse);
 function updateParse(){

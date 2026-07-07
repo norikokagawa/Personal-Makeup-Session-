@@ -272,11 +272,12 @@ const PRODUCTS = [
  {id:"P025",brand:"THREE",name:"Concealer Brush (M)",jpy:3300,sgd:40,cost:27.2,pb:10},
  {id:"P026",brand:"Celvoke",name:"Indicate Eyebrow Powder",jpy:3850,sgd:48,cost:31.73,pb:10},
  {id:"P027",brand:"ADDICTION",name:"Silky Balm Stick (primer)",jpy:4180,sgd:48,cost:34.45,pb:10},
- // Special-order NOEVIR items (from T0058). Prices pending — enter jpy to auto-compute cost.
- {id:"P028",brand:"NOEVIR",name:"Speciale Lotion",jpy:null,sgd:null,cost:null,pb:0,tbd:true},
- {id:"P029",brand:"NOEVIR",name:"Speciale Cream",jpy:null,sgd:null,cost:null,pb:0,tbd:true},
- {id:"P030",brand:"NOEVIR",name:"Extra Cleansing Massage Cream",jpy:null,sgd:null,cost:null,pb:0,tbd:true},
- {id:"P031",brand:"NOEVIR",name:"Extra Cleansing Foam",jpy:null,sgd:null,cost:null,pb:0,tbd:true},
+ // Special-order NOEVIR items (from T0058). JP list prices confirmed on the NOEVIR site;
+ // cost = jpy/124 x 0.8 x 1.0452 (freight) per the standard NOEVIR rule; sgd sell ~32% margin (provisional).
+ {id:"P028",brand:"NOEVIR",name:"Speciale Lotion (200mL)",jpy:41800,sgd:415,cost:281.87,pb:0,special:true},
+ {id:"P029",brand:"NOEVIR",name:"Speciale Cream (50g)",jpy:110000,sgd:1091,cost:741.76,pb:0,special:true},
+ {id:"P030",brand:"NOEVIR",name:"Extra Cleansing Massage Cream (120g)",jpy:16500,sgd:164,cost:111.27,pb:0,special:true},
+ {id:"P031",brand:"NOEVIR",name:"Extra Cleansing Foam (100g)",jpy:11000,sgd:109,cost:74.18,pb:0,special:true},
 ];
 const BASE_STOCK = {P001:9,P002:21,P003:3,P004:17,P005:3,P006:4,P007:4,P008:1,P009:4,P010:2,P011:2,P012:15,P013:1,P014:9,P015:1,P016:6,P017:4,P018:1,P019:8,P020:9,P021:5,P022:3,P023:7,P024:7,P025:2,P026:9,P027:7,P028:0,P029:0,P030:0,P031:0};
 const SETS = [
@@ -585,9 +586,12 @@ function txFinance(tx){
   const productCash = (tx.pay||0);
   const gross = listPrice - cost;          // before point rebate (list based)
   const grossPB = listPrice - costPB;      // after point rebate
-  const flagged = r.unresolved.length>0 || (r.items.length===0 && r.sets.length===0 && productCash>0)
-                  || Math.abs(listPrice - productCash) > 6;
-  return {r, listPrice, cost, costPB, brand, sessionRev, productCash, gross, grossPB, flagged};
+  // A documented special/bundle price is intentional — don't flag it as a price mismatch.
+  const specialPriced = /special discount|特別価格|特価|セット特価/i.test(tx.notes||"");
+  const flagged = r.unresolved.length>0
+                  || (r.items.length===0 && r.sets.length===0 && productCash>0)
+                  || (!specialPriced && Math.abs(listPrice - productCash) > 6);
+  return {r, listPrice, cost, costPB, brand, sessionRev, productCash, gross, grossPB, flagged, specialPriced};
 }
 
 /* ============================================================
@@ -724,7 +728,7 @@ function renderInv(){
     const costCell = p.tbd ? '—' : 'S$'+fmt(effCost(p));
     return `<tr class="${s<=0&&!p.tbd?'flagrow':''}">
       <td>${esc(p.id)}</td>
-      <td>${esc(p.name)}<div class="note-sm">${p.tbd?'特別注文（要価格登録）':(isPB(p)?'ポイント還元10%':'')}</div></td>
+      <td>${esc(p.name)}<div class="note-sm">${p.tbd?'特別注文（要価格登録）':(p.special?'特別注文品':(isPB(p)?'ポイント還元10%':''))}</div></td>
       <td>${esc(p.brand)}</td>
       <td class="num">${priceCell}</td>
       <td class="num">${costCell}</td>
@@ -796,6 +800,7 @@ function showDetail(id){
     ${t.type==="session"?`<tr><td>セッション報酬(80%)</td><td class="num">S$${fmt(f.sessionRev*0.8)}</td></tr>`:''}
   </tbody></table>`;
   if(f.flagged) html+=`<p class="note-sm" style="color:var(--red)">⚠ 参考価格と実収に差（${fmt(f.listPrice-f.productCash)}）、または未解決の記述があります。プロモ・割引・送料が含まれる可能性があります。備考: ${esc(t.notes)||"—"}</p>`;
+  else if(f.specialPriced) html+=`<p class="note-sm" style="color:var(--green)">セット特別価格の取引です（参考価格 S$${fmt(f.listPrice)} とは別に、実際の決済 S$${fmt(f.productCash)} を採用）。備考: ${esc(t.notes)||"—"}</p>`;
   document.getElementById("d_title").textContent=t.id+" 内訳";
   document.getElementById("d_body").innerHTML=html;
   document.getElementById("detailOverlay").classList.add("open");

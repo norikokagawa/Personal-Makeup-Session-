@@ -207,6 +207,19 @@
     <div class="field"><label>購入商品（自由記述）</label>
       <textarea id="f_desc" placeholder="カンマ / スラッシュ / ＋ 区切り"></textarea></div>
     <div class="parsebox" id="f_parse"><span class="muted">商品を入力すると解決結果を表示します。</span></div>
+    <div class="field" id="f_setopts" style="display:none">
+      <label>Base Makeup Set の内容（毎回選択）</label>
+      <div class="row2">
+        <select id="f_primer">
+          <option value="P018">下地: Makeup Base（Dry肌）</option>
+          <option value="P019">下地: Poreless Base（Oily肌）</option>
+        </select>
+        <select id="f_found">
+          <option value="P014">ファンデ: The Foundation #115</option>
+          <option value="P013">ファンデ: The Foundation #110</option>
+        </select>
+      </div>
+    </div>
     <div class="row2">
       <div class="field"><label>決済額 合計 (SGD)</label><input type="number" id="f_pay" placeholder="0"></div>
       <div class="field"><label>備考</label><input type="text" id="f_notes" placeholder="送料 / 割引 / 配送 など"></div>
@@ -269,8 +282,10 @@ const BASE_STOCK = {P001:9,P002:21,P003:3,P004:17,P005:3,P006:4,P007:4,P008:1,P0
 const SETS = [
  {id:"SET001",name:"Skincare Starter Set",price:180,comp:["P004","P005","P006"]},
  {id:"SET002",name:"Skincare Complete Set",price:440,comp:["P004","P005","P006","P007","P001"]},
- {id:"SET003",name:"Base Makeup Set (Dry Skin)",price:260,comp:["P019","P014","P002","P020"]},
- {id:"SET004",name:"Base Makeup Set (Oily Skin)",price:260,comp:["P018","P013","P002","P020"]},
+ // Base Makeup Set: primer differs by skin type; foundation shade is the customer's choice
+ // (#110/#115 same price/cost — inventory defaults to #115 P014, which has more stock).
+ {id:"SET003",name:"Base Makeup Set (Dry Skin)",price:260,comp:["P018","P014","P002","P020"],foundFlex:true},
+ {id:"SET004",name:"Base Makeup Set (Oily Skin)",price:260,comp:["P019","P014","P002","P020"],foundFlex:true},
 ];
 const SEED_TX = [
  {id:"T0001",date:"2026/6/18",time:"11:00",cust:"Michelle Poh",fee:250,type:"session",desc:"",pay:0,notes:""},
@@ -377,8 +392,7 @@ const sessionFeeFor = dateStr => (ym(dateStr) >= "2026-08" ? 280 : 250);
 const SET_ALIASES = [
  {id:"SET002", pats:["skincare complete set","complete set"]},
  {id:"SET001", pats:["skincare starter set","starter set"]},
- {id:"SET003", pats:["base makeup set(dry)","base makeup set (dry","base makeup set"]}, // generic Base Makeup Set -> Dry (default); trailing "(...)" component list is auto-stripped
- {id:"SET004", pats:["base makeup set (oily"]},
+ // Base Makeup Set is handled separately (primer & foundation shade are chosen per sale).
 ];
 // Product aliases. Order matters: more specific / disambiguating first.
 // Each entry: {id, pats:[lowercased substrings]}
@@ -443,20 +457,39 @@ function extractLiners(text){
   return out;
 }
 
-// Main resolver: raw string -> {items:[{id,qty}], sets:[id], unresolved:[str]}
+// Main resolver: raw string -> {items:[{id,qty}], sets:[id], setComps:[[ids]], unresolved:[str]}
+// res.setComps is aligned with res.sets: the effective component product_ids of each set
+// (Base Makeup Set has a per-sale primer & foundation shade).
 function resolve(raw){
-  const res={items:[], sets:[], unresolved:[]};
+  const res={items:[], sets:[], setComps:[], unresolved:[]};
   if(!raw || !raw.trim()) return res;
   let work = " "+norm(raw)+" ";
 
-  // 1) Sets first (strip alias + following parenthetical component list)
+  // 1a) Base Makeup Set — S$260; primer (Dry=Makeup Base / Oily=Poreless) and foundation
+  //     shade (#115/#110) are chosen per sale. Detect from text, else default Makeup Base + #115.
+  {
+    let i;
+    while((i=work.indexOf("base makeup set"))!==-1){
+      let end=i+"base makeup set".length;
+      const win=work.slice(i, i+150);
+      const primer = /oily|poreless/.test(win) ? "P019" : "P018";       // default Dry = Makeup Base
+      const found  = /110/.test(win) ? "P013" : "P014";                 // default #115
+      res.sets.push(primer==="P019" ? "SET004" : "SET003");
+      res.setComps.push([primer, found, "P002", "P020"]);
+      const pm=work.slice(end).match(/^\s*\([^)]*\)/);                   // strip trailing component list
+      if(pm) end+=pm[0].length;
+      work = work.slice(0,i)+" ~ "+work.slice(end);
+    }
+  }
+
+  // 1b) Other sets (Starter / Complete) — strip alias + following parenthetical component list
   for(const s of SET_ALIASES){
     for(const pat of s.pats){
       let i;
       while((i=work.indexOf(pat))!==-1){
         res.sets.push(s.id);
+        res.setComps.push(SET[s.id].comp.slice());
         let end=i+pat.length;
-        // strip following (...) group if present
         const after=work.slice(end).replace(/^\s+/,"");
         if(after.startsWith("(")){
           const close=work.indexOf(")",end);
@@ -507,9 +540,30 @@ function resolve(raw){
   return res;
 }
 
+// Resolve a transaction, applying any per-sale Base Makeup Set choice (primer / foundation shade).
+function resolveTx(tx){
+  const r=resolve(tx.desc);
+  if(tx && tx.setChoice){
+    r.setComps=r.setComps.map((comps,idx)=>{
+      const sid=r.sets[idx];
+      if(sid==="SET003"||sid==="SET004"){
+        return comps.map(c=>{
+          if((c==="P018"||c==="P019") && tx.setChoice.primer) return tx.setChoice.primer;
+          if((c==="P013"||c==="P014") && tx.setChoice.found)  return tx.setChoice.found;
+          return c;
+        });
+      }
+      return comps;
+    });
+    r.sets=r.sets.map((sid,idx)=>
+      (sid==="SET003"||sid==="SET004") ? (r.setComps[idx][0]==="P019"?"SET004":"SET003") : sid);
+  }
+  return r;
+}
+
 // financials for a resolved transaction
 function txFinance(tx){
-  const r=resolve(tx.desc);
+  const r=resolveTx(tx);
   let listPrice=0, cost=0, costPB=0, brand={};
   const addProd=(id,qty,viaSet)=>{
     const p=P[id]; if(!p) return;
@@ -520,11 +574,11 @@ function txFinance(tx){
     brand[p.brand]=(brand[p.brand]||0)+ (viaSet?0:sgd*qty);
   };
   r.items.forEach(it=>addProd(it.id,it.qty,false));
-  r.sets.forEach(sid=>{
+  r.sets.forEach((sid,idx)=>{
     const s=SET[sid]; if(!s) return;
     listPrice += s.price;
     brand["(Set) "+s.name]=(brand["(Set) "+s.name]||0)+s.price;
-    s.comp.forEach(cid=>addProd(cid,1,true));
+    (r.setComps[idx]||s.comp).forEach(cid=>addProd(cid,1,true));
   });
   const sessionRev = tx.type==="session" ? (tx.fee||0) : 0;
   // In this data, payment_amount_sgd is the PRODUCT-only total (session fee is tracked separately).
@@ -552,9 +606,9 @@ function allTx(){return SEED_TX.concat(store.userTx);}
 function currentStock(){
   const stock={}; PRODUCTS.forEach(p=>stock[p.id]=BASE_STOCK[p.id]);
   store.userTx.forEach(tx=>{
-    const r=resolve(tx.desc);
+    const r=resolveTx(tx);
     r.items.forEach(it=>{ if(stock[it.id]!=null) stock[it.id]-=it.qty; });
-    r.sets.forEach(sid=>{ (SET[sid]?.comp||[]).forEach(cid=>{ if(stock[cid]!=null) stock[cid]-=1; }); });
+    r.sets.forEach((sid,idx)=>{ (r.setComps[idx]||SET[sid]?.comp||[]).forEach(cid=>{ if(stock[cid]!=null) stock[cid]-=1; }); });
   });
   return stock;
 }
@@ -592,7 +646,7 @@ function renderDash(){
     gross+=f.gross; grossPB+=f.grossPB;
     Object.entries(f.brand).forEach(([b,v])=>brandAgg[b]=(brandAgg[b]||0)+v);
     f.r.items.forEach(it=>{prodAgg[it.id]=(prodAgg[it.id]||0)+it.qty;});
-    f.r.sets.forEach(sid=>SET[sid].comp.forEach(cid=>prodAgg[cid]=(prodAgg[cid]||0)+1));
+    f.r.sets.forEach((sid,idx)=>(f.r.setComps[idx]||SET[sid].comp).forEach(cid=>prodAgg[cid]=(prodAgg[cid]||0)+1));
   });
   const reward = sessRev*0.8;
   const venueFee = sessRev*0.2;
@@ -623,8 +677,8 @@ function renderDash(){
   // margin table (per brand)
   const mAgg={};
   txs.forEach(t=>{const f=txFinance(t);
-    f.r.items.forEach(it=>{const p=P[it.id];if(!p)return;mAgg[p.brand]=mAgg[p.brand]||{rev:0,c:0,cpb:0};mAgg[p.brand].rev+=p.sgd*it.qty;mAgg[p.brand].c+=p.cost*it.qty;mAgg[p.brand].cpb+=effCost(p)*it.qty;});
-    f.r.sets.forEach(sid=>SET[sid].comp.forEach(cid=>{const p=P[cid];mAgg[p.brand]=mAgg[p.brand]||{rev:0,c:0,cpb:0};mAgg[p.brand].rev+=p.sgd;mAgg[p.brand].c+=p.cost;mAgg[p.brand].cpb+=effCost(p);}));
+    f.r.items.forEach(it=>{const p=P[it.id];if(!p)return;mAgg[p.brand]=mAgg[p.brand]||{rev:0,c:0,cpb:0};mAgg[p.brand].rev+=(p.sgd||0)*it.qty;mAgg[p.brand].c+=(p.cost||0)*it.qty;mAgg[p.brand].cpb+=effCost(p)*it.qty;});
+    f.r.sets.forEach((sid,idx)=>(f.r.setComps[idx]||SET[sid].comp).forEach(cid=>{const p=P[cid];if(!p)return;mAgg[p.brand]=mAgg[p.brand]||{rev:0,c:0,cpb:0};mAgg[p.brand].rev+=(p.sgd||0);mAgg[p.brand].c+=(p.cost||0);mAgg[p.brand].cpb+=effCost(p);}));
   });
   const mrows=Object.entries(mAgg).sort((a,b)=>b[1].rev-a[1].rev).map(([b,v])=>{
     const pb=POINTBACK_BRANDS.has(b);
@@ -730,13 +784,13 @@ function showDetail(id){
   let html=`<p class="hint">${esc(t.date)} ${esc(t.time||"")} ・ ${esc(t.cust)} ・ ${t.type==="session"?"Session":"Retail"}</p>`;
   html+=`<div class="parsebox">`;
   if(!t.desc){html+=`<span class="muted">物販なし（セッションのみ）</span>`;}
-  f.r.sets.forEach(s=>{html+=`<div class="li"><span><span class="tag v">SET</span> ${esc(SET[s].name)} <span class="muted">(${SET[s].comp.join("+")})</span></span><span>S$${fmt(SET[s].price)}</span></div>`;});
+  f.r.sets.forEach((s,idx)=>{const comps=(f.r.setComps[idx]||SET[s].comp).map(cid=>P[cid]?.name||cid).join(" ＋ ");html+=`<div class="li"><span><span class="tag v">SET</span> ${esc(SET[s].name)} <div class="note-sm">${esc(comps)}</div></span><span>S$${fmt(SET[s].price)}</span></div>`;});
   f.r.items.forEach(it=>{const p=P[it.id];html+=`<div class="li"><span>${esc(p?.name||it.id)} <span class="tag n">${esc(p?.brand||"")}</span></span><span>${it.qty}×S$${p?.sgd} = S$${fmt(it.qty*(p?.sgd||0))}</span></div>`;});
   f.r.unresolved.forEach(u=>{html+=`<div class="li"><span class="tag r">未解決</span><span>${esc(u)}</span></div>`;});
   html+=`</div>`;
   html+=`<table style="font-size:.8rem"><tbody>
     <tr><td>参考価格 合計</td><td class="num">S$${fmt(f.listPrice)}</td></tr>
-    <tr><td>物販 実収（決済−セッション）</td><td class="num">S$${fmt(f.productCash)}</td></tr>
+    <tr><td>物販 実収（決済額）</td><td class="num">S$${fmt(f.productCash)}</td></tr>
     <tr><td>原価（還元前 / 還元後）</td><td class="num">S$${fmt(f.cost)} / S$${fmt(f.costPB)}</td></tr>
     <tr><td>粗利（還元後・参考価ベース）</td><td class="num" style="color:var(--green)">S$${fmt(f.grossPB)}</td></tr>
     ${t.type==="session"?`<tr><td>セッション報酬(80%)</td><td class="num">S$${fmt(f.sessionRev*0.8)}</td></tr>`:''}
@@ -750,18 +804,27 @@ function showDetail(id){
 function renderSets(){
   document.getElementById("setCards").innerHTML=SETS.map(s=>{
     const comps=s.comp.map(id=>P[id]);
-    const listSum=comps.reduce((a,p)=>a+p.sgd,0);
+    const listSum=comps.reduce((a,p)=>a+(p.sgd||0),0);
     const costSum=comps.reduce((a,p)=>a+effCost(p),0);
     const save=listSum-s.price;
+    const flexRow=(p)=>{
+      let nm=esc(p.name), note="";
+      if(s.foundFlex && (p.id==="P013"||p.id==="P014")){ nm="The Foundation"; note='<div class="note-sm">色はお客様選択（#110 / #115・価格同じ）</div>'; }
+      if((s.id==="SET003"||s.id==="SET004") && (p.id==="P018"||p.id==="P019")){ note='<div class="note-sm">下地は肌質で選択（'+(s.id==="SET003"?"Dry=Makeup Base":"Oily=Poreless")+"）</div>"; }
+      return `<tr><td>${nm}${note}</td><td>${esc(p.brand)}</td><td class="num">S$${p.sgd}</td><td class="num">S$${fmt(effCost(p))}</td></tr>`;
+    };
+    const flexNote=(s.id==="SET003"||s.id==="SET004")
+      ? `<p class="note-sm">※ 下地（Dry=Makeup Base / Oily=Poreless）とファンデ色（#110/#115）は<b>販売時に選択</b>。在庫の既定は #115。</p>` : "";
     return `<div class="card">
       <div style="display:flex;justify-content:space-between;align-items:baseline">
         <h3>${esc(s.name)} <span class="tag v">${s.id}</span></h3>
         <div style="font-size:1.2rem;font-weight:700;color:var(--accent)">S$${s.price}</div>
       </div>
       <div class="scroll"><table><thead><tr><th>構成商品</th><th>ブランド</th><th class="num">単品価格</th><th class="num">原価(還元後)</th></tr></thead>
-      <tbody>${comps.map(p=>`<tr><td>${esc(p.name)}</td><td>${esc(p.brand)}</td><td class="num">S$${p.sgd}</td><td class="num">S$${fmt(effCost(p))}</td></tr>`).join("")}</tbody>
+      <tbody>${comps.map(flexRow).join("")}</tbody>
       <tfoot><tr><th>合計</th><th></th><th class="num">S$${fmt(listSum)}</th><th class="num">S$${fmt(costSum)}</th></tr></tfoot></table></div>
       <p class="note-sm">単品合計 S$${fmt(listSum)} → セット S$${s.price}（お得 <b style="color:var(--green)">S$${fmt(save)}</b>）／ セット粗利(還元後) <b>S$${fmt(s.price-costSum)}</b></p>
+      ${flexNote}
     </div>`;
   }).join("");
 }
@@ -812,8 +875,12 @@ function openTxModal(){
   ["f_time","f_cust","f_desc","f_pay","f_notes"].forEach(i=>document.getElementById(i).value="");
   document.getElementById("f_type").value="session";
   syncFee();
+  const so=document.getElementById("f_setopts"); so.style.display="none"; delete so.dataset.touched;
   document.getElementById("f_parse").innerHTML='<span class="muted">商品を入力すると解決結果を表示します。</span>';
   document.getElementById("txOverlay").classList.add("open");
+}
+function currentSetChoice(){
+  return {primer:document.getElementById("f_primer").value, found:document.getElementById("f_found").value};
 }
 // keep session fee in step with the date (S$250 →Jul 2026 / S$280 Aug 2026→)
 function syncFee(){
@@ -828,13 +895,25 @@ document.getElementById("f_date").addEventListener("change",syncFee);
 document.getElementById("f_type").addEventListener("change",syncFee);
 function closeTxModal(){document.getElementById("txOverlay").classList.remove("open");}
 document.getElementById("f_desc").addEventListener("input",updateParse);
+document.getElementById("f_primer").addEventListener("change",()=>{document.getElementById("f_setopts").dataset.touched="1";updateParse();});
+document.getElementById("f_found").addEventListener("change",()=>{document.getElementById("f_setopts").dataset.touched="1";updateParse();});
 function updateParse(){
   const raw=document.getElementById("f_desc").value;
-  const r=resolve(raw);
+  const base=resolve(raw);
+  const hasBase=base.sets.some(s=>s==="SET003"||s==="SET004");
+  const so=document.getElementById("f_setopts");
+  so.style.display = hasBase ? "block" : "none";
+  if(hasBase && !so.dataset.touched){ // seed the selectors from what the text implies
+    const idx=base.sets.findIndex(s=>s==="SET003"||s==="SET004");
+    document.getElementById("f_primer").value=base.setComps[idx][0];
+    document.getElementById("f_found").value=base.setComps[idx][1];
+  }
+  const r = hasBase ? resolveTx({desc:raw, setChoice:currentSetChoice()}) : base;
   const box=document.getElementById("f_parse");
   if(!raw.trim()){box.innerHTML='<span class="muted">商品を入力すると解決結果を表示します。</span>';return;}
   let html="", total=0;
-  r.sets.forEach(s=>{total+=SET[s].price;html+=`<div class="li"><span><span class="tag v">SET</span> ${esc(SET[s].name)}</span><span>S$${SET[s].price}</span></div>`;});
+  r.sets.forEach((s,idx)=>{total+=SET[s].price;const comps=(r.setComps[idx]||SET[s].comp).map(c=>P[c]?.name||c).join(" ＋ ");
+    html+=`<div class="li"><span><span class="tag v">SET</span> ${esc(SET[s].name)}<div class="note-sm">${esc(comps)}</div></span><span>S$${SET[s].price}</span></div>`;});
   r.items.forEach(it=>{const p=P[it.id];total+=(p?.sgd||0)*it.qty;html+=`<div class="li"><span>${esc(p?.name||it.id)} ${it.qty>1?"×"+it.qty:""}</span><span>S$${fmt((p?.sgd||0)*it.qty)}</span></div>`;});
   r.unresolved.forEach(u=>html+=`<div class="li"><span class="tag r">未解決</span><span>${esc(u)}</span></div>`);
   html+=`<div class="li" style="border-top:1px solid var(--line);margin-top:4px;padding-top:6px"><b>参考価格 合計</b><b>S$${fmt(total)}</b></div>`;
@@ -853,6 +932,8 @@ function saveTx(){
     cust, fee, type, desc,
     pay, notes:document.getElementById("f_notes").value.trim()
   };
+  // record the per-sale Base Makeup Set choice (primer / foundation shade) if present
+  if(resolve(desc).sets.some(s=>s==="SET003"||s==="SET004")) tx.setChoice=currentSetChoice();
   store.userTx.push(tx); saveStore();
   closeTxModal();
   renderAll();

@@ -375,6 +375,10 @@ const SEED_TX = [
  {id:"T0084",date:"2026/7/7",time:"",cust:"Shi Yin (0704)",fee:null,type:"retail",desc:"NOEVIR Lip Brush",pay:14,notes:"決済済07:36/送料SGD3込み"},
  {id:"T0085",date:"2026/7/7",time:"",cust:"Poh Ingrid",fee:250,type:"session",desc:"Base Makeup Set(RMK Poreless+SUQQU Foundation115+NOEVIR ConcealerN+RMK SettingPowder)+Blanc Etoile Mach Liner PBR",pay:298,notes:"決済済/セット"},
  {id:"T0086",date:"2026/7/7",time:"",cust:"Yuka Tan",fee:250,type:"session",desc:"",pay:0,notes:"物販なし"},
+ // --- 2026/7/8 本日のセッション（Sheryl Lee はキャンセルのため記録せず） ---
+ {id:"T0087",date:"2026/7/8",time:"11:00",cust:"Go Yun Yun",fee:250,type:"session",desc:"",pay:0,notes:"物販なし"},
+ {id:"T0088",date:"2026/7/8",time:"13:00",cust:"Tanya Chiam",fee:250,type:"session",desc:"Skincare Starter Set",pay:180,notes:"決済済 14:08 / PayNow Ref 260708098050503595"},
+ {id:"T0089",date:"2026/7/8",time:"14:00",cust:"Irene Widiani",fee:250,type:"session",desc:"NOEVIR Eyebrow Brush, Blanc Protector, Celvoke Eyebrow Powder 02, NOEVIR Concealer N, Mach Liner PBR, SUQQU 3D Mascara",pay:332,notes:"決済済 15:43 / PayNow Ref 178349662072478542"},
 ];
 
 /* ============================================================
@@ -606,10 +610,18 @@ function loadStore(){
 function saveStore(){localStorage.setItem(LS_KEY,JSON.stringify(store));}
 function allTx(){return SEED_TX.concat(store.userTx);}
 
-// current inventory = base - units sold in USER tx only (seed already reflected in base)
+// current inventory = 2026-07-07 baseline − units sold in any transaction dated AFTER the
+// baseline (seed data up to 07-07 is already reflected in BASE_STOCK).
+const BASELINE_DATE="2026-07-07";
+function dayKey(str){ // "2026/7/8" -> "2026-07-08"; "2026/7" (no day) -> null
+  const m=(str||"").split("/");
+  if(m.length<3 || !m[2]) return null;
+  return m[0]+"-"+String(+m[1]).padStart(2,"0")+"-"+String(+m[2]).padStart(2,"0");
+}
+function afterBaseline(str){ const k=dayKey(str); return k!==null && k>BASELINE_DATE; }
 function currentStock(){
   const stock={}; PRODUCTS.forEach(p=>stock[p.id]=BASE_STOCK[p.id]);
-  store.userTx.forEach(tx=>{
+  allTx().filter(tx=>afterBaseline(tx.date)).forEach(tx=>{
     const r=resolveTx(tx);
     r.items.forEach(it=>{ if(stock[it.id]!=null) stock[it.id]-=it.qty; });
     r.sets.forEach((sid,idx)=>{ (r.setComps[idx]||SET[sid]?.comp||[]).forEach(cid=>{ if(stock[cid]!=null) stock[cid]-=1; }); });

@@ -2,8 +2,17 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Salon de Singa — 売上・在庫管理</title>
+<!-- PWA: installable to the home screen, offline-capable -->
+<link rel="manifest" href="./manifest.json" />
+<meta name="theme-color" content="#c5766a" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="Salon SG" />
+<link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+<link rel="icon" type="image/png" href="./icon-192.png" />
 <style>
   :root{
     --bg:#fdf6f0; --card:#ffffff; --ink:#3a3230; --sub:#8a7d78;
@@ -971,6 +980,11 @@ document.querySelectorAll("#nav button").forEach(b=>b.onclick=()=>switchTab(b.da
 
 function renderAll(){renderDash();renderInv();renderTx();renderSets();renderInvoice();}
 renderAll();
+
+// Register service worker for offline / installable app (ignored when opened as a local file)
+if('serviceWorker' in navigator && location.protocol.startsWith('http')){
+  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+}
 </script>
 </body>
 </html>

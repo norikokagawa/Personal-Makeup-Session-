@@ -7,8 +7,7 @@
 var PROCESSED_LABEL = 'STORES-送信済み';
 
 // STORESの予約通知メールを検索するクエリ
-// ※ 実際の送信元アドレスに合わせて変更してください
-var SEARCH_QUERY = 'subject:"予約が入りました" is:unread -label:' + PROCESSED_LABEL;
+var SEARCH_QUERY = 'from:hello@stores.jp subject:"予約が入りました" is:unread -label:' + PROCESSED_LABEL;
 
 // ======================
 //  メイン処理（自動実行）
@@ -24,6 +23,10 @@ function processStoresReservations() {
       if (!message.isUnread()) return;
 
       var body = message.getPlainBody();
+
+      // シドニーの予約のみ対象（シンガポール・福岡などはスキップ）
+      if (body.indexOf('Sydney') === -1) return;
+
       var name  = extractName(body);
       var email = extractEmail(body);
 

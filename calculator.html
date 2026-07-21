@@ -260,7 +260,7 @@
           </div>
         </div>
         <div class="form-group">
-          <label>販売価格(1個あたり)</label>
+          <label>販売価格(1個あたり)<span class="label-hint">未定なら空欄でOK</span></label>
           <div class="row">
             <input type="number" id="prodSell" step="any" min="0" placeholder="例: 25.00" />
             <select class="narrow" id="prodSellCur">
@@ -453,6 +453,8 @@
 
     // ---- 商品リスト ----
     const PROD_KEY = 'pmsProducts';
+  // SG89発注リスト(Excel)由来の初期データ: 仕入原価は円、売価はAUD
+  const SEED_PRODUCTS = [{"id":"seed01","name":"NOEVIR コンシーラーN","photo":null,"buy":{"amt":3520,"cur":"JPY"},"sell":{"amt":53,"cur":"AUD"}},{"id":"seed02","name":"NOEVIR スキンコンディショナー 160ml","photo":null,"buy":{"amt":4840,"cur":"JPY"},"sell":{"amt":73,"cur":"AUD"}},{"id":"seed03","name":"NOEVIR 99ローション(アクア) 160ml","photo":null,"buy":{"amt":5104,"cur":"JPY"},"sell":{"amt":75,"cur":"AUD"}},{"id":"seed04","name":"NOEVIR 99ミルクローション(アクア) 110g","photo":null,"buy":{"amt":5720,"cur":"JPY"},"sell":{"amt":86,"cur":"AUD"}},{"id":"seed05","name":"NOEVIR アイブロウブラシ＆コーム","photo":null,"buy":{"amt":792,"cur":"JPY"},"sell":{"amt":15,"cur":"AUD"}},{"id":"seed06","name":"NOEVIR 薬用ブランプロテクターW 40g","photo":null,"buy":{"amt":10560,"cur":"JPY"},"sell":null},{"id":"seed07","name":"NOEVIR バイオサイン アイクリーム","photo":null,"buy":{"amt":13200,"cur":"JPY"},"sell":{"amt":204,"cur":"AUD"}},{"id":"seed08","name":"NOEVIR スクリューブラシ","photo":null,"buy":{"amt":616,"cur":"JPY"},"sell":{"amt":15,"cur":"AUD"}},{"id":"seed09","name":"NOEVIR オートコンシーラーN","photo":null,"buy":{"amt":3080,"cur":"JPY"},"sell":null},{"id":"seed10","name":"NOEVIR レイセラジェル(UVジェル) 70g","photo":null,"buy":{"amt":3256,"cur":"JPY"},"sell":{"amt":48,"cur":"AUD"}},{"id":"seed11","name":"NOEVIR クレンジングローション 160ml","photo":null,"buy":{"amt":2640,"cur":"JPY"},"sell":null},{"id":"seed12","name":"NOEVIR リップブラシ","photo":null,"buy":{"amt":616,"cur":"JPY"},"sell":{"amt":15,"cur":"AUD"}},{"id":"seed13","name":"RMK リファイニング ポアレス スキン ベース","photo":null,"buy":{"amt":3960,"cur":"JPY"},"sell":{"amt":57,"cur":"AUD"}},{"id":"seed14","name":"RMK メイクアップベース","photo":null,"buy":{"amt":3960,"cur":"JPY"},"sell":{"amt":57,"cur":"AUD"}},{"id":"seed15","name":"RMK アイシャドウブラシ D","photo":null,"buy":{"amt":1980,"cur":"JPY"},"sell":{"amt":28,"cur":"AUD"}},{"id":"seed16","name":"RMK Eyeshadow Brush (refill)","photo":null,"buy":{"amt":693,"cur":"JPY"},"sell":{"amt":9,"cur":"AUD"}},{"id":"seed17","name":"RMK Eyeshadow Brush (A)","photo":null,"buy":{"amt":2574,"cur":"JPY"},"sell":{"amt":36,"cur":"AUD"}},{"id":"seed18","name":"RMK シルクフィット セッティングパウダー","photo":null,"buy":{"amt":4950,"cur":"JPY"},"sell":{"amt":66,"cur":"AUD"}},{"id":"seed19","name":"RMK Glowing Illuminator","photo":null,"buy":{"amt":2772,"cur":"JPY"},"sell":null},{"id":"seed20","name":"RMK Control Color","photo":null,"buy":{"amt":3465,"cur":"JPY"},"sell":{"amt":46,"cur":"AUD"}},{"id":"seed21","name":"RMK アイラッシュカーラー","photo":null,"buy":{"amt":990,"cur":"JPY"},"sell":{"amt":14,"cur":"AUD"}},{"id":"seed22","name":"RMK Liquid Eyebrow Pen","photo":null,"buy":{"amt":2772,"cur":"JPY"},"sell":null},{"id":"seed23","name":"RMK アイディファイニング ペンシル","photo":null,"buy":{"amt":2970,"cur":"JPY"},"sell":{"amt":42,"cur":"AUD"}},{"id":"seed24","name":"SUQQU 3D アイラッシュ マスカラ","photo":null,"buy":{"amt":4257,"cur":"JPY"},"sell":{"amt":66,"cur":"AUD"}},{"id":"seed25","name":"SUQQU ザ リクイド ファンデーション e  #110","photo":null,"buy":{"amt":9900,"cur":"JPY"},"sell":{"amt":133,"cur":"AUD"}},{"id":"seed26","name":"SUQQU ザ リクイド ファンデーション e  #115","photo":null,"buy":{"amt":9900,"cur":"JPY"},"sell":{"amt":133,"cur":"AUD"}},{"id":"seed27","name":"SUQQU ザ リクイド ファンデーション e  #125","photo":null,"buy":{"amt":9900,"cur":"JPY"},"sell":{"amt":133,"cur":"AUD"}},{"id":"seed28","name":"SUQQU ブラーリング カラー ブラッシュ #01","photo":null,"buy":{"amt":5940,"cur":"JPY"},"sell":{"amt":78,"cur":"AUD"}},{"id":"seed29","name":"SUQQU シグニチャー カラー アイズ #01","photo":null,"buy":{"amt":7425,"cur":"JPY"},"sell":{"amt":95,"cur":"AUD"}},{"id":"seed30","name":"SUQQU シグニチャー カラー アイズ #04","photo":null,"buy":{"amt":7425,"cur":"JPY"},"sell":{"amt":95,"cur":"AUD"}},{"id":"seed31","name":"SUQQU シグニチャー カラー アイズ #10","photo":null,"buy":{"amt":7425,"cur":"JPY"},"sell":{"amt":95,"cur":"AUD"}},{"id":"seed32","name":"SUQQU シグニチャー カラー アイズ #14","photo":null,"buy":{"amt":7425,"cur":"JPY"},"sell":{"amt":95,"cur":"AUD"}},{"id":"seed33","name":"SUQQU モイスチャー グレイズ リップスティック #02","photo":null,"buy":{"amt":5445,"cur":"JPY"},"sell":{"amt":72,"cur":"AUD"}},{"id":"seed34","name":"SUQQU モイスチャー グレイズ リップスティック #07","photo":null,"buy":{"amt":5445,"cur":"JPY"},"sell":{"amt":72,"cur":"AUD"}},{"id":"seed35","name":"SUQQU ブラーリング カラー ブラッシュ #03","photo":null,"buy":{"amt":5940,"cur":"JPY"},"sell":{"amt":78,"cur":"AUD"}},{"id":"seed36","name":"SUQQU ブラーリング カラー ブラッシュ #04","photo":null,"buy":{"amt":5940,"cur":"JPY"},"sell":{"amt":78,"cur":"AUD"}},{"id":"seed37","name":"SUQQU ブラーリング カラー ブラッシュ #06","photo":null,"buy":{"amt":5940,"cur":"JPY"},"sell":{"amt":78,"cur":"AUD"}},{"id":"seed38","name":"SUQQU カラーリング アイブロウ","photo":null,"buy":{"amt":3168,"cur":"JPY"},"sell":{"amt":46,"cur":"AUD"}},{"id":"seed39","name":"SUQQU ディファイニング アイラッシュ ベース","photo":null,"buy":{"amt":3465,"cur":"JPY"},"sell":null},{"id":"seed40","name":"SUQQU モノ ルック アイズ S01","photo":null,"buy":{"amt":3861,"cur":"JPY"},"sell":{"amt":52,"cur":"AUD"}},{"id":"seed41","name":"SUQQU モノ ルック アイズ S05","photo":null,"buy":{"amt":3861,"cur":"JPY"},"sell":{"amt":52,"cur":"AUD"}},{"id":"seed42","name":"SUQQU モノ ルック アイズ L04","photo":null,"buy":{"amt":3861,"cur":"JPY"},"sell":{"amt":52,"cur":"AUD"}},{"id":"seed43","name":"Blanc Etoile マッハライナー ダークブラウン","photo":null,"buy":{"amt":3080,"cur":"JPY"},"sell":{"amt":42,"cur":"AUD"}},{"id":"seed44","name":"Blanc Etoile マッハライナー ピンクブラウン","photo":null,"buy":{"amt":3080,"cur":"JPY"},"sell":{"amt":42,"cur":"AUD"}},{"id":"seed45","name":"Blanc Etoile マッハライナー ブラック","photo":null,"buy":{"amt":3080,"cur":"JPY"},"sell":{"amt":42,"cur":"AUD"}},{"id":"seed46","name":"Celvoke インディケイト アイブロウパウダー","photo":null,"buy":{"amt":3465,"cur":"JPY"},"sell":{"amt":53,"cur":"AUD"}},{"id":"seed47","name":"ADDICTION シルキーバームスティック","photo":null,"buy":{"amt":3762,"cur":"JPY"},"sell":{"amt":53,"cur":"AUD"}},{"id":"seed48","name":"THREE コンシーラー ブラシ M","photo":null,"buy":{"amt":3168,"cur":"JPY"},"sell":{"amt":44,"cur":"AUD"}},{"id":"seed49","name":"THREE カラーヴェールブラッシャー ブラシ","photo":null,"buy":{"amt":5940,"cur":"JPY"},"sell":{"amt":79,"cur":"AUD"}},{"id":"seed50","name":"THREE フェイス ブラシ L","photo":null,"buy":{"amt":6930,"cur":"JPY"},"sell":{"amt":93,"cur":"AUD"}}];
     let editingId = null;
     let pendingPhoto = null;
 
@@ -512,24 +514,25 @@
       const buyCur = document.getElementById('prodBuyCur').value;
       const sell = parseFloat(document.getElementById('prodSell').value);
       const sellCur = document.getElementById('prodSellCur').value;
-      if (!name || !(buy > 0) || !(sell > 0)) {
-        alert('商品名・仕入れ価格・販売価格を入力してください。');
-        return;
+      if (!name || !(buy > 0)) {
+      alert('商品名と仕入れ価格を入力してください。');
+      return;
       }
+    const sellObj = sell > 0 ? { amt: sell, cur: sellCur } : null;
       const products = loadProducts();
       if (editingId) {
         const p = products.find(x => x.id === editingId);
         if (p) {
           p.name = name; p.photo = pendingPhoto;
           p.buy = { amt: buy, cur: buyCur };
-          p.sell = { amt: sell, cur: sellCur };
+          p.sell = sellObj;
         }
       } else {
         products.unshift({
           id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
           name, photo: pendingPhoto,
           buy: { amt: buy, cur: buyCur },
-          sell: { amt: sell, cur: sellCur },
+          sell: sellObj,
         });
       }
       if (saveProducts(products)) {
@@ -559,8 +562,8 @@
       document.getElementById('prodName').value = p.name;
       document.getElementById('prodBuy').value = p.buy.amt;
       document.getElementById('prodBuyCur').value = p.buy.cur;
-      document.getElementById('prodSell').value = p.sell.amt;
-      document.getElementById('prodSellCur').value = p.sell.cur;
+      document.getElementById('prodSell').value = p.sell ? p.sell.amt : '';
+      document.getElementById('prodSellCur').value = p.sell ? p.sell.cur : 'AUD';
       document.getElementById('photoPreview').innerHTML = p.photo ? '<img src="' + p.photo + '" alt="商品写真" />' : '💄';
       document.getElementById('prodFormTitle').textContent = '商品を編集';
       document.getElementById('prodSaveBtn').textContent = '更新する';
@@ -592,20 +595,24 @@
 
       listEl.innerHTML = products.map(p => {
         const buyJPY = toJPY(p.buy.amt, p.buy.cur);
+      const hasSell = !!(p.sell && p.sell.amt > 0);
+      let sellTxt = '未設定', profitLine = '利益 —(「編集」で販売価格を入力)';
+      if (hasSell) {
         const profit = p.sell.amt - fromJPY(buyJPY, p.sell.cur);
         const margin = (profit / p.sell.amt) * 100;
         const profitJPY = toJPY(profit, p.sell.cur);
         const kpiClass = profit >= 0 ? 'kpi' : 'kpi warn';
-        const profitTxt = p.sell.cur === 'JPY'
-          ? fmt(profitJPY, 'JPY')
-          : fmt(profit, p.sell.cur) + '(約 ' + fmt(profitJPY, 'JPY') + ')';
+        const profitTxt = p.sell.cur === 'JPY' ? fmt(profitJPY, 'JPY') : fmt(profit, p.sell.cur) + '(約 ' + fmt(profitJPY, 'JPY') + ')';
+        sellTxt = fmt(p.sell.amt, p.sell.cur);
+        profitLine = '利益 ' + profitTxt + ' <span class="' + kpiClass + '">' + margin.toFixed(1) + ' %</span>';
+      }
         return '<div class="prod-card">' +
           '<div class="prod-thumb">' + (p.photo ? '<img src="' + p.photo + '" alt="' + escHtml(p.name) + '" />' : '💄') + '</div>' +
           '<div class="prod-info">' +
             '<div class="prod-name">' + escHtml(p.name) + '</div>' +
             '<div class="prod-nums">' +
-              '仕入れ ' + fmt(p.buy.amt, p.buy.cur) + ' ・ 販売 ' + fmt(p.sell.amt, p.sell.cur) + '<br />' +
-              '利益 ' + profitTxt + ' <span class="' + kpiClass + '">' + margin.toFixed(1) + ' %</span>' +
+              '仕入れ ' + fmt(p.buy.amt, p.buy.cur) + ' ・ 販売 ' + sellTxt + '<br />' +
+            profitLine +
             '</div>' +
           '</div>' +
           '<div class="prod-actions">' +
@@ -640,6 +647,14 @@
       }
       calcFx();
       calcCost();
+      if (!localStorage.getItem('pmsSeedV1')) {
+        try {
+          const existing = loadProducts();
+          const have = new Set(existing.map(p => p.name));
+          localStorage.setItem(PROD_KEY, JSON.stringify(existing.concat(SEED_PRODUCTS.filter(p => !have.has(p.name)))));
+          localStorage.setItem('pmsSeedV1', 'done');
+        } catch (e) {}
+      }
       renderProducts();
     })();
   </script>

@@ -79,6 +79,21 @@
     .cross-table td:first-child, .cross-table th:first-child { text-align: left; color: #999; font-weight: 600; }
 
     .divider { height: 1px; background: #f0e8e4; margin: 20px 0; }
+
+    /* 商品リスト */
+    .prod-list { display: flex; flex-direction: column; gap: 10px; }
+    .prod-empty { font-size: 0.82rem; color: #999; text-align: center; padding: 18px 0; }
+    .prod-card { display: flex; gap: 12px; align-items: center; border: 1px solid #f0e8e4; border-radius: 12px; padding: 12px; background: #fdfaf8; }
+    .prod-thumb { width: 64px; height: 64px; border-radius: 10px; background: #f3e8e3; flex: 0 0 64px; display: flex; align-items: center; justify-content: center; font-size: 1.6rem; overflow: hidden; }
+    .prod-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .prod-info { flex: 1; min-width: 0; }
+    .prod-name { font-size: 0.9rem; font-weight: 600; color: #333; margin-bottom: 4px; overflow-wrap: anywhere; }
+    .prod-nums { font-size: 0.78rem; color: #666; line-height: 1.7; font-variant-numeric: tabular-nums; }
+    .prod-actions { display: flex; flex-direction: column; gap: 6px; }
+    .mini-btn { font-size: 0.72rem; padding: 4px 10px; border-radius: 6px; border: 1px solid #e0d6d0; background: #fff; color: #c5766a; cursor: pointer; }
+    .photo-row { display: flex; align-items: center; gap: 12px; }
+    .photo-pick { position: relative; display: inline-flex; align-items: center; gap: 6px; padding: 10px 14px; border: 1.5px dashed #e0d6d0; border-radius: 8px; color: #c5766a; font-size: 0.85rem; font-weight: 600; cursor: pointer; background: #fdfaf8; }
+    .photo-pick input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
     .kpi { background: #eaf5f0; color: #2d9c6e; border-radius: 6px; padding: 3px 10px; font-size: 0.8rem; font-weight: 600; display: inline-block; }
     .kpi.warn { background: #fdecea; color: #d9534f; }
     .note { font-size: 0.73rem; color: #bbb; text-align: center; margin-top: 14px; line-height: 1.7; }
@@ -92,8 +107,9 @@
     </div>
 
     <div class="tabs">
-      <button class="tab active" id="tabFx" onclick="showTab('fx')">💱 為替計算</button>
-      <button class="tab" id="tabCost" onclick="showTab('cost')">💄 原価・販売価格</button>
+      <button class="tab active" id="tabFx" onclick="showTab('fx')">💱 為替</button>
+      <button class="tab" id="tabCost" onclick="showTab('cost')">💄 原価計算</button>
+      <button class="tab" id="tabProd" onclick="showTab('prod')">📦 商品リスト</button>
     </div>
 
     <!-- ========== 為替レート(共通) ========== -->
@@ -205,9 +221,63 @@
       </div>
     </div>
 
+    <!-- ========== 商品リストタブ ========== -->
+    <div class="panel" id="panelProd">
+      <div class="section">
+        <h2>商品を探す</h2>
+        <div class="form-group">
+          <input type="text" id="prodSearch" placeholder="商品名で検索(例: リップ)" oninput="renderProducts()" />
+        </div>
+        <div class="prod-list" id="prodList"></div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="section">
+        <h2 id="prodFormTitle">商品を登録</h2>
+        <div class="form-group">
+          <label>商品名</label>
+          <input type="text" id="prodName" placeholder="例: リップティント #05" />
+        </div>
+        <div class="form-group">
+          <label>写真 <span class="label-hint">任意</span></label>
+          <div class="photo-row">
+            <label class="photo-pick">📷 写真を選ぶ
+              <input type="file" id="prodPhoto" accept="image/*" onchange="onPhotoChange(event)" />
+            </label>
+            <div class="prod-thumb" id="photoPreview">💄</div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>仕入れ価格(1個あたり)</label>
+          <div class="row">
+            <input type="number" id="prodBuy" step="any" min="0" placeholder="例: 12.50" />
+            <select class="narrow" id="prodBuyCur">
+              <option value="SGD">SGD</option>
+              <option value="AUD">AUD</option>
+              <option value="JPY">JPY 円</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>販売価格(1個あたり)</label>
+          <div class="row">
+            <input type="number" id="prodSell" step="any" min="0" placeholder="例: 25.00" />
+            <select class="narrow" id="prodSellCur">
+              <option value="SGD">SGD</option>
+              <option value="AUD">AUD</option>
+              <option value="JPY">JPY 円</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-main" id="prodSaveBtn" onclick="saveProduct()">登録する</button>
+        <button class="btn btn-outline" id="prodCancelBtn" onclick="resetProdForm()" style="display:none;margin-top:8px;">キャンセル</button>
+      </div>
+    </div>
+
     <div class="note">
       レートは「最新レートを取得」で自動更新できます(手動での修正も可能)。<br />
-      入力したレートはこの端末に保存されます。利益率は販売価格に対する粗利の割合です。
+      レートと商品リストはこの端末に保存されます。利益率は販売価格に対する粗利の割合です。
     </div>
   </div>
 
@@ -257,6 +327,7 @@
       }
       calcFx();
       calcCost();
+      renderProducts();
     }
 
     async function fetchRates() {
@@ -274,6 +345,7 @@
         setStatus('最新レートを取得しました(' + new Date().toLocaleString('ja-JP') + ')', 'ok');
         calcFx();
         calcCost();
+        renderProducts();
       } catch (e) {
         setStatus('取得できませんでした(オフライン?)。手動でレートを入力してください。', 'err');
       }
@@ -379,12 +451,180 @@
       }
     }
 
+    // ---- 商品リスト ----
+    const PROD_KEY = 'pmsProducts';
+    let editingId = null;
+    let pendingPhoto = null;
+
+    function loadProducts() {
+      try {
+        const a = JSON.parse(localStorage.getItem(PROD_KEY));
+        return Array.isArray(a) ? a : [];
+      } catch (e) { return []; }
+    }
+    function saveProducts(a) {
+      try {
+        localStorage.setItem(PROD_KEY, JSON.stringify(a));
+        return true;
+      } catch (e) {
+        alert('保存できませんでした。写真の枚数が多すぎる可能性があります。古い商品を削除してみてください。');
+        return false;
+      }
+    }
+    function escHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    function fileToThumb(file) {
+      return new Promise((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onload = () => {
+          const img = new Image();
+          img.onload = () => {
+            const max = 240;
+            const s = Math.min(1, max / Math.max(img.width, img.height));
+            const w = Math.round(img.width * s), h = Math.round(img.height * s);
+            const c = document.createElement('canvas');
+            c.width = w; c.height = h;
+            c.getContext('2d').drawImage(img, 0, 0, w, h);
+            resolve(c.toDataURL('image/jpeg', 0.75));
+          };
+          img.onerror = reject;
+          img.src = fr.result;
+        };
+        fr.onerror = reject;
+        fr.readAsDataURL(file);
+      });
+    }
+
+    function onPhotoChange(e) {
+      const f = e.target.files[0];
+      if (!f) return;
+      fileToThumb(f).then(url => {
+        pendingPhoto = url;
+        document.getElementById('photoPreview').innerHTML = '<img src="' + url + '" alt="商品写真" />';
+      }).catch(() => alert('写真を読み込めませんでした。別の写真でお試しください。'));
+    }
+
+    function saveProduct() {
+      const name = document.getElementById('prodName').value.trim();
+      const buy = parseFloat(document.getElementById('prodBuy').value);
+      const buyCur = document.getElementById('prodBuyCur').value;
+      const sell = parseFloat(document.getElementById('prodSell').value);
+      const sellCur = document.getElementById('prodSellCur').value;
+      if (!name || !(buy > 0) || !(sell > 0)) {
+        alert('商品名・仕入れ価格・販売価格を入力してください。');
+        return;
+      }
+      const products = loadProducts();
+      if (editingId) {
+        const p = products.find(x => x.id === editingId);
+        if (p) {
+          p.name = name; p.photo = pendingPhoto;
+          p.buy = { amt: buy, cur: buyCur };
+          p.sell = { amt: sell, cur: sellCur };
+        }
+      } else {
+        products.unshift({
+          id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+          name, photo: pendingPhoto,
+          buy: { amt: buy, cur: buyCur },
+          sell: { amt: sell, cur: sellCur },
+        });
+      }
+      if (saveProducts(products)) {
+        resetProdForm();
+        renderProducts();
+      }
+    }
+
+    function resetProdForm() {
+      editingId = null;
+      pendingPhoto = null;
+      document.getElementById('prodName').value = '';
+      document.getElementById('prodBuy').value = '';
+      document.getElementById('prodSell').value = '';
+      document.getElementById('prodPhoto').value = '';
+      document.getElementById('photoPreview').innerHTML = '💄';
+      document.getElementById('prodFormTitle').textContent = '商品を登録';
+      document.getElementById('prodSaveBtn').textContent = '登録する';
+      document.getElementById('prodCancelBtn').style.display = 'none';
+    }
+
+    function editProduct(id) {
+      const p = loadProducts().find(x => x.id === id);
+      if (!p) return;
+      editingId = id;
+      pendingPhoto = p.photo || null;
+      document.getElementById('prodName').value = p.name;
+      document.getElementById('prodBuy').value = p.buy.amt;
+      document.getElementById('prodBuyCur').value = p.buy.cur;
+      document.getElementById('prodSell').value = p.sell.amt;
+      document.getElementById('prodSellCur').value = p.sell.cur;
+      document.getElementById('photoPreview').innerHTML = p.photo ? '<img src="' + p.photo + '" alt="商品写真" />' : '💄';
+      document.getElementById('prodFormTitle').textContent = '商品を編集';
+      document.getElementById('prodSaveBtn').textContent = '更新する';
+      document.getElementById('prodCancelBtn').style.display = 'flex';
+      document.getElementById('prodFormTitle').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function deleteProduct(id) {
+      const p = loadProducts().find(x => x.id === id);
+      if (!p) return;
+      if (!confirm('「' + p.name + '」を削除しますか?')) return;
+      saveProducts(loadProducts().filter(x => x.id !== id));
+      if (editingId === id) resetProdForm();
+      renderProducts();
+    }
+
+    function renderProducts() {
+      const listEl = document.getElementById('prodList');
+      const q = (document.getElementById('prodSearch').value || '').trim().toLowerCase();
+      const all = loadProducts();
+      const products = q ? all.filter(p => p.name.toLowerCase().includes(q)) : all;
+
+      if (products.length === 0) {
+        listEl.innerHTML = '<div class="prod-empty">' +
+          (all.length === 0 ? 'まだ商品が登録されていません。下のフォームから登録してください。' : '「' + escHtml(q) + '」に一致する商品がありません。') +
+          '</div>';
+        return;
+      }
+
+      listEl.innerHTML = products.map(p => {
+        const buyJPY = toJPY(p.buy.amt, p.buy.cur);
+        const profit = p.sell.amt - fromJPY(buyJPY, p.sell.cur);
+        const margin = (profit / p.sell.amt) * 100;
+        const profitJPY = toJPY(profit, p.sell.cur);
+        const kpiClass = profit >= 0 ? 'kpi' : 'kpi warn';
+        const profitTxt = p.sell.cur === 'JPY'
+          ? fmt(profitJPY, 'JPY')
+          : fmt(profit, p.sell.cur) + '(約 ' + fmt(profitJPY, 'JPY') + ')';
+        return '<div class="prod-card">' +
+          '<div class="prod-thumb">' + (p.photo ? '<img src="' + p.photo + '" alt="' + escHtml(p.name) + '" />' : '💄') + '</div>' +
+          '<div class="prod-info">' +
+            '<div class="prod-name">' + escHtml(p.name) + '</div>' +
+            '<div class="prod-nums">' +
+              '仕入れ ' + fmt(p.buy.amt, p.buy.cur) + ' ・ 販売 ' + fmt(p.sell.amt, p.sell.cur) + '<br />' +
+              '利益 ' + profitTxt + ' <span class="' + kpiClass + '">' + margin.toFixed(1) + ' %</span>' +
+            '</div>' +
+          '</div>' +
+          '<div class="prod-actions">' +
+            '<button class="mini-btn" onclick="editProduct(\'' + p.id + '\')">編集</button>' +
+            '<button class="mini-btn" onclick="deleteProduct(\'' + p.id + '\')">削除</button>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }
+
     // ---- タブ ----
     function showTab(name) {
-      document.getElementById('tabFx').classList.toggle('active', name === 'fx');
-      document.getElementById('tabCost').classList.toggle('active', name === 'cost');
-      document.getElementById('panelFx').classList.toggle('active', name === 'fx');
-      document.getElementById('panelCost').classList.toggle('active', name === 'cost');
+      const tabs = { fx: 'tabFx', cost: 'tabCost', prod: 'tabProd' };
+      const panels = { fx: 'panelFx', cost: 'panelCost', prod: 'panelProd' };
+      for (const k in tabs) {
+        document.getElementById(tabs[k]).classList.toggle('active', k === name);
+        document.getElementById(panels[k]).classList.toggle('active', k === name);
+      }
+      if (name === 'prod') renderProducts();
     }
 
     // ---- 初期化 ----
@@ -400,6 +640,7 @@
       }
       calcFx();
       calcCost();
+      renderProducts();
     })();
   </script>
 </body>

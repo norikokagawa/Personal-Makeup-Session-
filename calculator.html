@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>為替・コスメ原価計算 | Personal Makeup Session</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Helvetica Neue', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', Arial, sans-serif;
+      background: #fdf6f0;
+      min-height: 100vh;
+      display: flex; align-items: flex-start; justify-content: center;
+      padding: 24px 16px;
+    }
+    .card {
+      background: #fff; border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      max-width: 520px; width: 100%; padding: 32px 28px;
+    }
+    .logo { text-align: center; margin-bottom: 20px; }
+    .logo h1 { font-size: 1rem; font-weight: 600; color: #c5766a; letter-spacing: 0.04em; }
+    .logo p { font-size: 0.75rem; color: #999; margin-top: 4px; }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 8px; margin-bottom: 22px; }
+    .tab {
+      flex: 1; padding: 10px 8px; border: 1.5px solid #e0d6d0; border-radius: 10px;
+      background: #fdfaf8; color: #999; font-size: 0.85rem; font-weight: 600;
+      cursor: pointer; text-align: center; transition: all 0.2s;
+    }
+    .tab.active { background: #c5766a; border-color: #c5766a; color: #fff; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    h2 { font-size: 0.95rem; color: #333; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid #f0e8e4; }
+    .section { margin-bottom: 22px; }
+    .form-group { margin-bottom: 14px; }
+    label { display: block; font-size: 0.8rem; color: #666; margin-bottom: 5px; font-weight: 500; }
+    .label-hint { font-size: 0.72rem; color: #aaa; font-weight: 400; margin-left: 6px; }
+    input, select {
+      width: 100%; padding: 10px 14px; border: 1px solid #e0d6d0; border-radius: 8px;
+      font-size: 0.9rem; color: #333; background: #fdfaf8;
+      transition: border-color 0.2s; outline: none;
+    }
+    input:focus, select:focus { border-color: #c5766a; background: #fff; }
+    .row { display: flex; gap: 8px; }
+    .row > * { flex: 1; min-width: 0; }
+    .row .narrow { flex: 0 0 96px; }
+
+    .rate-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .rate-label { flex: 0 0 110px; font-size: 0.84rem; color: #666; font-weight: 500; }
+    .rate-row input { flex: 1; text-align: right; }
+    .rate-unit { flex: 0 0 34px; font-size: 0.8rem; color: #999; }
+
+    .btn {
+      display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
+      padding: 12px; border: none; border-radius: 10px; font-size: 0.9rem; font-weight: 600;
+      cursor: pointer; transition: opacity 0.2s, transform 0.1s;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn-main { background: #c5766a; color: #fff; }
+    .btn-main:hover { opacity: 0.9; }
+    .btn-outline { background: #fff; color: #c5766a; border: 1.5px solid #c5766a; font-size: 0.85rem; padding: 10px; }
+    .rate-status { font-size: 0.73rem; color: #aaa; text-align: center; margin-top: 8px; line-height: 1.6; min-height: 1.2em; }
+    .rate-status.ok { color: #2d9c6e; }
+    .rate-status.err { color: #d9534f; }
+
+    .result-box { background: #f9f2ef; border-radius: 10px; padding: 16px; border-left: 3px solid #c5766a; }
+    .result-line { display: flex; justify-content: space-between; align-items: baseline; padding: 6px 0; font-size: 0.88rem; color: #444; }
+    .result-line + .result-line { border-top: 1px dashed #e8ddd7; }
+    .result-line .cur { font-size: 0.78rem; color: #999; font-weight: 600; }
+    .result-line .val { font-size: 1.05rem; font-weight: 700; color: #333; font-variant-numeric: tabular-nums; }
+    .result-line.big .val { font-size: 1.25rem; color: #c5766a; }
+
+    .cross-table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 0.78rem; }
+    .cross-table th, .cross-table td { padding: 6px 8px; text-align: right; border-bottom: 1px solid #f0e8e4; font-variant-numeric: tabular-nums; }
+    .cross-table th { color: #999; font-weight: 600; }
+    .cross-table td:first-child, .cross-table th:first-child { text-align: left; color: #999; font-weight: 600; }
+
+    .divider { height: 1px; background: #f0e8e4; margin: 20px 0; }
+    .kpi { background: #eaf5f0; color: #2d9c6e; border-radius: 6px; padding: 3px 10px; font-size: 0.8rem; font-weight: 600; display: inline-block; }
+    .kpi.warn { background: #fdecea; color: #d9534f; }
+    .note { font-size: 0.73rem; color: #bbb; text-align: center; margin-top: 14px; line-height: 1.7; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <h1>Personal Makeup Session</h1>
+      <p>為替 &amp; コスメ原価・販売価格 計算ツール</p>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" id="tabFx" onclick="showTab('fx')">💱 為替計算</button>
+      <button class="tab" id="tabCost" onclick="showTab('cost')">💄 原価・販売価格</button>
+    </div>
+
+    <!-- ========== 為替レート(共通) ========== -->
+    <div class="section">
+      <h2>為替レート <span class="label-hint">1 SGD / 1 AUD あたりの円</span></h2>
+      <div class="rate-row">
+        <div class="rate-label">1 SGD =</div>
+        <input type="number" id="rateSGD" step="0.01" min="0" oninput="onRateEdit()" />
+        <div class="rate-unit">円</div>
+      </div>
+      <div class="rate-row">
+        <div class="rate-label">1 AUD =</div>
+        <input type="number" id="rateAUD" step="0.01" min="0" oninput="onRateEdit()" />
+        <div class="rate-unit">円</div>
+      </div>
+      <button class="btn btn-outline" onclick="fetchRates()">🔄 最新レートを取得</button>
+      <div class="rate-status" id="rateStatus"></div>
+    </div>
+
+    <!-- ========== 為替計算タブ ========== -->
+    <div class="panel active" id="panelFx">
+      <div class="section">
+        <h2>金額を換算</h2>
+        <div class="form-group">
+          <label>金額と通貨</label>
+          <div class="row">
+            <input type="number" id="fxAmount" step="any" min="0" placeholder="例: 5000" oninput="calcFx()" />
+            <select class="narrow" id="fxFrom" onchange="calcFx()">
+              <option value="JPY">JPY 円</option>
+              <option value="SGD">SGD</option>
+              <option value="AUD">AUD</option>
+            </select>
+          </div>
+        </div>
+        <div class="result-box" id="fxResult">
+          <div class="result-line"><span class="cur">—</span><span class="val">金額を入力してください</span></div>
+        </div>
+        <table class="cross-table" id="crossTable"></table>
+      </div>
+    </div>
+
+    <!-- ========== 原価・販売価格タブ ========== -->
+    <div class="panel" id="panelCost">
+      <div class="section">
+        <h2>仕入れ情報</h2>
+        <div class="form-group">
+          <label>商品の仕入れ単価 <span class="label-hint">1個あたり</span></label>
+          <div class="row">
+            <input type="number" id="costUnit" step="any" min="0" placeholder="例: 12.50" oninput="calcCost()" />
+            <select class="narrow" id="costUnitCur" onchange="calcCost()">
+              <option value="SGD">SGD</option>
+              <option value="AUD">AUD</option>
+              <option value="JPY">JPY 円</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>数量</label>
+          <input type="number" id="costQty" step="1" min="1" value="1" oninput="calcCost()" />
+        </div>
+        <div class="form-group">
+          <label>送料 <span class="label-hint">合計・任意</span></label>
+          <div class="row">
+            <input type="number" id="costShip" step="any" min="0" placeholder="0" oninput="calcCost()" />
+            <select class="narrow" id="costShipCur" onchange="calcCost()">
+              <option value="SGD">SGD</option>
+              <option value="AUD">AUD</option>
+              <option value="JPY">JPY 円</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>その他費用 <span class="label-hint">関税・手数料など合計・任意</span></label>
+          <div class="row">
+            <input type="number" id="costOther" step="any" min="0" placeholder="0" oninput="calcCost()" />
+            <select class="narrow" id="costOtherCur" onchange="calcCost()">
+              <option value="SGD">SGD</option>
+              <option value="AUD">AUD</option>
+              <option value="JPY">JPY 円</option>
+            </select>
+          </div>
+        </div>
+        <div class="result-box" id="costResult"></div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="section">
+        <h2>販売価格の設定</h2>
+        <div class="form-group">
+          <label>販売する通貨</label>
+          <select id="sellCur" onchange="calcCost()">
+            <option value="SGD">SGD(シンガポール)</option>
+            <option value="AUD">AUD(オーストラリア)</option>
+            <option value="JPY">JPY(日本)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>販売価格(1個あたり)<span class="label-hint">入力すると利益率を計算</span></label>
+          <input type="number" id="sellPrice" step="any" min="0" placeholder="例: 25.00" oninput="calcCost()" />
+        </div>
+        <div class="result-box" id="profitResult" style="margin-bottom:16px;"></div>
+
+        <div class="form-group">
+          <label>目標利益率(%)<span class="label-hint">販売価格に対する利益の割合</span></label>
+          <input type="number" id="targetMargin" step="any" min="0" max="99" placeholder="例: 40" oninput="calcCost()" />
+        </div>
+        <div class="result-box" id="suggestResult"></div>
+      </div>
+    </div>
+
+    <div class="note">
+      レートは「最新レートを取得」で自動更新できます(手動での修正も可能)。<br />
+      入力したレートはこの端末に保存されます。利益率は販売価格に対する粗利の割合です。
+    </div>
+  </div>
+
+  <script>
+    // ---- レート管理(1通貨あたりの円で保持) ----
+    const DEFAULT_RATES = { SGD: 115, AUD: 105 };
+    const LS_KEY = 'pmsCalcRates';
+
+    function loadRates() {
+      try {
+        const s = JSON.parse(localStorage.getItem(LS_KEY));
+        if (s && s.SGD > 0 && s.AUD > 0) return s;
+      } catch (e) {}
+      return { ...DEFAULT_RATES, updated: null };
+    }
+    function saveRates(r) { localStorage.setItem(LS_KEY, JSON.stringify(r)); }
+
+    function getRates() {
+      return {
+        JPY: 1,
+        SGD: parseFloat(document.getElementById('rateSGD').value) || 0,
+        AUD: parseFloat(document.getElementById('rateAUD').value) || 0,
+      };
+    }
+    function toJPY(amount, cur) { return amount * getRates()[cur]; }
+    function fromJPY(amountJPY, cur) {
+      const r = getRates()[cur];
+      return r > 0 ? amountJPY / r : 0;
+    }
+    function fmt(v, cur) {
+      if (!isFinite(v)) return '—';
+      if (cur === 'JPY') return '¥' + Math.round(v).toLocaleString('ja-JP');
+      return v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ' + cur;
+    }
+
+    function setStatus(msg, cls) {
+      const el = document.getElementById('rateStatus');
+      el.textContent = msg;
+      el.className = 'rate-status' + (cls ? ' ' + cls : '');
+    }
+
+    function onRateEdit() {
+      const r = getRates();
+      if (r.SGD > 0 && r.AUD > 0) {
+        saveRates({ SGD: r.SGD, AUD: r.AUD, updated: new Date().toISOString(), manual: true });
+        setStatus('手動で設定したレートを保存しました', '');
+      }
+      calcFx();
+      calcCost();
+    }
+
+    async function fetchRates() {
+      setStatus('レートを取得中…', '');
+      try {
+        const res = await fetch('https://open.er-api.com/v6/latest/JPY');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        if (!data.rates || !data.rates.SGD || !data.rates.AUD) throw new Error('データ形式エラー');
+        const sgd = 1 / data.rates.SGD;
+        const aud = 1 / data.rates.AUD;
+        document.getElementById('rateSGD').value = sgd.toFixed(2);
+        document.getElementById('rateAUD').value = aud.toFixed(2);
+        saveRates({ SGD: +sgd.toFixed(2), AUD: +aud.toFixed(2), updated: new Date().toISOString(), manual: false });
+        setStatus('最新レートを取得しました(' + new Date().toLocaleString('ja-JP') + ')', 'ok');
+        calcFx();
+        calcCost();
+      } catch (e) {
+        setStatus('取得できませんでした(オフライン?)。手動でレートを入力してください。', 'err');
+      }
+    }
+
+    // ---- 為替計算 ----
+    function calcFx() {
+      const amount = parseFloat(document.getElementById('fxAmount').value);
+      const from = document.getElementById('fxFrom').value;
+      const box = document.getElementById('fxResult');
+      const curs = ['JPY', 'SGD', 'AUD'];
+
+      if (!(amount > 0)) {
+        box.innerHTML = '<div class="result-line"><span class="cur">—</span><span class="val" style="font-size:0.85rem;color:#999;">金額を入力してください</span></div>';
+      } else {
+        const jpy = toJPY(amount, from);
+        box.innerHTML = curs.map(c => {
+          const v = fromJPY(jpy, c);
+          const isFrom = c === from;
+          return '<div class="result-line' + (isFrom ? '' : ' big') + '">' +
+            '<span class="cur">' + c + (isFrom ? '(入力)' : '') + '</span>' +
+            '<span class="val">' + fmt(v, c) + '</span></div>';
+        }).join('');
+      }
+      renderCrossTable();
+    }
+
+    function renderCrossTable() {
+      const curs = ['JPY', 'SGD', 'AUD'];
+      const r = getRates();
+      let html = '<tr><th>1単位 ↓ →</th>' + curs.map(c => '<th>' + c + '</th>').join('') + '</tr>';
+      curs.forEach(from => {
+        html += '<tr><td>1 ' + from + '</td>';
+        curs.forEach(to => {
+          if (from === to) { html += '<td>—</td>'; return; }
+          const v = r[to] > 0 ? r[from] / r[to] : NaN;
+          html += '<td>' + (isFinite(v) ? v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : '—') + '</td>';
+        });
+        html += '</tr>';
+      });
+      document.getElementById('crossTable').innerHTML = html;
+    }
+
+    // ---- 原価・販売価格計算 ----
+    function calcCost() {
+      const unit = parseFloat(document.getElementById('costUnit').value) || 0;
+      const unitCur = document.getElementById('costUnitCur').value;
+      const qty = Math.max(1, parseInt(document.getElementById('costQty').value) || 1);
+      const ship = parseFloat(document.getElementById('costShip').value) || 0;
+      const shipCur = document.getElementById('costShipCur').value;
+      const other = parseFloat(document.getElementById('costOther').value) || 0;
+      const otherCur = document.getElementById('costOtherCur').value;
+      const sellCur = document.getElementById('sellCur').value;
+      const sellPrice = parseFloat(document.getElementById('sellPrice').value);
+      const targetMargin = parseFloat(document.getElementById('targetMargin').value);
+
+      const costBox = document.getElementById('costResult');
+      const profitBox = document.getElementById('profitResult');
+      const suggestBox = document.getElementById('suggestResult');
+
+      const totalJPY = toJPY(unit, unitCur) * qty + toJPY(ship, shipCur) + toJPY(other, otherCur);
+      const perUnitJPY = totalJPY / qty;
+
+      if (!(unit > 0)) {
+        costBox.innerHTML = '<div class="result-line"><span class="cur">—</span><span class="val" style="font-size:0.85rem;color:#999;">仕入れ単価を入力してください</span></div>';
+        profitBox.innerHTML = '';
+        suggestBox.innerHTML = '';
+        return;
+      }
+
+      costBox.innerHTML =
+        '<div class="result-line"><span class="cur">総原価(' + qty + '個)</span><span class="val">' + fmt(totalJPY, 'JPY') + '</span></div>' +
+        '<div class="result-line big"><span class="cur">1個あたり原価</span><span class="val">' + fmt(perUnitJPY, 'JPY') + '</span></div>' +
+        '<div class="result-line"><span class="cur">1個あたり(SGD)</span><span class="val">' + fmt(fromJPY(perUnitJPY, 'SGD'), 'SGD') + '</span></div>' +
+        '<div class="result-line"><span class="cur">1個あたり(AUD)</span><span class="val">' + fmt(fromJPY(perUnitJPY, 'AUD'), 'AUD') + '</span></div>';
+
+      // 販売価格 → 利益
+      const perUnitCostSell = fromJPY(perUnitJPY, sellCur);
+      if (sellPrice > 0) {
+        const profit = sellPrice - perUnitCostSell;
+        const margin = (profit / sellPrice) * 100;
+        const totalProfitJPY = toJPY(profit, sellCur) * qty;
+        const kpiClass = profit >= 0 ? 'kpi' : 'kpi warn';
+        profitBox.innerHTML =
+          '<div class="result-line"><span class="cur">1個あたり原価(' + sellCur + ')</span><span class="val">' + fmt(perUnitCostSell, sellCur) + '</span></div>' +
+          '<div class="result-line big"><span class="cur">1個あたり利益</span><span class="val">' + fmt(profit, sellCur) + '</span></div>' +
+          '<div class="result-line"><span class="cur">利益率</span><span class="val"><span class="' + kpiClass + '">' + margin.toFixed(1) + ' %</span></span></div>' +
+          '<div class="result-line"><span class="cur">' + qty + '個すべて売れた場合の利益</span><span class="val">' + fmt(totalProfitJPY, 'JPY') + '</span></div>';
+      } else {
+        profitBox.innerHTML = '<div class="result-line"><span class="cur">—</span><span class="val" style="font-size:0.85rem;color:#999;">販売価格を入力すると利益率が出ます</span></div>';
+      }
+
+      // 目標利益率 → 推奨販売価格
+      if (targetMargin > 0 && targetMargin < 100) {
+        const suggested = perUnitCostSell / (1 - targetMargin / 100);
+        const profit = suggested - perUnitCostSell;
+        suggestBox.innerHTML =
+          '<div class="result-line big"><span class="cur">推奨販売価格(利益率 ' + targetMargin + '%)</span><span class="val">' + fmt(suggested, sellCur) + '</span></div>' +
+          '<div class="result-line"><span class="cur">1個あたり利益</span><span class="val">' + fmt(profit, sellCur) + '</span></div>' +
+          '<div class="result-line"><span class="cur">参考:円換算の販売価格</span><span class="val">' + fmt(toJPY(suggested, sellCur), 'JPY') + '</span></div>';
+      } else {
+        suggestBox.innerHTML = '<div class="result-line"><span class="cur">—</span><span class="val" style="font-size:0.85rem;color:#999;">目標利益率を入力すると推奨価格が出ます</span></div>';
+      }
+    }
+
+    // ---- タブ ----
+    function showTab(name) {
+      document.getElementById('tabFx').classList.toggle('active', name === 'fx');
+      document.getElementById('tabCost').classList.toggle('active', name === 'cost');
+      document.getElementById('panelFx').classList.toggle('active', name === 'fx');
+      document.getElementById('panelCost').classList.toggle('active', name === 'cost');
+    }
+
+    // ---- 初期化 ----
+    (function init() {
+      const saved = loadRates();
+      document.getElementById('rateSGD').value = saved.SGD;
+      document.getElementById('rateAUD').value = saved.AUD;
+      if (saved.updated) {
+        const d = new Date(saved.updated).toLocaleString('ja-JP');
+        setStatus((saved.manual ? '手動設定' : '取得済み') + 'のレート(' + d + ')', '');
+      } else {
+        setStatus('初期値のレートです。「最新レートを取得」を押してください。', '');
+      }
+      calcFx();
+      calcCost();
+    })();
+  </script>
+</body>
+</html>

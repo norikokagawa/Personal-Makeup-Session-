@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FAQ — atelierR</title>
+<meta name="description" content="Payment, delivery, returns, products, shade selection, orders and makeup session purchases — answered in full.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=Jost:wght@200;300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/atelier.css">
+</head>
+<body>
+<div data-header></div>
+<main>
+  <div class="wrap">
+    <nav class="crumb" aria-label="Breadcrumb">
+      <a href="index.html">Home</a><span>/</span><span aria-current="page">FAQ</span>
+    </nav>
+  </div>
+
+  <section class="section" style="padding-top:8px">
+    <div class="wrap">
+      <h1 class="h1 mb-16">Frequently Asked Questions</h1>
+      <p class="lede mb-32">Everything about ordering from atelierR, written so you do not have to ask.
+        If something here is unclear, that is our fault — tell us and we will fix the page.</p>
+
+      <div class="field" style="max-width:460px">
+        <label for="faqSearch">Search the FAQ</label>
+        <input id="faqSearch" type="search" placeholder="PayNow, delivery, shade…" data-faq-search>
+      </div>
+
+      <div class="faq-layout mt-32">
+        <nav class="faq-side" aria-label="FAQ sections" data-faq-side></nav>
+        <div>
+          <nav class="faq-nav" aria-label="FAQ sections" data-faq-nav></nav>
+          <div data-faq></div>
+
+          <div class="split mt-48" style="border:1px solid var(--line)">
+            <div class="split-body">
+              <p class="eyebrow">Still need help?</p>
+              <p class="h3 serif">If your question is not here, ask us.</p>
+              <p class="small">We would rather answer it once and add it to this page than answer it
+                fifty times in messages.</p>
+            </div>
+            <div class="split-body" style="padding:0;background:transparent">
+              <div class="help-links">
+                <a href="shade-guide.html"><span>Shade Guide — choosing colour without seeing it</span></a>
+                <a href="shop.html"><span>Shop All — every product, with full details</span></a>
+                <a href="contact.html"><span>Contact atelierR</span></a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+<div data-footer></div>
+
+<script src="assets/js/config.js"></script>
+<script src="assets/js/data/products.js"></script>
+<script src="assets/js/data/faqs.js"></script>
+<script src="assets/js/imagery.js"></script>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/ui.js"></script>
+<script>
+(function () {
+  UI.mount({ current: 'faq.html' });
+  var esc = Store.esc;
+  var out = document.querySelector('[data-faq]');
+
+  function render(filter) {
+    var q = (filter || '').trim().toLowerCase();
+    var html = '';
+    var shown = 0;
+
+    FAQ_GROUPS.forEach(function (g) {
+      var items = g.items.filter(function (i) {
+        return !q || (i.q + ' ' + i.a.join(' ')).toLowerCase().indexOf(q) > -1;
+      });
+      if (!items.length) return;
+      shown += items.length;
+      html += '<section class="faq-group" id="' + g.id + '">' +
+        '<h2 class="h2 serif mb-16">' + esc(g.title) + '</h2>' +
+        '<div class="acc">' + items.map(function (i) {
+          return '<div class="acc-item' + (q ? ' open' : '') + '">' +
+            '<button class="acc-q">' + esc(i.q) + '<span class="sign"></span></button>' +
+            '<div class="acc-a">' + i.a.join('') + '</div></div>';
+        }).join('') + '</div></section>';
+    });
+
+    if (!shown) {
+      html = '<div class="empty"><p class="h3 serif mb-16">No answer matches “' + esc(filter) + '”</p>' +
+        '<p class="small">Try a simpler word — “PayNow”, “delivery”, “shade”, “cancel” — or ' +
+        '<a class="link-under" href="contact.html">contact atelierR</a>.</p></div>';
+    }
+
+    out.innerHTML = html;
+    UI.accordion(out);
+  }
+
+  /* section navigation */
+  var links = FAQ_GROUPS.map(function (g) {
+    return '<a href="#' + g.id + '">' + esc(g.title) + '</a>';
+  }).join('');
+  document.querySelector('[data-faq-side]').innerHTML = links;
+  document.querySelector('[data-faq-nav]').innerHTML = FAQ_GROUPS.map(function (g) {
+    return '<a class="chip" href="#' + g.id + '">' + esc(g.title) + '</a>';
+  }).join('');
+
+  render('');
+
+  var search = document.querySelector('[data-faq-search]');
+  search.addEventListener('input', function () { render(search.value); });
+
+  /* open the group named in the URL hash */
+  function openHash() {
+    if (!location.hash) return;
+    var el = document.querySelector(location.hash);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  setTimeout(openHash, 60);
+  window.addEventListener('hashchange', openHash);
+})();
+</script>
+</body>
+</html>

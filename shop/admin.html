@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Order Desk — atelierR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=Jost:wght@200;300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/atelier.css">
+</head>
+<body>
+<div data-header></div>
+<main>
+  <section class="section" style="padding-top:24px">
+    <div class="wrap">
+      <p class="eyebrow mb-8">Internal</p>
+      <h1 class="h1 mb-16">Order Desk</h1>
+
+      <div class="notice notice-warn mb-32">
+        <strong>Preview only — not a real admin.</strong> Orders currently live in the browser that
+        placed them, so this page shows the orders on <em>this</em> device. When the product and order
+        tables move to a database, this page becomes the real order desk; the actions below already
+        write the same fields the backend will.
+      </div>
+
+      <div class="notice mb-32">
+        <strong>Payment is never confirmed automatically.</strong> Check the PayNow account for the
+        transfer, match it against the order number, and only then press <em>Confirm payment</em>.
+      </div>
+
+      <div data-orders></div>
+    </div>
+  </section>
+</main>
+<div data-footer></div>
+
+<script src="assets/js/config.js"></script>
+<script src="assets/js/data/products.js"></script>
+<script src="assets/js/imagery.js"></script>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/order-view.js"></script>
+<script>
+(function () {
+  UI.mount({});
+  var S = Store, esc = S.esc, money = S.money;
+  var out = document.querySelector('[data-orders]');
+
+  /* The step atelierR takes next, for each status. Confirming payment is the
+     only manual gate; everything after it is fulfilment. */
+  var NEXT = {
+    CREATED:               { key: 'AWAITING_PAYMENT',      label: 'Mark awaiting payment' },
+    AWAITING_PAYMENT:      null,
+    AWAITING_VERIFICATION: { key: 'CONFIRMED',             label: 'Confirm payment', primary: true },
+    CONFIRMED:             { key: 'PREPARING',             label: 'Start preparing' },
+    PREPARING:             { key: 'SHIPPED',               label: 'Mark shipped' },
+    SHIPPED:               { key: 'COMPLETED',             label: 'Mark completed' },
+    COMPLETED:             null
+  };
+
+  function render() {
+    var orders = S.Orders.all();
+    if (!orders.length) {
+      out.innerHTML = '<div class="empty"><p class="h3 serif mb-16">No orders on this device</p>' +
+        '<p class="small">Place a test order to see it here.</p>' +
+        '<a class="btn btn-outline mt-24" href="shop.html">Shop All</a></div>';
+      return;
+    }
+
+    out.innerHTML = orders.map(function (o) {
+      var next = NEXT[o.statusKey];
+      var proof = o.paymentScreenshot;
+      return '<div class="panel mb-24">' +
+        '<div class="row row-between mb-16">' +
+          '<span class="section-title">' + esc(o.orderNumber) + '</span>' +
+          '<span class="tag">' + esc(o.orderStatus) + '</span>' +
+        '</div>' +
+        '<div class="cart-layout" style="gap:24px">' +
+          '<div>' +
+            '<dl>' +
+              '<div class="kv"><dt>Customer</dt><dd>' + esc(o.customer.firstName + ' ' + o.customer.lastName) + '</dd></div>' +
+              '<div class="kv"><dt>WhatsApp</dt><dd>' + esc(o.customer.whatsapp) + '</dd></div>' +
+              '<div class="kv"><dt>Email</dt><dd>' + esc(o.customer.email) + '</dd></div>' +
+              '<div class="kv"><dt>Address</dt><dd style="max-width:60%">' + esc(o.customer.address) + ', ' + esc(o.customer.postalCode) + '</dd></div>' +
+              (o.customer.notes ? '<div class="kv"><dt>Notes</dt><dd style="max-width:60%">' + esc(o.customer.notes) + '</dd></div>' : '') +
+              '<div class="kv"><dt>Placed</dt><dd>' + esc(OrderView.formatDate(o.createdAt)) + '</dd></div>' +
+              '<div class="kv"><dt>Payment</dt><dd>' + esc(o.paymentStatus) + '</dd></div>' +
+              '<div class="kv"><dt>Reference to look for</dt><dd><strong style="font-weight:400">' + esc(o.orderNumber) + '</strong></dd></div>' +
+              '<div class="kv"><dt>Amount to match</dt><dd><strong style="font-weight:400">' + money(o.total) + '</strong></dd></div>' +
+            '</dl>' +
+            '<div class="mt-16">' +
+              o.items.map(function (i) {
+                return '<div class="summary-row"><span>' + esc(i.brand + ' ' + i.name) +
+                  (i.shade ? ' <span class="tiny">(' + esc(i.shade) + ')</span>' : '') +
+                  ' <span class="muted">× ' + i.qty + '</span></span><span>' + money(i.lineTotal) + '</span></div>';
+              }).join('') +
+            '</div>' +
+            '<div class="row mt-24">' +
+              (next ? '<button class="btn btn-sm' + (next.primary ? '' : ' btn-quiet') + '" ' +
+                      'data-advance="' + esc(o.orderNumber) + '" data-to="' + next.key + '">' +
+                      esc(next.label) + '</button>' : '') +
+              '<a class="btn btn-quiet btn-sm" href="order.html?order=' + encodeURIComponent(o.orderNumber) + '">Customer view</a>' +
+              '<a class="btn btn-quiet btn-sm" href="' + esc(S.Orders.whatsappLink(o)) + '" target="_blank" rel="noopener">WhatsApp customer</a>' +
+            '</div>' +
+          '</div>' +
+          '<div>' +
+            '<p class="label">Payment proof</p>' +
+            (proof
+              ? (proof.channel === 'whatsapp'
+                  ? '<p class="small">Sent via WhatsApp on ' + esc(OrderView.formatDate(proof.uploadedAt)) + '. Check the WhatsApp thread.</p>'
+                  : '<p class="small">' + esc(proof.name || 'screenshot') + ' — ' + esc(OrderView.formatDate(proof.uploadedAt)) + '</p>' +
+                    (proof.dataUrl
+                      ? '<img class="preview-img" style="margin-left:0" src="' + proof.dataUrl + '" alt="Payment screenshot">'
+                      : '<p class="tiny">Image too large to store locally — check the PayNow account directly.</p>'))
+              : '<p class="small muted">None received yet.</p>') +
+            '<p class="label mt-24">History</p>' +
+            '<ul class="stack-4">' + o.history.map(function (h) {
+              return '<li class="tiny">' + esc(h.status) + ' — ' + esc(OrderView.formatDate(h.at)) + '</li>';
+            }).join('') + '</ul>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  out.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-advance]');
+    if (!b) return;
+    var to = b.getAttribute('data-to');
+    if (to === 'CONFIRMED' &&
+        !confirm('Confirm that the PayNow transfer has been seen in the account and matches this order?')) return;
+    S.Orders.setStatus(b.getAttribute('data-advance'), to,
+      to === 'CONFIRMED' ? { paymentStatus: 'verified' } : null);
+    UI.toast('Order updated');
+    render();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

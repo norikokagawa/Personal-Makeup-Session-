@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Product — atelierR</title>
+<meta name="description" content="Product details, shade guidance and application notes from atelierR.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=Jost:wght@200;300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/atelier.css">
+</head>
+<body>
+<div data-header></div>
+<main data-product></main>
+<div data-footer></div>
+
+<script src="assets/js/config.js"></script>
+<script src="assets/js/data/products.js"></script>
+<script src="assets/js/imagery.js"></script>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/ui.js"></script>
+<script>
+(function () {
+  UI.mount({ current: 'product.html' });
+  var S = Store, esc = S.esc, money = S.money;
+  var root = document.querySelector('[data-product]');
+  var p = S.Catalog.byId(S.param('id'));
+
+  if (!p) {
+    root.innerHTML = '<div class="wrap"><div class="empty">' +
+      '<p class="h2 serif">Product not found</p>' +
+      '<p class="lede center" style="margin:0 auto 24px">This product may have been removed or the link may be incomplete.</p>' +
+      '<a class="btn btn-outline" href="shop.html">Shop All</a></div></div>';
+    return;
+  }
+
+  document.title = p.brand + ' ' + p.name + ' — atelierR';
+  var stock = S.Catalog.stockLabel(p);
+  var sold = p.stock <= 0;
+  var shades = (p.shadeInfo && p.shadeInfo.shades) || [];
+  var cat = S.Catalog.category(p.category);
+  var images = (p.images && p.images.length ? p.images : [p.art]);
+
+  /* ---------- gallery ---------- */
+  function gallery() {
+    return '<div>' +
+      '<div class="gallery-main" data-gallery-main>' + Imagery.render(images[0], { label: p.brand + ' ' + p.name }) + '</div>' +
+      (images.length > 1
+        ? '<div class="gallery-thumbs" role="tablist" aria-label="Product images">' + images.map(function (img, i) {
+            return '<button role="tab" data-thumb="' + i + '" aria-selected="' + (i === 0) + '" ' +
+                   'aria-label="View image ' + (i + 1) + '">' + Imagery.render(img, { ratio: '400 400' }) + '</button>';
+          }).join('') + '</div>'
+        : '') +
+    '</div>';
+  }
+
+  /* ---------- purchase panel ---------- */
+  function buyPanel() {
+    return '<div class="pdp-info">' +
+      '<p class="card-brand mb-8"><a class="link-under" href="brand.html?b=' + S.slug(p.brand) + '">' + esc(p.brand) + '</a></p>' +
+      '<h1 class="h1" style="margin-bottom:10px">' + esc(p.name) + '</h1>' +
+      '<p class="lede mb-16">' + esc(p.shortDescription) + '</p>' +
+      '<p class="price mb-8">' + money(p.priceSGD) + '</p>' +
+      '<p class="stock ' + stock.cls + ' mb-24">' + esc(stock.text) + '</p>' +
+
+      (shades.length ? '<div class="mb-24">' +
+        '<p class="label">Shade <span data-shade-name class="muted" style="text-transform:none;letter-spacing:0">' +
+          esc(shades[0].name + ' · ' + shades[0].code) + '</span></p>' +
+        '<div class="shade-select" data-shade-select>' + shades.map(function (s, i) {
+          return '<button class="shade-swatch" data-shade="' + esc(s.name + ' ' + s.code) + '" ' +
+                 'data-shade-label="' + esc(s.name + ' · ' + s.code) + '" aria-pressed="' + (i === 0) + '">' +
+                 '<i style="background:' + esc(s.hex) + '"></i>' + esc(s.code) + '</button>';
+        }).join('') + '</div>' +
+        '<p class="tiny mt-8">Not sure? Read the <a class="link-under" href="#shade-guide">shade guide below</a>.</p>' +
+      '</div>' : '') +
+
+      (sold
+        ? '<div class="notice notice-warn mb-16"><strong>Sold out.</strong> Most core products are restocked within two to four weeks. ' +
+          'See <a class="link-under" href="faq.html#products">what happens when an item is sold out</a>.</div>' +
+          '<a class="btn btn-outline btn-block" href="category.html?c=' + p.category + '">See similar products</a>'
+        : '<div class="row mb-16">' +
+            '<div class="qty">' +
+              '<button data-qty="-1" aria-label="Decrease quantity">−</button>' +
+              '<input type="number" value="1" min="1" max="' + p.stock + '" data-qty-input aria-label="Quantity">' +
+              '<button data-qty="1" aria-label="Increase quantity">+</button>' +
+            '</div>' +
+            '<button class="btn" style="flex:1;min-width:180px" data-add-to-cart>Add to Cart</button>' +
+          '</div>' +
+          '<p class="tiny mb-24">Payment by PayNow · ' +
+            (p.priceSGD >= S.CFG.delivery.freeThreshold
+              ? 'Free delivery on this item'
+              : 'Delivery ' + money(S.CFG.delivery.flatRate) + ', free above ' + money(S.CFG.delivery.freeThreshold)) +
+          '</p>') +
+
+      infoBlocks() +
+    '</div>';
+  }
+
+  /* ---------- the answers ---------- */
+  function infoBlocks() {
+    var out = '';
+
+    out += '<div class="info-block"><h4>What it is</h4><p>' + esc(p.description) + '</p></div>';
+
+    out += '<div class="info-block"><h4>Why atelierR selected this</h4>' +
+           '<p>' + esc(p.whySelected) + '</p></div>';
+
+    if (p.bestFor && p.bestFor.length) {
+      out += '<div class="info-block"><h4>Best for</h4><div class="pill-list">' +
+        p.bestFor.map(function (b) { return '<span class="pill">' + esc(b) + '</span>'; }).join('') +
+      '</div></div>';
+    }
+
+    if (p.finish && p.finish !== '—') {
+      out += '<div class="info-block"><h4>Finish</h4><p>' + esc(p.finish) + ' — ' + esc(finishNote(p.finish)) + '</p></div>';
+    }
+
+    if (p.setContents && p.setContents.length) {
+      out += '<div class="info-block"><h4>What is included</h4><ul class="stack-8">' +
+        S.Catalog.byIds(p.setContents).map(function (c) {
+          return '<li><a class="link-under" href="product.html?id=' + c.id + '">' +
+                 esc(c.brand + ' ' + c.name) + '</a> <span class="small">· ' + money(c.priceSGD) + '</span></li>';
+        }).join('') + '</ul>' +
+        '<p class="small mt-8">Bought separately: ' +
+          money(S.Catalog.byIds(p.setContents).reduce(function (n, c) { return n + c.priceSGD; }, 0)) +
+        '</p></div>';
+    }
+
+    if (p.howToUse && p.howToUse.length) {
+      out += '<div class="info-block"><h4>How to use</h4><ol class="steps-list">' +
+        p.howToUse.map(function (s) { return '<li>' + esc(s) + '</li>'; }).join('') + '</ol></div>';
+    }
+
+    if (p.shadeInfo && (p.shadeInfo.guide || shades.length)) {
+      out += '<div class="info-block" id="shade-guide"><h4>Shade guide</h4>' +
+        (p.shadeInfo.guide ? '<p class="mb-16">' + esc(p.shadeInfo.guide) + '</p>' : '') +
+        shades.map(function (s) {
+          return '<div class="shade-row"><span class="shade-dot" style="background:' + esc(s.hex) + '"></span>' +
+            '<span><strong style="font-weight:400">' + esc(s.name) + ' · ' + esc(s.code) + '</strong>' +
+            '<span class="small" style="display:block">' + esc(s.note) + '</span></span></div>';
+        }).join('') +
+        '<p class="small mt-16">More on choosing shades in the <a class="link-under" href="shade-guide.html">Shade Guide</a>.</p>' +
+      '</div>';
+    }
+
+    return out;
+  }
+
+  function finishNote(f) {
+    return ({
+      'Natural': 'looks like skin, neither matte nor shiny',
+      'Satin': 'a soft, low sheen — the most wearable for most people',
+      'Matte': 'no shine, longest wear, best for evening',
+      'Sheer': 'translucent colour that lets your own tone show through',
+      'Luminous': 'reflects light softly, for a fresh or dewy look'
+    })[f] || 'see the description above';
+  }
+
+  /* ---------- help / pairings ---------- */
+  function helpSection() {
+    var related = S.Catalog.byIds(p.related).slice(0, 4);
+    var comparable = S.Catalog.byCategory(p.category)
+      .filter(function (x) { return x.id !== p.id && x.subcategory === p.subcategory; }).length;
+
+    return '<section class="section bg-paper">' +
+      '<div class="wrap">' +
+        (related.length ? '<div class="section-head"><h2 class="section-title">Pair it with</h2></div>' +
+          '<div class="product-grid mb-48">' + UI.grid(related) + '</div>' : '') +
+
+        '<div class="split" style="border:1px solid var(--line)">' +
+          '<div class="split-body">' +
+            '<p class="eyebrow">Need help choosing?</p>' +
+            '<p class="h3 serif">Most questions are already answered.</p>' +
+            '<p class="small">Work down this list — it is faster than waiting for a reply, and it is available at any hour.</p>' +
+          '</div>' +
+          '<div class="split-body" style="padding:0;background:transparent">' +
+            '<div class="help-links">' +
+              '<a href="shade-guide.html"><span><strong style="font-weight:400">1 · Shade Guide</strong>' +
+                '<span class="small" style="display:block">How to choose a shade without seeing it in person</span></span></a>' +
+              '<a href="faq.html#shades"><span><strong style="font-weight:400">2 · FAQ</strong>' +
+                '<span class="small" style="display:block">Payment, delivery, returns and shade selection</span></span></a>' +
+              '<a href="compare.html?c=' + p.category + '&amp;sub=' + encodeURIComponent(p.subcategory) + '">' +
+                '<span><strong style="font-weight:400">3 · Compare products</strong>' +
+                '<span class="small" style="display:block">' +
+                  (comparable ? 'See this next to the ' + comparable + ' other ' + esc(p.subcategory.toLowerCase()) +
+                                (comparable === 1 ? ' option' : ' options') + ' we carry'
+                              : 'See this next to everything else in ' + esc(cat ? cat.name : p.category)) +
+                '</span></span></a>' +
+              '<a href="contact.html"><span><strong style="font-weight:400">4 · Still need help? Contact atelierR</strong>' +
+                '<span class="small" style="display:block">If the three above did not answer it</span></span></a>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+    '</section>';
+  }
+
+  /* ---------- render ---------- */
+  root.innerHTML =
+    '<div class="wrap"><nav class="crumb" aria-label="Breadcrumb">' +
+      '<a href="index.html">Home</a><span>/</span>' +
+      '<a href="shop.html">Shop All</a><span>/</span>' +
+      '<a href="category.html?c=' + p.category + '">' + esc(cat ? cat.name : p.category) + '</a><span>/</span>' +
+      '<span aria-current="page">' + esc(p.name) + '</span>' +
+    '</nav></div>' +
+    '<section class="section" style="padding-top:8px"><div class="wrap"><div class="pdp">' +
+      gallery() + buyPanel() +
+    '</div></div></section>' +
+    helpSection();
+
+  /* ---------- behaviour ---------- */
+  var chosenShade = shades.length ? shades[0].name + ' ' + shades[0].code : '';
+
+  root.addEventListener('click', function (e) {
+    var thumb = e.target.closest('[data-thumb]');
+    if (thumb) {
+      var i = +thumb.getAttribute('data-thumb');
+      root.querySelector('[data-gallery-main]').innerHTML = Imagery.render(images[i], { label: p.name });
+      root.querySelectorAll('[data-thumb]').forEach(function (b) {
+        b.setAttribute('aria-selected', b === thumb ? 'true' : 'false');
+      });
+      return;
+    }
+
+    var sw = e.target.closest('[data-shade]');
+    if (sw) {
+      chosenShade = sw.getAttribute('data-shade');
+      root.querySelectorAll('[data-shade]').forEach(function (b) {
+        b.setAttribute('aria-pressed', b === sw ? 'true' : 'false');
+      });
+      root.querySelector('[data-shade-name]').textContent = sw.getAttribute('data-shade-label');
+      return;
+    }
+
+    var q = e.target.closest('[data-qty]');
+    if (q) {
+      var input = root.querySelector('[data-qty-input]');
+      var next = (parseInt(input.value, 10) || 1) + parseInt(q.getAttribute('data-qty'), 10);
+      input.value = Math.max(1, Math.min(p.stock, next));
+      return;
+    }
+
+    if (e.target.closest('[data-add-to-cart]')) {
+      var qty = parseInt(root.querySelector('[data-qty-input]').value, 10) || 1;
+      if (S.Cart.add(p.id, qty, chosenShade)) {
+        UI.toast('Added — ' + p.name, '<a href="cart.html">View cart</a>');
+      }
+    }
+  });
+})();
+</script>
+</body>
+</html>

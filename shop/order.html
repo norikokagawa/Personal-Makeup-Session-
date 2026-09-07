@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your Order — atelierR</title>
+<meta name="description" content="Your atelierR order: number, total, status and next steps.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=Jost:wght@200;300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/atelier.css">
+</head>
+<body>
+<div data-header></div>
+<main>
+  <div class="wrap">
+    <nav class="crumb" aria-label="Breadcrumb">
+      <a href="index.html">Home</a><span>/</span><span aria-current="page">Your Order</span>
+    </nav>
+  </div>
+  <section class="section" style="padding-top:8px">
+    <div class="wrap"><div data-order></div></div>
+  </section>
+</main>
+<div data-footer></div>
+
+<script src="assets/js/config.js"></script>
+<script src="assets/js/data/products.js"></script>
+<script src="assets/js/imagery.js"></script>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/order-view.js"></script>
+<script>
+(function () {
+  UI.mount({ current: 'order.html' });
+  var S = Store, esc = S.esc, money = S.money, CFG = S.CFG;
+  var root = document.querySelector('[data-order]');
+  var order = S.Orders.byNumber(S.param('order')) || S.Orders.last();
+
+  if (!order) { root.innerHTML = OrderView.notFound(); return; }
+
+  /* The message shown for each stage — so the customer never has to ask
+     "where is my order?". Payment is only ever confirmed by atelierR. */
+  var MESSAGES = {
+    CREATED: {
+      tone: '', title: 'Your order has been created',
+      body: 'Order <strong>' + esc(order.orderNumber) + '</strong> is saved and waiting for payment. ' +
+            'Nothing has been charged.',
+      cta: { href: 'paynow.html?order=' + encodeURIComponent(order.orderNumber), label: 'PayNow instructions' }
+    },
+    AWAITING_PAYMENT: {
+      tone: '', title: 'Awaiting your PayNow payment',
+      body: 'Transfer <strong>' + money(order.total) + '</strong> by PayNow using reference ' +
+            '<strong>' + esc(order.orderNumber) + '</strong>, then send us your screenshot.',
+      cta: { href: 'paynow.html?order=' + encodeURIComponent(order.orderNumber), label: 'PayNow instructions' }
+    },
+    AWAITING_VERIFICATION: {
+      tone: 'notice-ok', title: 'Thank you. Your payment confirmation has been received.',
+      body: 'atelierR will verify your PayNow payment before confirming your order — normally ' +
+            esc(CFG.payNow.verificationHours) + '. Nothing further is needed from you.',
+      cta: null
+    },
+    CONFIRMED: {
+      tone: 'notice-ok', title: 'Payment received. Thank you.',
+      body: 'Your order is now confirmed. It will be packed and sent within ' + esc(CFG.delivery.leadTime) + '.',
+      cta: null
+    },
+    PREPARING: {
+      tone: 'notice-ok', title: 'Your order is being prepared',
+      body: 'We are packing your order now. You will receive tracking details when it ships.',
+      cta: null
+    },
+    SHIPPED: {
+      tone: 'notice-ok', title: 'Your order is on its way',
+      body: 'Tracking details have been sent to ' + esc(order.customer.email) + '.',
+      cta: null
+    },
+    COMPLETED: {
+      tone: 'notice-ok', title: 'Delivered',
+      body: 'This order is complete. Thank you for shopping with atelierR.',
+      cta: { href: 'shop.html', label: 'Shop again' }
+    }
+  };
+
+  var m = MESSAGES[order.statusKey] || MESSAGES.CREATED;
+  var awaiting = order.statusKey === 'CREATED' || order.statusKey === 'AWAITING_PAYMENT';
+
+  root.innerHTML =
+    '<p class="eyebrow mb-8">Order ' + esc(order.orderNumber) + '</p>' +
+    '<h1 class="h1 mb-24">' + m.title + '</h1>' +
+
+    '<div class="order-layout">' +
+      '<div>' +
+        '<div class="notice ' + m.tone + ' mb-24">' + m.body + '</div>' +
+
+        (awaiting
+          ? '<div class="panel mb-24">' +
+              '<h2 class="section-title mb-16">Pay by PayNow</h2>' +
+              '<div class="kv"><dt>Amount</dt><dd><strong style="font-weight:400">' + money(order.total) + '</strong></dd></div>' +
+              '<div class="kv"><dt>PayNow UEN</dt><dd>' + esc(CFG.payNow.uen) + '</dd></div>' +
+              '<div class="kv"><dt>Reference</dt><dd>' + esc(order.orderNumber) + '</dd></div>' +
+              '<div class="row mt-24">' +
+                '<a class="btn" href="paynow.html?order=' + encodeURIComponent(order.orderNumber) + '">Full instructions</a>' +
+                '<a class="btn btn-quiet" href="payment-confirmation.html?order=' + encodeURIComponent(order.orderNumber) + '">I’ve made the payment</a>' +
+              '</div>' +
+            '</div>'
+          : '') +
+
+        '<div class="panel mb-24">' +
+          '<h2 class="section-title mb-16">Next steps</h2>' +
+          '<ol class="steps-list">' +
+            (awaiting
+              ? '<li>Transfer ' + money(order.total) + ' by PayNow with reference ' + esc(order.orderNumber) + '.</li>' +
+                '<li>Send us the payment screenshot.</li>' +
+                '<li>atelierR verifies the transfer by hand and confirms your order.</li>' +
+                '<li>Your order is packed and sent within ' + esc(CFG.delivery.leadTime) + '.</li>'
+              : '<li>atelierR verifies your PayNow transfer manually.</li>' +
+                '<li>Your order status becomes Payment Confirmed and you receive a confirmation message.</li>' +
+                '<li>Your order is packed and sent within ' + esc(CFG.delivery.leadTime) + '.</li>' +
+                '<li>Tracking details are sent to your email and WhatsApp.</li>') +
+          '</ol>' +
+        '</div>' +
+
+        '<div class="panel">' +
+          '<h2 class="section-title mb-16">Questions about this order</h2>' +
+          '<div class="help-links">' +
+            '<a href="faq.html#orders"><span>What do the order statuses mean?</span></a>' +
+            '<a href="faq.html#delivery"><span>How long does delivery take?</span></a>' +
+            '<a href="faq.html#returns"><span>Can I change or cancel this order?</span></a>' +
+            '<a href="contact.html"><span>Still need help? Contact atelierR</span></a>' +
+          '</div>' +
+        '</div>' +
+
+        (m.cta ? '<a class="btn btn-outline mt-24" href="' + m.cta.href + '">' + esc(m.cta.label) + '</a>' : '') +
+      '</div>' +
+
+      '<aside>' +
+        OrderView.summary(order) +
+        OrderView.customer(order) +
+        OrderView.tracker(order) +
+        (order.paymentScreenshot
+          ? '<div class="panel mt-24"><h2 class="section-title mb-16">Payment confirmation sent</h2>' +
+            '<p class="small">' +
+              (order.paymentScreenshot.channel === 'whatsapp'
+                ? 'Sent via WhatsApp on ' + esc(OrderView.formatDate(order.paymentScreenshot.uploadedAt)) + '.'
+                : 'Screenshot “' + esc(order.paymentScreenshot.name || 'payment') + '” submitted on ' +
+                  esc(OrderView.formatDate(order.paymentScreenshot.uploadedAt)) + '.') +
+            '</p>' +
+            (order.paymentScreenshot.dataUrl
+              ? '<img class="preview-img" style="margin-left:0" src="' + order.paymentScreenshot.dataUrl + '" alt="Your payment screenshot">'
+              : '') +
+            '</div>'
+          : '') +
+      '</aside>' +
+    '</div>';
+})();
+</script>
+</body>
+</html>

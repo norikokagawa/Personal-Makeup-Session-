@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your Details — atelierR</title>
+<meta name="description" content="Enter your delivery details. Payment is made via PayNow after your order is created.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=Jost:wght@200;300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/atelier.css">
+</head>
+<body>
+<div data-header></div>
+<main>
+  <div class="wrap">
+    <nav class="crumb" aria-label="Breadcrumb">
+      <a href="index.html">Home</a><span>/</span><a href="cart.html">Cart</a><span>/</span>
+      <span aria-current="page">Your Details</span>
+    </nav>
+  </div>
+
+  <section class="section" style="padding-top:8px">
+    <div class="wrap">
+      <h1 class="h1 mb-8">Your Details</h1>
+      <ol class="steps mb-32" aria-label="Checkout progress">
+        <li class="done">Cart</li>
+        <li class="now">Your details</li>
+        <li>Order review</li>
+        <li>PayNow payment</li>
+        <li>Confirmation</li>
+      </ol>
+      <div data-checkout></div>
+    </div>
+  </section>
+</main>
+<div data-footer></div>
+
+<script src="assets/js/config.js"></script>
+<script src="assets/js/data/products.js"></script>
+<script src="assets/js/imagery.js"></script>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/ui.js"></script>
+<script>
+(function () {
+  UI.mount({ current: 'checkout.html' });
+  var S = Store, esc = S.esc, money = S.money, CFG = S.CFG;
+  var root = document.querySelector('[data-checkout]');
+  var cart = S.Cart.detailed();
+
+  if (!cart.lines.length) {
+    root.innerHTML = '<div class="empty"><p class="h2 serif">Your cart is empty</p>' +
+      '<p class="lede center" style="margin:0 auto 24px">Add something to your cart before entering your details.</p>' +
+      '<a class="btn btn-outline" href="shop.html">Shop All</a></div>';
+    return;
+  }
+
+  var draft = S.read('atelierR.customer', {});
+
+  function field(name, label, type, opts) {
+    opts = opts || {};
+    var v = esc(draft[name] || '');
+    var input = opts.textarea
+      ? '<textarea id="' + name + '" name="' + name + '" ' + (opts.placeholder ? 'placeholder="' + esc(opts.placeholder) + '"' : '') + '>' + v + '</textarea>'
+      : '<input id="' + name + '" name="' + name + '" type="' + type + '" value="' + v + '" ' +
+        (opts.placeholder ? 'placeholder="' + esc(opts.placeholder) + '" ' : '') +
+        (opts.inputmode ? 'inputmode="' + opts.inputmode + '" ' : '') +
+        (opts.autocomplete ? 'autocomplete="' + opts.autocomplete + '" ' : '') + '>';
+    return '<div class="field" data-field="' + name + '">' +
+      '<label for="' + name + '">' + esc(label) + (opts.optional ? '' : ' <span class="req">*</span>') + '</label>' +
+      input +
+      (opts.hint ? '<p class="tiny mt-8">' + opts.hint + '</p>' : '') +
+      '<p class="field-error">' + esc(opts.error || 'This field is required.') + '</p>' +
+    '</div>';
+  }
+
+  root.innerHTML = '<div class="cart-layout">' +
+    '<form novalidate data-form>' +
+      '<div class="panel mb-24">' +
+        '<h2 class="section-title mb-24">Contact</h2>' +
+        '<div class="field-row">' +
+          field('firstName', 'First name', 'text', { autocomplete: 'given-name' }) +
+          field('lastName', 'Last name', 'text', { autocomplete: 'family-name' }) +
+        '</div>' +
+        field('email', 'Email', 'email', { autocomplete: 'email', placeholder: 'name@example.com',
+          hint: 'Your order number and tracking details are sent here.',
+          error: 'Please enter a valid email address.' }) +
+        field('whatsapp', 'WhatsApp number', 'tel', { autocomplete: 'tel', inputmode: 'tel', placeholder: '+65 9123 4567',
+          hint: 'Used only to confirm your payment and delivery.',
+          error: 'Please enter a valid phone number.' }) +
+      '</div>' +
+
+      '<div class="panel mb-24">' +
+        '<h2 class="section-title mb-24">Delivery</h2>' +
+        field('address', 'Delivery address', 'text', { textarea: true, autocomplete: 'street-address',
+          placeholder: 'Block / street / unit number' }) +
+        field('postalCode', 'Postal code', 'text', { autocomplete: 'postal-code', inputmode: 'numeric', placeholder: '238859',
+          hint: 'Singapore addresses only. We do not ship overseas.',
+          error: 'Please enter a 6-digit Singapore postal code.' }) +
+        field('notes', 'Order notes', 'text', { textarea: true, optional: true,
+          placeholder: 'Anything we should know — a session date, a shade question, delivery preferences.',
+          hint: 'Optional. If you are buying products used during a makeup session, add the session date here and we will check the shades match.' }) +
+      '</div>' +
+
+      '<div class="notice mb-24"><strong>Payment is made via PayNow.</strong><br>' +
+        'No card details are collected. On the next screen you will review your order, then receive ' +
+        'PayNow instructions and an order number.</div>' +
+
+      '<button class="btn btn-block" type="submit">Continue to Order Review</button>' +
+      '<p class="tiny mt-16 center"><a class="link-under" href="cart.html">Back to cart</a></p>' +
+    '</form>' +
+
+    '<aside class="summary">' +
+      '<h2 class="section-title mb-16">Your Order</h2>' +
+      cart.lines.map(function (l) {
+        return '<div class="summary-row"><span>' + esc(l.product.name) +
+          (l.shade ? ' <span class="tiny">(' + esc(l.shade) + ')</span>' : '') +
+          ' <span class="muted">× ' + l.qty + '</span></span><span>' + money(l.lineTotal) + '</span></div>';
+      }).join('') +
+      '<div class="summary-row" style="border-top:1px solid var(--sand);margin-top:8px;padding-top:14px">' +
+        '<span>Subtotal</span><span>' + money(cart.subtotal) + '</span></div>' +
+      '<div class="summary-row"><span>Delivery</span><span>' +
+        (cart.delivery === 0 ? 'Free' : money(cart.delivery)) + '</span></div>' +
+      '<div class="summary-row summary-total"><span>Total</span><span>' + money(cart.total) + '</span></div>' +
+      '<p class="tiny mt-16"><a class="link-under" href="cart.html">Edit cart</a></p>' +
+    '</aside>' +
+  '</div>';
+
+  /* ---------- validation ---------- */
+  var RULES = {
+    firstName:  function (v) { return v.trim().length > 0; },
+    lastName:   function (v) { return v.trim().length > 0; },
+    email:      function (v) { return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim()); },
+    whatsapp:   function (v) { return v.replace(/[^0-9]/g, '').length >= 8; },
+    address:    function (v) { return v.trim().length > 4; },
+    postalCode: function (v) { return /^\d{6}$/.test(v.trim()); }
+  };
+
+  var form = root.querySelector('[data-form]');
+
+  function validate(showAll) {
+    var ok = true;
+    Object.keys(RULES).forEach(function (name) {
+      var el = form.elements[name];
+      var wrap = form.querySelector('[data-field="' + name + '"]');
+      var valid = RULES[name](el.value || '');
+      if (!valid) ok = false;
+      if (showAll || wrap.classList.contains('touched')) wrap.classList.toggle('invalid', !valid);
+    });
+    return ok;
+  }
+
+  form.addEventListener('blur', function (e) {
+    var wrap = e.target.closest('[data-field]');
+    if (wrap) { wrap.classList.add('touched'); validate(false); }
+  }, true);
+  form.addEventListener('input', function () { validate(false); });
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (!validate(true)) {
+      var bad = form.querySelector('.invalid input, .invalid textarea');
+      if (bad) { bad.focus(); bad.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+      UI.toast('Please complete the highlighted fields');
+      return;
+    }
+    S.write('atelierR.customer', {
+      firstName: form.elements.firstName.value.trim(),
+      lastName: form.elements.lastName.value.trim(),
+      email: form.elements.email.value.trim(),
+      whatsapp: form.elements.whatsapp.value.trim(),
+      address: form.elements.address.value.trim(),
+      postalCode: form.elements.postalCode.value.trim(),
+      notes: form.elements.notes.value.trim()
+    });
+    location.href = 'review.html';
+  });
+})();
+</script>
+</body>
+</html>

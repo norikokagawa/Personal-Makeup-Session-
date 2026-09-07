@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cart — atelierR</title>
+<meta name="description" content="Your atelierR cart. Payment is made via PayNow.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=Jost:wght@200;300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/atelier.css">
+</head>
+<body>
+<div data-header></div>
+<main>
+  <div class="wrap">
+    <nav class="crumb" aria-label="Breadcrumb">
+      <a href="index.html">Home</a><span>/</span><span aria-current="page">Cart</span>
+    </nav>
+  </div>
+
+  <section class="section" style="padding-top:8px">
+    <div class="wrap">
+      <h1 class="h1 mb-8">Cart</h1>
+      <ol class="steps mb-32" aria-label="Checkout progress">
+        <li class="now">Cart</li>
+        <li>Your details</li>
+        <li>Order review</li>
+        <li>PayNow payment</li>
+        <li>Confirmation</li>
+      </ol>
+      <div data-cart></div>
+    </div>
+  </section>
+</main>
+<div data-footer></div>
+
+<script src="assets/js/config.js"></script>
+<script src="assets/js/data/products.js"></script>
+<script src="assets/js/imagery.js"></script>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/ui.js"></script>
+<script>
+(function () {
+  UI.mount({ current: 'cart.html' });
+  var S = Store, esc = S.esc, money = S.money, CFG = S.CFG;
+  var root = document.querySelector('[data-cart]');
+
+  function render() {
+    var cart = S.Cart.detailed();
+
+    if (!cart.lines.length) {
+      root.innerHTML = '<div class="empty">' +
+        '<p class="h2 serif">Your cart is empty</p>' +
+        '<p class="lede center" style="margin:0 auto 24px">Nothing added yet. Start with the best sellers, ' +
+        'or browse the full collection.</p>' +
+        '<div class="row" style="justify-content:center">' +
+          '<a class="btn" href="shop.html">Shop All</a>' +
+          '<a class="btn btn-quiet" href="category.html?c=sets">View Sets</a>' +
+        '</div></div>';
+      return;
+    }
+
+    var lines = cart.lines.map(function (l) {
+      return '<div class="cart-line">' +
+        '<a class="media" href="product.html?id=' + l.id + '">' + Imagery.render(l.product.art, { ratio: '400 440' }) + '</a>' +
+        '<div>' +
+          '<p class="card-brand">' + esc(l.product.brand) + '</p>' +
+          '<h3 class="card-name" style="margin-top:4px"><a href="product.html?id=' + l.id + '">' + esc(l.product.name) + '</a></h3>' +
+          (l.shade ? '<p class="small">Shade: ' + esc(l.shade) + '</p>' : '') +
+          '<p class="small">' + money(l.unitPrice) + ' each</p>' +
+          '<div class="row mt-16">' +
+            '<div class="qty">' +
+              '<button data-dec="' + esc(l.key) + '" aria-label="Decrease quantity">−</button>' +
+              '<input type="number" value="' + l.qty + '" min="1" max="' + l.product.stock + '" data-qty="' + esc(l.key) + '" aria-label="Quantity for ' + esc(l.product.name) + '">' +
+              '<button data-inc="' + esc(l.key) + '" aria-label="Increase quantity">+</button>' +
+            '</div>' +
+            '<button class="remove" data-remove="' + esc(l.key) + '">Remove</button>' +
+          '</div>' +
+          (l.qty >= l.product.stock ? '<p class="tiny mt-8">Only ' + l.product.stock + ' in stock.</p>' : '') +
+        '</div>' +
+        '<p class="line-price">' + money(l.lineTotal) + '</p>' +
+      '</div>';
+    }).join('');
+
+    var freeGap = CFG.delivery.freeThreshold - cart.subtotal;
+
+    root.innerHTML = '<div class="cart-layout">' +
+      '<div>' + lines +
+        '<div class="row mt-24"><a class="link-more" href="shop.html">Continue shopping</a></div>' +
+      '</div>' +
+
+      '<aside class="summary">' +
+        '<h2 class="section-title mb-16">Order Summary</h2>' +
+        '<div class="summary-row"><span>Subtotal</span><span>' + money(cart.subtotal) + '</span></div>' +
+        '<div class="summary-row"><span>Delivery</span><span>' +
+          (cart.delivery === 0 ? 'Free' : money(cart.delivery)) + '</span></div>' +
+        (freeGap > 0
+          ? '<p class="tiny">Add ' + money(freeGap) + ' more for free delivery.</p>'
+          : '<p class="tiny">Free delivery applied.</p>') +
+        '<div class="summary-row summary-total"><span>Total</span><span>' + money(cart.total) + '</span></div>' +
+
+        '<div class="notice mt-24 mb-24"><strong>Payment is made via PayNow.</strong><br>' +
+          'After you enter your details you will receive an order number and PayNow instructions. ' +
+          'Your order is confirmed once atelierR has verified your payment.</div>' +
+
+        '<a class="btn btn-block" href="checkout.html">Continue to Details</a>' +
+        '<p class="tiny mt-16 center">No card details are collected anywhere on this site.</p>' +
+
+        '<ul class="stack-8 mt-24">' +
+          '<li class="tiny"><a class="link-under" href="faq.html#payment">How PayNow payment works</a></li>' +
+          '<li class="tiny"><a class="link-under" href="faq.html#delivery">Delivery times and cost</a></li>' +
+          '<li class="tiny"><a class="link-under" href="faq.html#returns">Changes and cancellation</a></li>' +
+        '</ul>' +
+      '</aside>' +
+    '</div>';
+  }
+
+  root.addEventListener('click', function (e) {
+    var t = e.target.closest('[data-remove],[data-inc],[data-dec]');
+    if (!t) return;
+    if (t.hasAttribute('data-remove')) {
+      S.Cart.remove(t.getAttribute('data-remove'));
+      UI.toast('Removed from cart');
+    } else {
+      var key = t.getAttribute('data-inc') || t.getAttribute('data-dec');
+      var line = S.Cart.items().filter(function (l) { return l.key === key; })[0];
+      if (line) S.Cart.setQty(key, line.qty + (t.hasAttribute('data-inc') ? 1 : -1));
+    }
+    render();
+  });
+
+  root.addEventListener('change', function (e) {
+    if (!e.target.matches('[data-qty]')) return;
+    S.Cart.setQty(e.target.getAttribute('data-qty'), e.target.value);
+    render();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

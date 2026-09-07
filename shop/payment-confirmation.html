@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Payment Confirmation — atelierR</title>
+<meta name="description" content="Send your PayNow payment screenshot so atelierR can verify your order.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=Jost:wght@200;300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/atelier.css">
+</head>
+<body>
+<div data-header></div>
+<main>
+  <div class="wrap">
+    <nav class="crumb" aria-label="Breadcrumb">
+      <a href="index.html">Home</a><span>/</span><span aria-current="page">Payment Confirmation</span>
+    </nav>
+  </div>
+  <section class="section" style="padding-top:8px">
+    <div class="wrap"><div data-confirm></div></div>
+  </section>
+</main>
+<div data-footer></div>
+
+<script src="assets/js/config.js"></script>
+<script src="assets/js/data/products.js"></script>
+<script src="assets/js/imagery.js"></script>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/order-view.js"></script>
+<script>
+(function () {
+  UI.mount({ current: 'paynow.html' });
+  var S = Store, esc = S.esc, money = S.money;
+  var root = document.querySelector('[data-confirm]');
+  var order = S.Orders.byNumber(S.param('order')) || S.Orders.last();
+
+  if (!order) { root.innerHTML = OrderView.notFound(); return; }
+
+  var orderUrl = 'order.html?order=' + encodeURIComponent(order.orderNumber);
+
+  /* ---------- the thank-you state ---------- */
+  function renderThanks() {
+    var current = S.Orders.byNumber(order.orderNumber) || order;
+    root.innerHTML =
+      '<h1 class="h1 mb-8">Thank you</h1>' +
+      '<ol class="steps mb-32" aria-label="Checkout progress">' +
+        '<li class="done">Cart</li><li class="done">Your details</li><li class="done">Order review</li>' +
+        '<li class="done">PayNow payment</li><li class="now">Confirmation</li>' +
+      '</ol>' +
+      '<div class="order-layout">' +
+        '<div>' +
+          '<div class="notice notice-ok mb-24">' +
+            '<strong>Thank you. Your payment confirmation has been received.</strong><br>' +
+            'atelierR will verify your PayNow payment before confirming your order.' +
+          '</div>' +
+          '<div class="panel mb-24">' +
+            '<h2 class="section-title mb-16">What happens now</h2>' +
+            '<ol class="steps-list">' +
+              '<li>Your order status is now <strong>Awaiting Payment Verification</strong>.</li>' +
+              '<li>atelierR checks the PayNow account against your order number — by hand, ' +
+                esc(S.CFG.payNow.verificationHours) + '.</li>' +
+              '<li>Once verified, your order status becomes <strong>Payment Confirmed</strong> and ' +
+                'we email you: “Payment received. Thank you. Your order is now confirmed.”</li>' +
+              '<li>Your order is packed and sent within ' + esc(S.CFG.delivery.leadTime) + '.</li>' +
+            '</ol>' +
+            '<p class="tiny mt-16">Nothing further is needed from you. There is no need to message us to check — ' +
+              'the status on your order page updates as your order moves.</p>' +
+          '</div>' +
+          '<div class="row">' +
+            '<a class="btn" href="' + orderUrl + '">View my order</a>' +
+            '<a class="btn btn-quiet" href="shop.html">Continue shopping</a>' +
+          '</div>' +
+        '</div>' +
+        '<aside>' + OrderView.summary(current) + OrderView.tracker(current) + '</aside>' +
+      '</div>';
+  }
+
+  if (order.paymentStatus === 'submitted' || order.statusKey === 'AWAITING_VERIFICATION') {
+    renderThanks();
+    return;
+  }
+
+  /* ---------- the form ---------- */
+  root.innerHTML =
+    '<h1 class="h1 mb-8">I’ve made the payment</h1>' +
+    '<ol class="steps mb-32" aria-label="Checkout progress">' +
+      '<li class="done">Cart</li><li class="done">Your details</li><li class="done">Order review</li>' +
+      '<li class="done">PayNow payment</li><li class="now">Confirmation</li>' +
+    '</ol>' +
+
+    '<div class="order-layout">' +
+      '<div>' +
+        '<p class="lede mb-32">Send us your PayNow screenshot so we can match your transfer to your order. ' +
+          'Either option below is fine — you only need to do one.</p>' +
+
+        '<form class="panel mb-24" data-form>' +
+          '<h2 class="section-title mb-16">Option 1 — Upload your screenshot</h2>' +
+          '<div class="drop" data-drop>' +
+            '<input type="file" accept="image/*" data-file aria-label="Upload payment screenshot">' +
+            '<p class="section-title" style="letter-spacing:0.18em">Tap to upload</p>' +
+            '<p class="small mt-8" data-drop-label>PNG or JPG of your PayNow confirmation</p>' +
+          '</div>' +
+          '<div data-preview></div>' +
+          '<button class="btn btn-block mt-24" type="submit" data-submit disabled>Submit payment confirmation</button>' +
+        '</form>' +
+
+        '<div class="panel mb-24">' +
+          '<h2 class="section-title mb-16">Option 2 — Send it on WhatsApp</h2>' +
+          '<p class="small mb-16">This opens WhatsApp with your order number, name and amount already written. ' +
+            'Attach the screenshot there and send.</p>' +
+          '<div class="panel panel-stone mb-16"><p class="small" style="white-space:pre-line" data-wa-preview></p></div>' +
+          '<a class="btn btn-outline btn-block" data-wa target="_blank" rel="noopener">Send Payment Screenshot via WhatsApp</a>' +
+        '</div>' +
+
+        '<div class="notice notice-warn">' +
+          '<strong>Your order is not confirmed until payment has been verified by atelierR.</strong><br>' +
+          'Sending a screenshot does not confirm the order on its own — a person checks every payment.' +
+        '</div>' +
+
+        '<p class="tiny mt-24"><a class="link-under" href="paynow.html?order=' + encodeURIComponent(order.orderNumber) + '">' +
+          'Back to PayNow instructions</a> · Haven’t paid yet? Nothing is charged until you transfer.</p>' +
+      '</div>' +
+
+      '<aside>' + OrderView.summary(order) + OrderView.tracker(order) + '</aside>' +
+    '</div>';
+
+  /* WhatsApp message preview + link */
+  var waMsg = 'Hi atelierR, I’ve completed the PayNow payment for Order #' + order.orderNumber + '.\n' +
+              'Name: ' + order.customer.firstName + ' ' + order.customer.lastName + '\n' +
+              'Amount: ' + money(order.total) + '\n' +
+              'Payment screenshot attached.';
+  root.querySelector('[data-wa-preview]').textContent = waMsg;
+  root.querySelector('[data-wa]').href = S.Orders.whatsappLink(order);
+
+  root.querySelector('[data-wa]').addEventListener('click', function () {
+    S.Orders.submitPaymentProof(order.orderNumber, {
+      channel: 'whatsapp', uploadedAt: new Date().toISOString()
+    });
+    setTimeout(renderThanks, 400);
+  });
+
+  /* Upload */
+  var file = root.querySelector('[data-file]');
+  var drop = root.querySelector('[data-drop]');
+  var preview = root.querySelector('[data-preview]');
+  var submit = root.querySelector('[data-submit]');
+  var proof = null;
+
+  file.addEventListener('change', function () {
+    var f = file.files && file.files[0];
+    if (!f) return;
+    if (f.size > 4 * 1024 * 1024) {
+      UI.toast('That image is over 4MB — please use a smaller screenshot');
+      return;
+    }
+    var reader = new FileReader();
+    reader.onload = function () {
+      proof = { name: f.name, dataUrl: reader.result, uploadedAt: new Date().toISOString() };
+      drop.classList.add('filled');
+      root.querySelector('[data-drop-label]').textContent = f.name + ' — ready to submit';
+      preview.innerHTML = '<img class="preview-img" src="' + reader.result + '" alt="Payment screenshot preview">';
+      submit.disabled = false;
+    };
+    reader.readAsDataURL(f);
+  });
+
+  root.querySelector('[data-form]').addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (!proof) return;
+    S.Orders.submitPaymentProof(order.orderNumber, proof);
+    renderThanks();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+})();
+</script>
+</body>
+</html>

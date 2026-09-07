@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pay with PayNow — atelierR</title>
+<meta name="description" content="PayNow payment instructions for your atelierR order.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=Jost:wght@200;300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/atelier.css">
+</head>
+<body>
+<div data-header></div>
+<main>
+  <div class="wrap">
+    <nav class="crumb" aria-label="Breadcrumb">
+      <a href="index.html">Home</a><span>/</span><span aria-current="page">PayNow Payment</span>
+    </nav>
+  </div>
+
+  <section class="section" style="padding-top:8px">
+    <div class="wrap">
+      <div data-paynow></div>
+    </div>
+  </section>
+</main>
+<div data-footer></div>
+
+<script src="assets/js/config.js"></script>
+<script src="assets/js/data/products.js"></script>
+<script src="assets/js/imagery.js"></script>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/order-view.js"></script>
+<script>
+(function () {
+  UI.mount({ current: 'paynow.html' });
+  var S = Store, esc = S.esc, money = S.money, CFG = S.CFG;
+  var root = document.querySelector('[data-paynow]');
+  var order = S.Orders.byNumber(S.param('order')) || S.Orders.last();
+
+  if (!order) { root.innerHTML = OrderView.notFound(); return; }
+
+  var pn = CFG.payNow;
+
+  root.innerHTML =
+    '<h1 class="h1 mb-8">Pay with PayNow</h1>' +
+    '<ol class="steps mb-32" aria-label="Checkout progress">' +
+      '<li class="done">Cart</li><li class="done">Your details</li><li class="done">Order review</li>' +
+      '<li class="now">PayNow payment</li><li>Confirmation</li>' +
+    '</ol>' +
+
+    '<div class="notice mb-32"><strong>Order ' + esc(order.orderNumber) + ' has been created.</strong><br>' +
+      'It is saved and waiting for your payment. Nothing has been charged.</div>' +
+
+    '<div class="order-layout">' +
+
+      '<div>' +
+        '<div class="qr-box mb-24">' +
+          '<p class="eyebrow">Scan to pay</p>' +
+          (pn.qrImage
+            ? '<img class="qr-frame" style="object-fit:contain" src="' + esc(pn.qrImage) + '" alt="PayNow QR code for atelierR">'
+            : '<div class="qr-frame"><span class="ph">PayNow QR code<br>placeholder</span></div>') +
+          '<p class="price">' + money(order.total) + '</p>' +
+
+          '<div class="copyable">' +
+            '<span><span class="tiny" style="display:block">PayNow UEN</span><code>' + esc(pn.uen) + '</code></span>' +
+            '<button data-copy="' + esc(pn.uen) + '">Copy</button>' +
+          '</div>' +
+          '<div class="copyable">' +
+            '<span><span class="tiny" style="display:block">PayNow mobile</span><code>' + esc(pn.mobile) + '</code></span>' +
+            '<button data-copy="' + esc(pn.mobile) + '">Copy</button>' +
+          '</div>' +
+          '<div class="copyable">' +
+            '<span><span class="tiny" style="display:block">Payment reference</span><code>' + esc(order.orderNumber) + '</code></span>' +
+            '<button data-copy="' + esc(order.orderNumber) + '">Copy</button>' +
+          '</div>' +
+          '<p class="tiny">Account name: ' + esc(pn.accountName) + '</p>' +
+        '</div>' +
+
+        '<div class="panel mb-24">' +
+          '<h2 class="section-title mb-16">How to pay</h2>' +
+          '<p class="small mb-16">Please scan the QR code or transfer the total amount via PayNow. ' +
+            'Please include your name or order number in the payment reference. ' +
+            'Your order will be confirmed once payment has been verified.</p>' +
+          '<ol class="steps-list">' +
+            '<li>Open your banking app and choose PayNow.</li>' +
+            '<li>Scan the QR code, or enter the UEN <strong>' + esc(pn.uen) + '</strong>.</li>' +
+            '<li>Enter exactly <strong>' + money(order.total) + '</strong>.</li>' +
+            '<li>Type <strong>' + esc(order.orderNumber) + '</strong> in the reference field. ' +
+              'If your app limits the length, your full name is fine.</li>' +
+            '<li>Complete the transfer, then take a screenshot.</li>' +
+          '</ol>' +
+        '</div>' +
+
+        '<div class="notice notice-warn mb-24">' +
+          '<strong>Your order is not confirmed until payment has been verified by atelierR.</strong><br>' +
+          'We check PayNow manually, usually ' + esc(CFG.payNow.verificationHours) + '. ' +
+          'Nothing is marked as paid automatically.' +
+        '</div>' +
+
+        '<a class="btn btn-block" href="payment-confirmation.html?order=' + encodeURIComponent(order.orderNumber) + '">I’ve made the payment</a>' +
+        '<p class="tiny mt-16 center">Not ready yet? This page stays available — ' +
+          'bookmark it, or find it again from <a class="link-under" href="order.html?order=' + encodeURIComponent(order.orderNumber) + '">your order page</a>.</p>' +
+      '</div>' +
+
+      '<aside>' +
+        OrderView.summary(order) +
+        OrderView.customer(order) +
+        OrderView.tracker(order) +
+        '<div class="panel mt-24">' +
+          '<h2 class="section-title mb-16">Common questions</h2>' +
+          '<ul class="stack-8">' +
+            '<li class="small"><a class="link-under" href="faq.html#payment">What should I write in the reference?</a></li>' +
+            '<li class="small"><a class="link-under" href="faq.html#payment">What if I forget the screenshot?</a></li>' +
+            '<li class="small"><a class="link-under" href="faq.html#returns">Can I cancel before paying?</a></li>' +
+            '<li class="small"><a class="link-under" href="faq.html#delivery">How long is delivery?</a></li>' +
+          '</ul>' +
+        '</div>' +
+      '</aside>' +
+    '</div>';
+
+  root.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-copy]');
+    if (!b) return;
+    var text = b.getAttribute('data-copy');
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(function () { UI.toast('Copied — ' + text); });
+    } else {
+      UI.toast(text);
+    }
+  });
+})();
+</script>
+</body>
+</html>

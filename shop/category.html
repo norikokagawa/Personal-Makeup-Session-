@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Category — atelierR</title>
+<meta name="description" content="Browse a category of the atelierR collection — base makeup, point makeup, skincare, tools or curated sets.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=Jost:wght@200;300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/atelier.css">
+</head>
+<body>
+<div data-header></div>
+<main>
+  <div class="wrap">
+    <nav class="crumb" aria-label="Breadcrumb">
+      <a href="index.html">Home</a><span>/</span><a href="shop.html">Shop All</a><span>/</span>
+      <span aria-current="page" data-crumb></span>
+    </nav>
+  </div>
+
+  <section class="section" style="padding-top:8px">
+    <div class="wrap">
+      <h1 class="h1 mb-16" data-title></h1>
+      <p class="lede mb-32" data-intro></p>
+      <nav class="filter-bar-scroll mb-32" data-cat-nav aria-label="Categories"></nav>
+      <div data-listing></div>
+    </div>
+  </section>
+</main>
+<div data-footer></div>
+<script src="assets/js/config.js"></script>
+<script src="assets/js/data/products.js"></script>
+<script src="assets/js/imagery.js"></script>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/listing.js"></script>
+<script>
+(function () {
+  UI.mount({ current: 'category.html' });
+  var id = Store.param('c') || 'base-makeup';
+  var cat = Store.Catalog.category(id);
+
+  var INTROS = {
+    'base-makeup': 'The layer everything else sits on. Primer, foundation, concealer and powder chosen to look like skin in Singapore light and hold through Singapore humidity.',
+    'point-makeup': 'Eyes, cheeks and lips. Colour that is easy to place and difficult to overdo — the products atelierR reaches for most often during a session.',
+    'skincare': 'Japanese skincare built on short routines. Base makeup only ever looks as good as the skin beneath it.',
+    'tools': 'Brushes and tools do more for a finish than most people expect. These are the ones we actually work with.',
+    'sets': 'Complete routines, assembled in the order we apply them — and priced below the sum of their parts.'
+  };
+
+  if (!cat) {
+    document.querySelector('[data-title]').textContent = 'Category not found';
+    document.querySelector('[data-intro]').innerHTML =
+      'That category does not exist. <a class="link-under" href="shop.html">Browse everything instead</a>.';
+    document.querySelector('[data-crumb]').textContent = 'Not found';
+    return;
+  }
+
+  document.title = cat.name + ' — atelierR';
+  document.querySelector('[data-crumb]').textContent = cat.name;
+  document.querySelector('[data-title]').textContent = cat.name;
+  document.querySelector('[data-intro]').textContent = INTROS[cat.id] || cat.blurb;
+
+  document.querySelector('[data-cat-nav]').innerHTML = Store.Catalog.categories.map(function (c) {
+    return '<a class="chip" href="category.html?c=' + c.id + '"' +
+      (c.id === cat.id ? ' aria-pressed="true"' : '') + '>' + Store.esc(c.name) + '</a>';
+  }).join('');
+
+  Listing.init({ root: '[data-listing]', lockCategory: cat.id });
+})();
+</script>
+</body>
+</html>

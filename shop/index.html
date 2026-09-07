@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>atelierR — Japanese beauty, curated in Singapore</title>
+<meta name="description" content="Beauty for a calmer, clearer you. Japanese beauty products curated through professional makeup practice — SUQQU, RMK, THREE, NOEVIR, Celvoke, BROWN ÉTOILE and ADDICTION. Delivered across Singapore.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=Jost:wght@200;300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/atelier.css">
+</head>
+<body>
+<div data-header></div>
+
+<main>
+
+  <!-- ============ HERO ============ -->
+  <section class="hero">
+    <div class="hero-inner">
+      <div class="hero-copy">
+        <p class="eyebrow">Curated Japanese beauty · Singapore</p>
+        <h1 class="display">Beauty for a<br>calmer, clearer you.</h1>
+        <p class="lede">atelierR curates Japanese beauty products selected through professional
+          makeup practice — a small collection of the things we genuinely use on clients,
+          chosen so you can decide with confidence and without asking.</p>
+        <div class="row">
+          <a class="btn btn-arrow" href="shop.html">Shop the Edit</a>
+          <a class="link-more" href="about.html">Our approach</a>
+        </div>
+      </div>
+      <div class="hero-art" data-hero-art>
+        <p class="hero-note">Timeless<br>Simple<br>Essential</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SELECTED BY atelierR ============ -->
+  <section class="section bg-paper" style="padding-top:34px;padding-bottom:34px">
+    <div class="wrap">
+      <p class="eyebrow center mb-16">Selected by atelierR</p>
+      <nav class="brand-strip" aria-label="Brands" data-brand-strip></nav>
+      <p class="tiny center">Every brand is chosen with professional insight — and stocked only while we still recommend it.</p>
+    </div>
+  </section>
+
+  <!-- ============ SHOP BY CATEGORY ============ -->
+  <section class="section">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 class="section-title">Shop by Category</h2>
+        <a class="link-more" href="shop.html">Shop All</a>
+      </div>
+      <div class="cat-grid" data-categories></div>
+    </div>
+  </section>
+
+  <!-- ============ BEST SELLERS ============ -->
+  <section class="section">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 class="section-title">Best Sellers</h2>
+        <a class="link-more" href="shop.html?sort=popular">View All</a>
+      </div>
+      <div class="product-grid" data-bestsellers></div>
+    </div>
+  </section>
+
+  <!-- ============ SETS ============ -->
+  <section class="section bg-paper">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 class="section-title">Makeup &amp; Skincare Sets</h2>
+        <a class="link-more" href="category.html?c=sets">All Sets</a>
+      </div>
+      <p class="lede mb-32">Complete routines, assembled in the order we apply them. A set removes
+        every decision except the one that actually needs you.</p>
+      <div class="product-grid cols-3" data-sets></div>
+    </div>
+  </section>
+
+  <!-- ============ TOOLS ============ -->
+  <section class="section">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 class="section-title">Makeup Tools</h2>
+        <a class="link-more" href="category.html?c=tools">View All</a>
+      </div>
+      <p class="lede mb-32">Most makeup problems are not the product. They are the brush.</p>
+      <div class="product-grid" data-tools></div>
+    </div>
+  </section>
+
+  <!-- ============ PHILOSOPHY ============ -->
+  <section class="section-lg bg-stone">
+    <div class="wrap wrap-narrow center">
+      <p class="eyebrow mb-24">Our Philosophy</p>
+      <p class="h1 serif" style="line-height:1.25">Curated through<br>professional practice.</p>
+      <p class="lede mt-24" style="margin-left:auto;margin-right:auto">Only the products atelierR genuinely uses,
+        trusts, and recommends. Nothing is stocked because it sells — it is stocked because it works
+        on real faces, in real light, in this climate.</p>
+      <div class="row mt-32" style="justify-content:center">
+        <a class="btn btn-outline" href="about.html">Read our story</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FAQ PREVIEW ============ -->
+  <section class="section-lg">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 class="section-title">Before you ask</h2>
+        <a class="link-more" href="faq.html">View All FAQs</a>
+      </div>
+      <p class="lede mb-32">Everything you need in order to shop here with confidence — payment,
+        delivery, shade choice and what happens after you order.</p>
+      <div class="acc" data-faq-preview></div>
+      <div class="notice mt-32">
+        Still unsure after reading? Start with the <a class="link-under" href="shade-guide.html">Shade Guide</a>,
+        then the <a class="link-under" href="faq.html">full FAQ</a>. If your question is still not answered,
+        <a class="link-under" href="contact.html">contact atelierR</a>.
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ EDITORIAL LINKS ============ -->
+  <section class="section" style="padding-top:0">
+    <div class="wrap">
+      <div class="cat-grid" style="grid-template-columns:repeat(2,1fr)" data-editorial></div>
+    </div>
+  </section>
+
+</main>
+
+<div data-footer></div>
+
+<script src="assets/js/config.js"></script>
+<script src="assets/js/data/products.js"></script>
+<script src="assets/js/data/faqs.js"></script>
+<script src="assets/js/imagery.js"></script>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/ui.js"></script>
+<script>
+(function () {
+  UI.mount({ current: 'index' });
+  var C = Store.Catalog, esc = Store.esc;
+
+  /* hero still life */
+  document.querySelector('[data-hero-art]').insertAdjacentHTML('afterbegin',
+    '<div style="position:absolute;inset:0">' + Imagery.render({ shape: 'set', tone: 'sand' }, { ratio: '400 480' }) + '</div>');
+
+  /* brands */
+  document.querySelector('[data-brand-strip]').innerHTML = C.brands
+    .filter(function (b) { return b.id !== 'atelierr'; })
+    .map(function (b) { return '<a href="brand.html?b=' + b.id + '">' + esc(b.name) + '</a>'; }).join('');
+
+  /* categories */
+  document.querySelector('[data-categories]').innerHTML = C.categories.map(function (c) {
+    return '<a class="cat-tile" href="category.html?c=' + c.id + '">' +
+      '<span class="art">' + Imagery.render(c.art, { ratio: '400 320' }) + '</span>' +
+      '<span class="label"><span>' + esc(c.name) + '</span><small>Shop →</small></span></a>';
+  }).join('');
+
+  /* products */
+  document.querySelector('[data-bestsellers]').innerHTML = UI.grid(C.bestSellers(8), { flagBest: false });
+  document.querySelector('[data-sets]').innerHTML = UI.grid(C.byCategory('sets'));
+  document.querySelector('[data-tools]').innerHTML = UI.grid(C.byCategory('tools').slice(0, 4));
+
+  /* faq preview */
+  var picks = [];
+  FAQ_GROUPS.forEach(function (g) {
+    g.items.forEach(function (i) { if (i.homepage) picks.push(i); });
+  });
+  document.querySelector('[data-faq-preview]').innerHTML = picks.map(function (i) {
+    return '<div class="acc-item"><button class="acc-q">' + esc(i.q) +
+      '<span class="sign"></span></button><div class="acc-a">' + i.a.join('') + '</div></div>';
+  }).join('');
+  UI.accordion();
+
+  /* editorial tiles */
+  var tiles = [
+    { eyebrow: 'Our Story',   title: 'Makeup is a way<br>to be yourself.', href: 'about.html',       cta: 'Read more', art: { shape: 'stone', tone: 'stone' } },
+    { eyebrow: 'How to Use',  title: 'Tips from a<br>makeup artist.',      href: 'shade-guide.html', cta: 'View',      art: { shape: 'lipstick', tone: 'rose' } },
+    { eyebrow: 'Shipping',    title: 'From Japan<br>to Singapore.',        href: 'faq.html#delivery',cta: 'Details',   art: { shape: 'stone', tone: 'sand' } },
+    { eyebrow: 'Contact',     title: 'We’re here<br>for you.',             href: 'contact.html',     cta: 'Get in touch', art: { shape: 'drops', tone: 'sage' } }
+  ];
+  document.querySelector('[data-editorial]').innerHTML = tiles.map(function (t) {
+    return '<a class="cat-tile" href="' + t.href + '" style="position:relative">' +
+      '<span class="art" style="display:block">' + Imagery.render(t.art, { ratio: '400 260' }) + '</span>' +
+      '<span class="label" style="text-align:left;padding:20px 18px 22px">' +
+        '<small style="display:block;margin-bottom:8px">' + esc(t.eyebrow) + '</small>' +
+        '<span class="h3 serif" style="text-transform:none;letter-spacing:0;display:block">' + t.title + '</span>' +
+        '<small style="display:block;margin-top:12px">' + esc(t.cta) + ' →</small>' +
+      '</span></a>';
+  }).join('');
+})();
+</script>
+</body>
+</html>

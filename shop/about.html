@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>About — atelierR</title>
+<meta name="description" content="atelierR curates Japanese beauty products selected through professional makeup practice, in Singapore.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=Jost:wght@200;300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/atelier.css">
+</head>
+<body>
+<div data-header></div>
+<main>
+  <section class="hero">
+    <div class="hero-inner">
+      <div class="hero-copy">
+        <p class="eyebrow">Our Story</p>
+        <h1 class="display" style="font-size:clamp(2.2rem,7vw,3.6rem)">Makeup is a way<br>to be yourself.</h1>
+        <p class="lede">Not a way to become someone else.</p>
+      </div>
+      <div class="hero-art" data-about-art></div>
+    </div>
+  </section>
+
+  <section class="section-lg">
+    <div class="wrap wrap-narrow stack-32">
+      <p class="lede">atelierR began with a makeup chair, not a shop. Working with clients in Singapore,
+        the same questions came up again and again — which foundation, which shade, why does this
+        separate by lunchtime, what do I actually need.</p>
+
+      <p class="lede">The answers were always a small number of products. Not the newest, not the most
+        advertised: the ones that behaved well on real faces, in this climate, in ordinary light.
+        Clients started asking where to buy them. This shop is that answer, written down.</p>
+
+      <div class="panel panel-stone">
+        <p class="h2 serif mb-16">Curated through professional practice.</p>
+        <p class="lede">Only the products atelierR genuinely uses, trusts, and recommends.</p>
+      </div>
+
+      <div>
+        <h2 class="section-title mb-24">How we choose</h2>
+        <ol class="steps-list">
+          <li>It has to work on a client, in a session, before it is stocked here.</li>
+          <li>It has to hold up in Singapore humidity — not in a Tokyo winter photograph.</li>
+          <li>It has to be forgiving enough that someone can use it well at home, alone, in a hurry.</li>
+          <li>If we stop recommending it, we stop stocking it.</li>
+        </ol>
+      </div>
+
+      <div>
+        <h2 class="section-title mb-24">Why the site works this way</h2>
+        <p class="lede mb-16">A shop should not require a conversation. Every product page here tells you
+          what it is, why we selected it, who it suits, how to use it, how to choose a shade and whether
+          it is in stock — before you ask.</p>
+        <p class="lede">Payment is by PayNow, checked by a person. It is not the most automated way to run
+          a shop, but it is honest: nothing is ever marked as paid until we have actually seen the money arrive.</p>
+      </div>
+
+      <div class="split" style="border:1px solid var(--line)">
+        <div class="split-body">
+          <p class="eyebrow">Makeup sessions</p>
+          <p class="h3 serif">Everything used on you is available here.</p>
+          <p class="small">Your artist notes the shades used during your session, so you can find them
+            afterwards without guessing. Add your session date at checkout and we will double-check the match.</p>
+        </div>
+        <div class="split-body" style="padding:0;background:transparent">
+          <div class="help-links">
+            <a href="faq.html#sessions"><span>Makeup session purchases — FAQ</span></a>
+            <a href="shade-guide.html"><span>Shade Guide</span></a>
+            <a href="shop.html"><span>Shop the full collection</span></a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section-lg bg-stone">
+    <div class="wrap center">
+      <p class="h2 serif mb-24">Beauty for a calmer, clearer you.</p>
+      <a class="btn btn-arrow" href="shop.html">Shop the Edit</a>
+    </div>
+  </section>
+</main>
+<div data-footer></div>
+<script src="assets/js/config.js"></script>
+<script src="assets/js/data/products.js"></script>
+<script src="assets/js/imagery.js"></script>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/ui.js"></script>
+<script>
+  UI.mount({ current: 'about.html' });
+  document.querySelector('[data-about-art]').innerHTML =
+    '<div style="position:absolute;inset:0">' + Imagery.render({ shape: 'stone', tone: 'stone' }, { ratio: '400 480' }) + '</div>';
+</script>
+</body>
+</html>

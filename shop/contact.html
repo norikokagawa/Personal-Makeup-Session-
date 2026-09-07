@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contact — atelierR</title>
+<meta name="description" content="Contact atelierR — after the shade guide, the FAQ and the product pages.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=Jost:wght@200;300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/atelier.css">
+</head>
+<body>
+<div data-header></div>
+<main>
+  <div class="wrap">
+    <nav class="crumb" aria-label="Breadcrumb">
+      <a href="index.html">Home</a><span>/</span><span aria-current="page">Contact</span>
+    </nav>
+  </div>
+
+  <section class="section" style="padding-top:8px">
+    <div class="wrap wrap-narrow">
+      <h1 class="h1 mb-16">Still need help?</h1>
+      <p class="lede mb-32">Almost every question is answered somewhere on this site, and reading it there
+        is faster than waiting for us. Please try these three first — then write, and we will answer properly.</p>
+
+      <div class="help-links mb-32">
+        <a href="shade-guide.html"><span><strong style="font-weight:400">1 · Shade Guide</strong>
+          <span class="small" style="display:block">Choosing foundation, lip, blush and brow shades</span></span></a>
+        <a href="faq.html"><span><strong style="font-weight:400">2 · FAQ</strong>
+          <span class="small" style="display:block">Payment, delivery, returns, products, orders</span></span></a>
+        <a href="shop.html"><span><strong style="font-weight:400">3 · Product pages</strong>
+          <span class="small" style="display:block">Each one lists what it is, who it suits and how to use it</span></span></a>
+      </div>
+
+      <div class="rule mb-32"></div>
+
+      <h2 class="h2 serif mb-16">Contact atelierR</h2>
+      <p class="lede mb-32">If your question is still unanswered, we would genuinely like to know — it usually
+        means a page here needs to be clearer.</p>
+
+      <div class="cart-layout">
+        <div class="panel">
+          <h3 class="section-title mb-16">Email</h3>
+          <p class="small mb-16">Best for order questions, shade recommendations and anything with a photo.
+            Include your order number if you have one.</p>
+          <a class="btn btn-outline btn-block" data-email>Email atelierR</a>
+        </div>
+        <div class="panel">
+          <h3 class="section-title mb-16">WhatsApp</h3>
+          <p class="small mb-16">Best for sending a payment screenshot after you have transferred by PayNow.
+            Please do not use it to browse — the product pages carry far more detail than we can type.</p>
+          <a class="btn btn-quiet btn-block" data-wa target="_blank" rel="noopener">Message on WhatsApp</a>
+        </div>
+      </div>
+
+      <div class="notice mt-32">
+        <strong>Order questions.</strong> Your order page shows the current status, the amount, the PayNow
+        reference and what happens next — it is the fastest answer to “where is my order?”.
+        <a class="link-under" data-order-link href="order.html">Open my most recent order</a>.
+      </div>
+
+      <div class="panel panel-stone mt-32">
+        <h3 class="section-title mb-16">Response times</h3>
+        <p class="small">We reply within one business day. PayNow payments are verified
+          <span data-hours></span>. atelierR is a small operation — every message is read by a person,
+          which is also why we ask you to check the FAQ first.</p>
+      </div>
+
+      <p class="tiny mt-32" data-instagram></p>
+    </div>
+  </section>
+</main>
+<div data-footer></div>
+<script src="assets/js/config.js"></script>
+<script src="assets/js/data/products.js"></script>
+<script src="assets/js/imagery.js"></script>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/ui.js"></script>
+<script>
+(function () {
+  UI.mount({ current: 'contact.html' });
+  var CFG = Store.CFG, esc = Store.esc;
+
+  document.querySelector('[data-email]').href = 'mailto:' + CFG.contact.email;
+  document.querySelector('[data-wa]').href = 'https://wa.me/' + CFG.contact.whatsapp;
+  document.querySelector('[data-hours]').textContent = CFG.payNow.verificationHours;
+  document.querySelector('[data-instagram]').innerHTML =
+    'Follow atelierR on <a class="link-under" href="' + esc(CFG.contact.instagram) +
+    '" target="_blank" rel="noopener">Instagram ' + esc(CFG.contact.instagramHandle) + '</a>.';
+
+  /* Only offer the order shortcut when this browser actually has an order. */
+  var last = Store.Orders.last();
+  var link = document.querySelector('[data-order-link]');
+  if (last) {
+    link.href = 'order.html?order=' + encodeURIComponent(last.orderNumber);
+  } else {
+    link.closest('.notice').remove();
+  }
+})();
+</script>
+</body>
+</html>

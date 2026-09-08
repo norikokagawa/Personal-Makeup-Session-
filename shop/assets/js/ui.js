@@ -117,8 +117,12 @@
               '<h4>atelierR</h4>' +
               '<ul>' +
                 '<li><a href="about.html">Our Story</a></li>' +
-                '<li><a href="' + esc(CFG.contact.instagram) + '" target="_blank" rel="noopener">Instagram ' + esc(CFG.contact.instagramHandle) + '</a></li>' +
-                '<li><a href="mailto:' + esc(CFG.contact.email) + '">' + esc(CFG.contact.email) + '</a></li>' +
+                (CFG.contact.instagram
+                  ? '<li><a href="' + esc(CFG.contact.instagram) + '" target="_blank" rel="noopener">Instagram ' +
+                    esc(CFG.contact.instagramHandle) + '</a></li>' : '') +
+                (CFG.contact.email
+                  ? '<li><a href="mailto:' + esc(CFG.contact.email) + '">' + esc(CFG.contact.email) + '</a></li>' : '') +
+                '<li><a href="contact.html">Contact</a></li>' +
               '</ul>' +
               '<p class="tiny mt-16">Payment by PayNow only.<br>Orders are confirmed after payment is verified.</p>' +
             '</div>' +

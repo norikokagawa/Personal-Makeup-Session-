@@ -94,8 +94,10 @@ the FAQ both explain that this is the correct account — keep that wording in s
 the account ever changes. `payNow.mobile` is blank because this QR pays to a UEN; set it only if
 a mobile proxy is added, and the row appears automatically.
 
-Still placeholders: the WhatsApp number (`contact.whatsapp`, digits only, no `+`) and the
-Instagram URL.
+Contact channels are rendered only when set, in the footer and on the Contact page, so an unset
+channel is never shown as a dead link. WhatsApp (`6586212382`) and Instagram
+(`@r.makeup.session`) are live. `contact.email` is deliberately blank until the address customers
+should write to is confirmed — set it and the email option reappears everywhere.
 
 **Products** — `assets/js/data/products.js`. Each record:
 

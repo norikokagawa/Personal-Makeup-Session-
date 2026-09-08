@@ -19,11 +19,13 @@ window.ATELIER_CONFIG = {
   },
 
   // --- Contact (last-resort channels only) ---
+  // Blank values are hidden rather than rendered, so an unset channel is never
+  // shown to a customer as a dead link.
   contact: {
-    whatsapp: '6500000000',   // digits only, no '+' — placeholder
-    email: 'hello@atelier-r-make.com',
-    instagram: 'https://instagram.com/',
-    instagramHandle: '@atelierr.sg'
+    whatsapp: '6586212382',   // digits only, no '+' — Singapore mobile 8621 2382
+    email: '',                // TODO: confirm the address customers should write to
+    instagram: 'https://www.instagram.com/r.makeup.session',
+    instagramHandle: '@r.makeup.session'
   },
 
   // --- Delivery ---

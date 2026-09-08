@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Content Studio — atelierR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=Jost:wght@200;300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/atelier.css">
+</head>
+<body>
+<div data-header></div>
+<main>
+  <section class="section" style="padding-top:24px">
+    <div class="wrap">
+      <p class="eyebrow mb-8">Internal</p>
+      <h1 class="h1 mb-16">Content Studio</h1>
+      <p class="lede mb-24">Newsletter and Instagram drafts, prepared from each published story.
+        Everything here is a <strong>draft for your approval</strong> — nothing is sent or posted
+        automatically.</p>
+
+      <div class="row mb-32">
+        <a class="chip" href="admin.html">Order Desk</a>
+        <a class="chip" href="journal.html">Journal</a>
+        <button class="chip" data-subs>Subscriber list</button>
+      </div>
+
+      <div data-studio></div>
+    </div>
+  </section>
+</main>
+<div data-footer></div>
+
+<script src="assets/js/config.js"></script>
+<script src="assets/js/data/products.js"></script>
+<script src="assets/js/data/articles.js"></script>
+<script src="assets/js/imagery.js"></script>
+<script src="assets/js/backend.js"></script>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/journal.js"></script>
+<script src="assets/js/newsletter.js"></script>
+<script>
+(function () {
+  UI.mount({});
+  var esc = Store.esc;
+  var root = document.querySelector('[data-studio]');
+
+  /* The newsletter body, as plain text a person can paste into Mailchimp,
+     Klaviyo, Brevo or Resend. Rendering it here rather than sending it keeps
+     the approval step where it belongs — with a person. */
+  function newsletterText(d) {
+    var lines = [
+      'SUBJECT: ' + d.subject, '',
+      'PREHEADER: ' + d.preheader, '',
+      '— — —', '',
+      d.title.toUpperCase(), d.category + ' · ' + d.date, '',
+      d.summary, ''
+    ];
+    d.intro.forEach(function (p) { lines.push(p, ''); });
+    if (d.pick) {
+      lines.push('TODAY’S PICK', d.pick.brand + ' — ' + d.pick.name + '  ' + d.pick.price,
+                 d.pick.description, d.pick.url, '');
+    }
+    if (d.products.length) {
+      lines.push('SHOP THE PRODUCTS');
+      d.products.forEach(function (p) {
+        lines.push('· ' + p.brand + ' ' + p.name + '  ' + p.price, '  ' + p.url);
+      });
+      lines.push('');
+    }
+    lines.push('[ READ MORE ]  ' + d.readMoreUrl);
+    lines.push('[ SHOP NOW ]   ' + d.shopUrl);
+    lines.push('', '— — —', 'atelierR · Singapore', 'You are receiving this because you subscribed to Beauty notes from atelierR.');
+    return lines.join('\n');
+  }
+
+  function copyBtn(label, key) {
+    return '<button class="chip" data-copy="' + key + '">' + esc(label) + '</button>';
+  }
+
+  var texts = {};   // key -> string, for the copy buttons
+
+  function block(a, i) {
+    var d = Journal.newsletterDraft(a);
+    var ig = Journal.instagramDrafts(a);
+    var kN = 'n' + i, kS = 's' + i, kL = 'l' + i, kT = 't' + i, kU = 'u' + i;
+    texts[kN] = newsletterText(d);
+    texts[kS] = ig.short;
+    texts[kL] = ig.long;
+    texts[kT] = ig.story;
+    texts[kU] = ig.url;
+
+    return '<div class="st-block">' +
+      '<div class="st-head">' +
+        '<span class="section-title">' + esc(a.title) + '</span>' +
+        '<span class="row">' +
+          '<span class="tag">' + esc(Journal.categoryName(a.category)) + '</span>' +
+          '<span class="tag">' + esc(Journal.formatDate(a.date)) + '</span>' +
+          '<span class="tag">' + (a.newsletter === false ? 'newsletter off' : 'newsletter on') + '</span>' +
+          '<a class="link-more" href="' + Journal.url(a) + '">View</a>' +
+        '</span>' +
+      '</div>' +
+      '<div class="st-body">' +
+
+        (a.newsletter === false
+          ? '<div class="notice mb-24">This story is marked <code>newsletter: false</code>, ' +
+            'so it is not intended for the mailing list. The draft is shown for reference.</div>'
+          : '') +
+
+        '<div class="row row-between mb-16">' +
+          '<h3 class="section-title">Newsletter draft</h3>' +
+          '<span class="row">' + copyBtn('Copy newsletter', kN) + '</span>' +
+        '</div>' +
+        '<pre class="st-pre">' + esc(texts[kN]) + '</pre>' +
+
+        '<div class="row row-between mb-16 mt-32">' +
+          '<h3 class="section-title">Instagram</h3>' +
+          '<span class="row">' +
+            copyBtn('Short caption', kS) + copyBtn('Long caption', kL) +
+            copyBtn('Story text', kT) + copyBtn('Article URL', kU) +
+          '</span>' +
+        '</div>' +
+        '<div class="cart-layout" style="gap:20px">' +
+          '<div>' +
+            '<p class="label">Short caption</p>' +
+            '<pre class="st-pre" style="max-height:200px">' + esc(ig.short) + '</pre>' +
+            '<p class="label mt-24">Story text</p>' +
+            '<pre class="st-pre" style="max-height:160px">' + esc(ig.story) + '</pre>' +
+          '</div>' +
+          '<div>' +
+            '<p class="label">Long caption</p>' +
+            '<pre class="st-pre">' + esc(ig.long) + '</pre>' +
+          '</div>' +
+        '</div>' +
+        '<p class="tiny mt-16">Article URL: <code>' + esc(ig.url) + '</code></p>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function render() {
+    var list = Journal.all();
+    root.innerHTML =
+      '<div class="notice notice-warn mb-32"><strong>Nothing is sent from this page.</strong> ' +
+        'Copy a draft, read it through, and send or post it yourself.</div>' +
+      list.map(block).join('');
+  }
+
+  root.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-copy]');
+    if (!b) return;
+    var text = texts[b.getAttribute('data-copy')];
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(function () { UI.toast('Copied'); });
+    } else {
+      UI.toast('Select the text to copy');
+    }
+  });
+
+  /* Subscribers live in the database and need a signed-in account to read. */
+  document.querySelector('[data-subs]').addEventListener('click', function () {
+    if (!Backend.configured()) return UI.toast('Database not configured');
+    if (!Backend.signedIn()) {
+      UI.toast('Sign in on the Order Desk first');
+      return;
+    }
+    Backend.listSubscribers().then(function (list) {
+      var csv = 'email,first_name,source,status,consented_at\n' +
+        list.map(function (s) {
+          return [s.email, s.first_name || '', s.source, s.status, s.consented_at].join(',');
+        }).join('\n');
+      root.insertAdjacentHTML('afterbegin',
+        '<div class="st-block"><div class="st-head">' +
+          '<span class="section-title">Subscribers (' + list.length + ')</span>' +
+          '<button class="chip" data-copy-csv>Copy as CSV</button>' +
+        '</div><div class="st-body"><pre class="st-pre">' + esc(csv) + '</pre>' +
+        '<p class="tiny mt-16">This is the format Mailchimp, Klaviyo, Brevo and Resend all import.</p>' +
+        '</div></div>');
+      root.querySelector('[data-copy-csv]').addEventListener('click', function () {
+        if (navigator.clipboard) navigator.clipboard.writeText(csv).then(function () { UI.toast('CSV copied'); });
+      });
+    });
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

@@ -182,6 +182,26 @@
       });
     },
 
+    /* Newsletter signups ride the same queue as orders, so a signup made on a
+       bad connection is replayed rather than dropped. */
+    subscribe: function (record) {
+      return write('subscribers', {
+        id: uuid(),
+        email: record.email,
+        first_name: record.first_name,
+        source: record.source,
+        status: record.status,
+        consented_at: record.consented_at
+      });
+    },
+
+    listSubscribers: function () {
+      return fetch(endpoint('/rest/v1/subscribers?select=*&order=consented_at.desc&limit=500'),
+                   { headers: authHeaders() })
+        .then(function (r) { return r.ok ? r.json() : []; })
+        .catch(function () { return []; });
+    },
+
     retryPending: flush,
     pendingCount: function () { return queue().length; },
 

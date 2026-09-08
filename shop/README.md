@@ -32,7 +32,10 @@ how to pay, when the order is confirmed, and how delivery works — without mess
 | FAQ | `faq.html` | Seven groups, searchable, deep-linkable (`faq.html#payment`) |
 | About | `about.html` | Story and selection criteria |
 | Contact | `contact.html` | Self-service ladder first, contact last |
-| Order desk | `admin.html` | Internal preview: manually confirm payments and advance status |
+| Journal | `journal.html` | Editorial index, lead story plus grid, filtered by category |
+| Article | `article.html?a=<slug>` | One story, with its commerce blocks |
+| Order desk | `admin.html` | Internal: sign in, see every order, confirm payments |
+| Content studio | `studio.html` | Internal: newsletter and Instagram drafts, subscriber CSV |
 
 ---
 
@@ -256,6 +259,42 @@ Shoot guidance and the full filename list live in `assets/img/products/README.md
 | atelierR Base Makeup Set | `base-makeup-set.jpg` |
 | atelierR Skincare Set — Starter | `skincare-set-starter.jpg` |
 | atelierR Skincare Set — Complete | `skincare-set-complete.jpg` |
+
+## The Journal
+
+Stories live in `assets/js/data/articles.js`; `assets/js/journal.js` renders them. Adding a story
+is adding one object — the journal index, the article page, the homepage strip, the newsletter
+draft and the Instagram captions all read from the same record. `JOURNAL.md` is the author's
+guide, in Japanese.
+
+Articles are commerce-enabled: `{ shop: [ids], title }` and `{ pick: id }` blocks place product
+cards inside the piece, `todaysPick` opens the story, and `products` closes it. A product is never
+shown twice in one story, and headings do not collide — a body block titled "Products Mentioned"
+pushes the closing row to "Also in this story", and a second highlighted product is labelled
+"atelierR Recommends" rather than a second "Today's Pick".
+
+Hero images follow the product convention: `assets/img/journal/<slug>.jpg` replaces the generated
+artwork. These are probed directly rather than carried in the product manifest — there are few of
+them and they are named for the story.
+
+### Newsletter
+
+`assets/js/newsletter.js` is one component mounted into any `[data-newsletter-slot]` — homepage,
+footer, journal, article, PayNow confirmation and order pages. Subscribers go to the `subscribers`
+table and to `localStorage`, so a signup survives a dropped connection, and the record is already
+the shape every email platform expects:
+
+```js
+{ email, first_name, source, status, consented_at }
+```
+
+`studio.html` derives a newsletter draft and Instagram captions from each story and exports the
+subscriber list as CSV. **It sends and posts nothing** — there is no send button anywhere in it,
+by design. Connecting Mailchimp, Klaviyo, Brevo or Resend later is a mapping job against the
+fields above, not a migration.
+
+The subscriber list is a list of customers' email addresses, so — like orders — the public may
+insert into it and can never read it back.
 
 ## Design notes
 

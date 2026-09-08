@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Journal — atelierR</title>
+<meta name="description" content="Beauty notes from atelierR — makeup notes, product edits, skincare and seasonal recommendations from a working makeup artist in Singapore.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=Jost:wght@200;300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/atelier.css">
+</head>
+<body>
+<div data-header></div>
+<main>
+  <div class="wrap">
+    <nav class="crumb" aria-label="Breadcrumb">
+      <a href="index.html">Home</a><span>/</span><span aria-current="page">Journal</span>
+    </nav>
+  </div>
+
+  <section class="section" style="padding-top:8px">
+    <div class="wrap">
+      <p class="eyebrow mb-16">Beauty notes from atelierR</p>
+      <h1 class="h1 mb-16">Journal</h1>
+      <p class="lede mb-32">Notes from the makeup chair — what works on real faces, in this
+        climate, and why. Written by Noriko, between sessions.</p>
+
+      <nav class="filter-bar-scroll mb-32" data-cat-nav aria-label="Categories"></nav>
+      <div data-lead class="mb-48"></div>
+      <div class="jr-grid" data-list></div>
+    </div>
+  </section>
+
+  <div class="wrap"><div class="rule"></div></div>
+  <div data-newsletter-slot data-source="journal"></div>
+</main>
+<div data-footer></div>
+
+<script src="assets/js/config.js"></script>
+<script src="assets/js/data/products.js"></script>
+<script src="assets/js/data/articles.js"></script>
+<script src="assets/js/imagery.js"></script>
+<script src="assets/js/backend.js"></script>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/journal.js"></script>
+<script src="assets/js/newsletter.js"></script>
+<script>
+(function () {
+  UI.mount({ current: 'journal.html' });
+  Newsletter.mount();
+
+  var esc = Store.esc;
+  var active = Store.param('c') || 'all';
+
+  document.querySelector('[data-cat-nav]').innerHTML =
+    '<a class="chip" href="journal.html"' + (active === 'all' ? ' aria-pressed="true"' : '') + '>All stories</a>' +
+    Journal.categories().map(function (c) {
+      var n = Journal.byCategory(c.id).length;
+      if (!n) return '';
+      return '<a class="chip" href="journal.html?c=' + c.id + '"' +
+        (active === c.id ? ' aria-pressed="true"' : '') + '>' + esc(c.name) + '</a>';
+    }).join('');
+
+  var list = active === 'all' ? Journal.all() : Journal.byCategory(active);
+
+  if (!list.length) {
+    document.querySelector('[data-list]').innerHTML =
+      '<div class="empty" style="grid-column:1/-1"><p class="h3 serif mb-16">No stories here yet</p>' +
+      '<a class="btn btn-outline" href="journal.html">All stories</a></div>';
+    return;
+  }
+
+  /* The newest story leads; the rest run as a grid beneath it. */
+  if (active === 'all') {
+    var lead = list[0];
+    document.querySelector('[data-lead]').innerHTML =
+      '<article class="jr-lead">' +
+        '<a href="' + Journal.url(lead) + '" aria-label="' + esc(lead.title) + '">' +
+          Journal.hero(lead, { ratio: '400 300' }) + '</a>' +
+        '<div class="jr-lead-body">' +
+          '<p class="jr-meta">' + esc(Journal.categoryName(lead.category)) + ' · ' +
+            esc(Journal.formatDate(lead.date)) + '</p>' +
+          '<h2 class="jr-title"><a href="' + Journal.url(lead) + '">' + esc(lead.title) + '</a></h2>' +
+          '<p class="jr-excerpt">' + esc(lead.excerpt) + '</p>' +
+          '<p><a class="link-more" href="' + Journal.url(lead) + '">Read the story</a></p>' +
+        '</div>' +
+      '</article>';
+    list = list.slice(1);
+  }
+
+  document.querySelector('[data-list]').innerHTML =
+    list.map(function (a) { return Journal.card(a); }).join('');
+  Imagery.enhance();
+})();
+</script>
+</body>
+</html>

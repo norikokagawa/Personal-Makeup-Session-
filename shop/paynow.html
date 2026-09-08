@@ -34,6 +34,7 @@
 <script src="assets/js/store.js"></script>
 <script src="assets/js/ui.js"></script>
 <script src="assets/js/order-view.js"></script>
+<script src="assets/js/newsletter.js"></script>
 <script>
 (function () {
   UI.mount({ current: 'paynow.html' });
@@ -148,6 +149,9 @@
             '<a class="btn" href="order.html?order=' + encodeURIComponent(order.orderNumber) + '">View my order</a>' +
             '<a class="btn btn-quiet" href="shop.html">Continue shopping</a>' +
           '</div>' +
+          '<div class="mt-48" data-newsletter-slot data-source="checkout" ' +
+            'data-title="Beauty notes from atelierR" ' +
+            'data-body="New stories, product edits and recommendations from Noriko."></div>' +
         '</div>' +
       '</div>' +
 
@@ -196,6 +200,7 @@
   root.querySelector('[data-wa]').href = S.Orders.whatsappLink(order);
 
   function done() {
+    Newsletter.mount();
     report.hidden = true;
     root.querySelector('[data-reveal]').hidden = true;
     thanks.hidden = false;

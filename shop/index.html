@@ -91,6 +91,18 @@
     </div>
   </section>
 
+  <!-- ============ JOURNAL ============ -->
+  <section class="section">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 class="section-title">Latest Stories</h2>
+        <a class="link-more" href="journal.html">The Journal</a>
+      </div>
+      <p class="lede mb-32">Notes from the makeup chair — what works on real faces, and why.</p>
+      <div class="jr-grid" data-journal></div>
+    </div>
+  </section>
+
   <!-- ============ PHILOSOPHY ============ -->
   <section class="section-lg bg-stone">
     <div class="wrap wrap-narrow center">
@@ -123,6 +135,9 @@
     </div>
   </section>
 
+  <!-- ============ NEWSLETTER ============ -->
+  <div class="wrap"><div data-newsletter-slot data-source="homepage"></div></div>
+
   <!-- ============ EDITORIAL LINKS ============ -->
   <section class="section" style="padding-top:0">
     <div class="wrap">
@@ -137,13 +152,17 @@
 <script src="assets/js/config.js"></script>
 <script src="assets/js/data/products.js"></script>
 <script src="assets/js/data/faqs.js"></script>
+<script src="assets/js/data/articles.js"></script>
 <script src="assets/js/imagery.js"></script>
 <script src="assets/js/backend.js"></script>
 <script src="assets/js/store.js"></script>
 <script src="assets/js/ui.js"></script>
+<script src="assets/js/journal.js"></script>
+<script src="assets/js/newsletter.js"></script>
 <script>
 (function () {
   UI.mount({ current: 'index' });
+  Newsletter.mount();
   var C = Store.Catalog, esc = Store.esc;
 
   /* hero still life */
@@ -178,10 +197,14 @@
   }).join('');
   UI.accordion();
 
+  /* latest stories */
+  document.querySelector('[data-journal]').innerHTML =
+    Journal.latest(3).map(function (a) { return Journal.card(a); }).join('');
+
   /* editorial tiles */
   var tiles = [
     { eyebrow: 'Our Story',   title: 'Makeup is a way<br>to be yourself.', href: 'about.html',       cta: 'Read more', art: { shape: 'stone', tone: 'stone' } },
-    { eyebrow: 'How to Use',  title: 'Tips from a<br>makeup artist.',      href: 'faq.html#shades', cta: 'View',      art: { shape: 'lipstick', tone: 'rose' } },
+    { eyebrow: 'Journal',     title: 'Notes from a<br>makeup artist.',     href: 'journal.html',    cta: 'Read',      art: { shape: 'lipstick', tone: 'rose' } },
     { eyebrow: 'Shipping',    title: 'From Japan<br>to Singapore.',        href: 'faq.html#delivery',cta: 'Details',   art: { shape: 'stone', tone: 'sand' } },
     { eyebrow: 'Contact',     title: 'We’re here<br>for you.',             href: 'contact.html',     cta: 'Get in touch', art: { shape: 'drops', tone: 'sage' } }
   ];

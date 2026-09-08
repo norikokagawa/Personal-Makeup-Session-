@@ -8,10 +8,11 @@
 
   /* Four items. Categories live inside Shop, where the filters already are. */
   var NAV = [
-    { label: 'Shop',  href: 'shop.html' },
-    { label: 'Sets',  href: 'category.html?c=sets' },
-    { label: 'FAQ',   href: 'faq.html' },
-    { label: 'About', href: 'about.html' }
+    { label: 'Shop',    href: 'shop.html' },
+    { label: 'Sets',    href: 'category.html?c=sets' },
+    { label: 'Journal', href: 'journal.html' },
+    { label: 'FAQ',     href: 'faq.html' },
+    { label: 'About',   href: 'about.html' }
   ];
 
   /* Secondary links, shown only in the mobile drawer and the footer. */
@@ -117,6 +118,7 @@
             '<div>' +
               '<h4>atelierR</h4>' +
               '<ul>' +
+                '<li><a href="journal.html">Journal</a></li>' +
                 '<li><a href="about.html">Our Story</a></li>' +
                 (CFG.contact.instagram
                   ? '<li><a href="' + esc(CFG.contact.instagram) + '" target="_blank" rel="noopener">Instagram ' +
@@ -126,6 +128,9 @@
                 '<li><a href="contact.html">Contact</a></li>' +
               '</ul>' +
               '<p class="tiny mt-16">Payment by PayNow only.<br>Orders are confirmed after payment is verified.</p>' +
+              '<div class="mt-24" data-newsletter-slot data-source="footer" ' +
+                'data-title="Beauty notes from atelierR" ' +
+                'data-body="New stories, product edits and recommendations from Noriko."></div>' +
             '</div>' +
           '</div>' +
           '<div class="footer-base">' +
@@ -280,6 +285,7 @@
       UI.refreshCart();
       UI.accordion();
       global.Imagery.enhance();
+      if (global.Newsletter) global.Newsletter.mount();
     }
   };
 

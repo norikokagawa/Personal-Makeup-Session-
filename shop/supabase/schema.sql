@@ -69,6 +69,24 @@ create table if not exists public.payment_reports (
 create index if not exists payment_reports_order_idx
   on public.payment_reports (order_number, created_at desc);
 
+-- ----------------------------------------------------------- subscribers ---
+-- Shaped the way every email platform expects, so exporting to Mailchimp,
+-- Klaviyo, Brevo or Resend later is a mapping job rather than a migration.
+create table if not exists public.subscribers (
+  id           uuid primary key default gen_random_uuid(),
+  email        text not null,
+  first_name   text,
+  source       text not null default 'site',   -- homepage | footer | journal | order | …
+  status       text not null default 'subscribed'
+               check (status in ('subscribed', 'unsubscribed')),
+  consented_at timestamptz not null default now(),
+  created_at   timestamptz not null default now(),
+  unique (email)
+);
+
+create index if not exists subscribers_consented_idx
+  on public.subscribers (consented_at desc);
+
 -- --------------------------------------------------- updated_at, honestly ---
 create or replace function public.touch_updated_at()
 returns trigger language plpgsql as $$
@@ -85,6 +103,7 @@ create trigger orders_touch_updated_at
 -- ------------------------------------------------------------------ RLS ----
 alter table public.orders          enable row level security;
 alter table public.payment_reports enable row level security;
+alter table public.subscribers     enable row level security;
 
 -- The public may place an order and report a payment. Nothing else.
 drop policy if exists "anyone may place an order" on public.orders;
@@ -102,7 +121,14 @@ create policy "anyone may report a payment"
   on public.payment_reports for insert to anon, authenticated
   with check (true);
 
+drop policy if exists "anyone may subscribe" on public.subscribers;
+create policy "anyone may subscribe"
+  on public.subscribers for insert to anon, authenticated
+  with check (status = 'subscribed');
+
 -- Only a signed-in atelierR account may read or change anything.
+-- The subscriber list in particular must never be readable by the public:
+-- it is a list of customers' email addresses.
 drop policy if exists "staff may read orders" on public.orders;
 create policy "staff may read orders"
   on public.orders for select to authenticated using (true);
@@ -115,11 +141,21 @@ drop policy if exists "staff may read payment reports" on public.payment_reports
 create policy "staff may read payment reports"
   on public.payment_reports for select to authenticated using (true);
 
+drop policy if exists "staff may read subscribers" on public.subscribers;
+create policy "staff may read subscribers"
+  on public.subscribers for select to authenticated using (true);
+
+drop policy if exists "staff may update subscribers" on public.subscribers;
+create policy "staff may update subscribers"
+  on public.subscribers for update to authenticated using (true) with check (true);
+
 -- Deliberately absent: any delete policy, and any select policy for anon.
 -- Orders are never deleted, and the public can never read them back.
 
 -- ---------------------------------------------------------------- grants ---
 grant insert on public.orders          to anon, authenticated;
 grant insert on public.payment_reports to anon, authenticated;
-grant select, update on public.orders          to authenticated;
+grant insert on public.subscribers     to anon, authenticated;
+grant select, update on public.orders       to authenticated;
+grant select, update on public.subscribers  to authenticated;
 grant select          on public.payment_reports to authenticated;

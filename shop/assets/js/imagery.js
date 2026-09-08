@@ -137,7 +137,8 @@
          suqqu-signature-color-eyes-2.jpg      second gallery image
      The SVG renders first and the photo swaps in once it has loaded, so a
      missing photo simply leaves the generated art in place. */
-  var PHOTO_DIR = 'assets/img/products/';
+  var PHOTO_DIRS = { products: 'assets/img/products/', journal: 'assets/img/journal/' };
+  var PHOTO_DIR = PHOTO_DIRS.products;
   var PHOTO_EXT = ['.jpg', '.png'];
   var CACHE_KEY = 'atelierR.photoIndex';
 
@@ -153,6 +154,7 @@
     try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(index)); } catch (e) {}
   }
 
+  var probed = {};                    // url -> true/false, for non-manifest lookups
   function photoName(id, i) { return id + (i > 1 ? '-' + i : ''); }
   function load(url, ok, fail) {
     var img = new Image();
@@ -194,11 +196,25 @@
      The main image decides the format; gallery images are only looked for once
      the product is known to have photography, so a product without photos costs
      at most two requests per session rather than one per image per page. */
-  function findPhoto(id, i, done) {
+  function findPhoto(id, i, done, dir) {
+    var folder = PHOTO_DIRS[dir] || PHOTO_DIR;
+    if (folder !== PHOTO_DIR) {
+      /* Journal images are few and named for the story, so they are probed
+         directly rather than carried in the product manifest. */
+      var n = 0;
+      return (function next() {
+        if (n >= PHOTO_EXT.length) return done(null);
+        var url = folder + photoName(id, i) + PHOTO_EXT[n++];
+        if (probed[url] === false) return next();
+        if (probed[url] === true) return done(url);
+        load(url, function () { probed[url] = true; done(url); },
+                  function () { probed[url] = false; next(); });
+      })();
+    }
     withManifest(function (list) {
       if (!list) return probe(id, i, done);          // no manifest — probe
-      for (var n = 0; n < PHOTO_EXT.length; n++) {
-        var file = photoName(id, i) + PHOTO_EXT[n];
+      for (var k = 0; k < PHOTO_EXT.length; k++) {
+        var file = photoName(id, i) + PHOTO_EXT[k];
         if (list[file]) return done(PHOTO_DIR + file);
       }
       done(null);
@@ -255,6 +271,7 @@
         el._photoDone = true;
         var id = el.getAttribute('data-photo');
         var i = parseInt(el.getAttribute('data-photo-index') || '1', 10);
+        var dir = el.getAttribute('data-photo-dir') || 'products';
         findPhoto(id, i, function (url) {
           if (!url) return;                       // no photo yet — keep the SVG
           var img = document.createElement('img');
@@ -265,7 +282,7 @@
           img.style.display = 'block';
           var svg = el.querySelector('svg');
           if (svg) svg.replaceWith(img); else el.appendChild(img);
-        });
+        }, dir);
       });
     },
 

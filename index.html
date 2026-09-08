@@ -106,7 +106,10 @@
     </div>
 
     <div class="divider"></div>
-    <div class="preview-label">Message preview</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+      <div class="preview-label" style="margin-bottom:0;">Message preview</div>
+      <button type="button" id="langBtn" onclick="toggleLang()" style="padding:4px 12px;border:1px solid #e0d6d0;border-radius:6px;background:#fdfaf8;font-size:0.78rem;cursor:pointer;color:#666;">🇯🇵 日本語</button>
+    </div>
     <div class="preview-box" id="preview"></div>
 
     <button class="btn btn-whatsapp" onclick="sendText()">
@@ -149,13 +152,17 @@
     ]);
 
     let tesseractReady = false;
+    let lang = 'en';
 
+    function isJapaneseName(text) {
+      return /[぀-ヿ]/.test(text); // hiragana or katakana
+    }
 
-
-    window.addEventListener('load', () => {
+    function toggleLang() {
+      lang = (lang === 'en') ? 'ja' : 'en';
+      document.getElementById('langBtn').textContent = (lang === 'en') ? '🇯🇵 日本語' : '🇬🇧 English';
       updatePreview();
-      document.getElementById('qrPreview').src = PAYNOW_QR;
-    });
+    }
 
     function loadTesseract() {
       return new Promise((resolve, reject) => {
@@ -257,6 +264,11 @@
       try {
         const text = await runOCR(file, p => { loading.textContent = `📖 Reading... ${p}%`; });
 
+        if (isJapaneseName(text)) {
+          lang = 'ja';
+          document.getElementById('langBtn').textContent = '🇬🇧 English';
+        }
+
         const full = extractName(text);
         const phone = extractPhone(text);
         const dt = extractDateTime(text);
@@ -302,9 +314,26 @@
       return `${days[d.getDay()]}, ${da} ${months[mo-1]} at ${String(hr).padStart(2,'0')}:${String(mn).padStart(2,'0')}`;
     }
 
+    function formatApptJa(value) {
+      if (!value) return null;
+      const [datePart, timePart] = value.split('T');
+      const [yr, mo, da] = datePart.split('-').map(Number);
+      const [hr, mn] = (timePart || '00:00').split(':').map(Number);
+      const d = new Date(yr, mo - 1, da, hr, mn);
+      const days = ['日','月','火','水','木','金','土'];
+      return `${yr}年${mo}月${da}日（${days[d.getDay()]}）${String(hr).padStart(2,'0')}:${String(mn).padStart(2,'0')}`;
+    }
+
     function buildMessage() {
+      const apptValue = document.getElementById('apptDate').value;
+      if (lang === 'ja') {
+        const name = document.getElementById('firstName').value.trim() || '[お名前]';
+        const appt = formatApptJa(apptValue);
+        const apptLine = appt ? `\n📅 ご予約日時: ${appt}\n` : '';
+        return `${name}さん、こんにちは！\n\nはじめまして、Norikoです 😊\n\nシンガポールでのパーソナルメイクアップセッションをご予約いただき、ありがとうございます 🇸🇬\n${apptLine}\nセッション料金は280 SGDです。\nご予約を確定するために、24時間以内にPayNowにてお支払いをお願いいたします。\nお支払い後、こちらに振込のスクリーンショットをお送りください。\nまた、PayNowのコメント欄に、ご予約時のお名前をご記入ください 🙏\n\nお支払いが確認でき次第、ご予約が正式に確定されます 😊\n\n当日お会いできるのを楽しみにしております。\nどうぞよろしくお願いいたします 🕊️`;
+      }
       const firstName = document.getElementById('firstName').value.trim() || '[Name]';
-      const appt = formatAppt(document.getElementById('apptDate').value);
+      const appt = formatAppt(apptValue);
       const apptLine = appt ? `\n📅 Your appointment: ${appt}\n` : '';
       return `Hi ${firstName}\n\nI'm Noriko, nice to meet you! 😊\n\nThank you very much for booking a personal makeup session in Singapore 🇸🇬\n${apptLine}\nThe session fee is 280 SGD.\nTo confirm your booking, please kindly make the payment via PayNow below within 24 hours.\nAfter making the payment, please send me a screenshot of the transfer here for confirmation.\nAlso, please enter the name you used for your booking in the PayNow payment reference/comment field, so we can match your payment easily 🙏\n\nYour booking will be officially confirmed once the payment is verified 😊\n\nI am looking forward to seeing you on the day.\nThank you 🕊️`;
     }
@@ -332,7 +361,7 @@
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           await navigator.share({ files: [file], title: 'PayNow QR Code' });
         } else {
-          window.open(PAYNOW_QR, '_blank');
+          window.open(document.getElementById('qrPreview').src, '_blank');
           alert('Please save this image and send it manually in WhatsApp.');
         }
       } catch (e) {

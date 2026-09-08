@@ -85,9 +85,17 @@ shop/
 
 ## Editing content
 
-**Business details** — `assets/js/config.js`. Replace the PayNow UEN, mobile, account name and the
-WhatsApp number (digits only, no `+`). To show a real PayNow QR, save the image under
-`assets/img/` and set `payNow.qrImage` to its path; leave it blank for the placeholder frame.
+**Business details** — `assets/js/config.js`.
+
+PayNow is live: the merchant QR at `assets/img/paynow-qr.jpg` encodes UEN `202111608C`
+(SALON DE SINGA PTE. LTD, static/reusable, payer enters the amount, SGD), and `config.js`
+matches it. Because the registered company name differs from the shop name, the PayNow page and
+the FAQ both explain that this is the correct account — keep that wording in step with the QR if
+the account ever changes. `payNow.mobile` is blank because this QR pays to a UEN; set it only if
+a mobile proxy is added, and the row appears automatically.
+
+Still placeholders: the WhatsApp number (`contact.whatsapp`, digits only, no `+`) and the
+Instagram URL.
 
 **Products** — `assets/js/data/products.js`. Each record:
 

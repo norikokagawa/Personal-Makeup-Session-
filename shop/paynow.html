@@ -68,15 +68,22 @@
             '<span><span class="tiny" style="display:block">PayNow UEN</span><code>' + esc(pn.uen) + '</code></span>' +
             '<button data-copy="' + esc(pn.uen) + '">Copy</button>' +
           '</div>' +
-          '<div class="copyable">' +
-            '<span><span class="tiny" style="display:block">PayNow mobile</span><code>' + esc(pn.mobile) + '</code></span>' +
-            '<button data-copy="' + esc(pn.mobile) + '">Copy</button>' +
-          '</div>' +
+          /* This QR pays to a UEN; a mobile proxy is shown only if one is configured. */
+          (pn.mobile
+            ? '<div class="copyable">' +
+                '<span><span class="tiny" style="display:block">PayNow mobile</span><code>' + esc(pn.mobile) + '</code></span>' +
+                '<button data-copy="' + esc(pn.mobile) + '">Copy</button>' +
+              '</div>'
+            : '') +
           '<div class="copyable">' +
             '<span><span class="tiny" style="display:block">Payment reference</span><code>' + esc(order.orderNumber) + '</code></span>' +
             '<button data-copy="' + esc(order.orderNumber) + '">Copy</button>' +
           '</div>' +
           '<p class="tiny">Account name: ' + esc(pn.accountName) + '</p>' +
+          /* The registered company name differs from the shop name, which worries
+             customers mid-payment. Say so before they stop and ask. */
+          '<p class="tiny" style="color:var(--muted-light)">' + esc(pn.accountName) +
+            ' is the registered company behind atelierR. This is the correct account.</p>' +
         '</div>' +
 
         '<div class="panel mb-24">' +

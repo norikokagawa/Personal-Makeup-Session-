@@ -6,12 +6,15 @@ window.ATELIER_CONFIG = {
   location: 'Singapore',
   currency: 'SGD',
 
-  // --- PayNow (replace placeholders with the real merchant details) ---
+  // --- PayNow ---
+  // Taken from the merchant QR at assets/img/paynow-qr.jpg, which encodes:
+  //   SG.PAYNOW · proxy type 2 (UEN) · 202111608C · SALON DE SINGA PTE. LTD
+  //   static/reusable, amount entered by the payer, currency SGD
   payNow: {
-    uen: 'PLACEHOLDER-UEN-202XXXXXXK',
-    mobile: '+65 0000 0000',
-    accountName: 'ATELIER R PTE. LTD.',
-    qrImage: '',              // e.g. 'assets/img/paynow-qr.png' — blank shows a placeholder frame
+    uen: '202111608C',
+    mobile: '',               // this QR pays to a UEN, not a mobile — leave blank to hide the row
+    accountName: 'SALON DE SINGA PTE. LTD',
+    qrImage: 'assets/img/paynow-qr.jpg',   // blank falls back to a placeholder frame
     verificationHours: 'within 1 business day'
   },
 

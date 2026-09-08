@@ -16,6 +16,8 @@ window.FAQ_GROUPS = [
         homepage: true,
         a: ['<p>Your order is confirmed once atelierR has checked the PayNow transfer against your order — usually within one business day of receiving your payment screenshot.</p>',
             '<p>Until then your order status shows <strong>Awaiting Payment Verification</strong>. Placing an order and sending a screenshot does not confirm it on its own; a person checks every payment.</p>'] },
+      { q: 'The payment shows a different company name — is that right?',
+        a: ['<p>Yes, that is correct. PayNow transfers are received by <strong>SALON DE SINGA PTE. LTD</strong>, the registered company behind atelierR. Seeing that name in your banking app means you are paying the right account.</p>'] },
       { q: 'What should I write in the PayNow reference?',
         a: ['<p>Write your <strong>order number</strong> — for example <em>ATR-240915-1043</em>. If your banking app limits the reference length, your full name is fine instead.</p>',
             '<p>The reference is how we match your transfer to your order, so an order without one takes longer to verify.</p>'] },

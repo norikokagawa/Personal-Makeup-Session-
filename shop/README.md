@@ -156,12 +156,82 @@ the record rather than losing the order — the transfer is still verifiable in 
 
 ---
 
+## Product photography
+
+Photos are opt-in per product and require no code change. Drop a file into
+`assets/img/products/` named after the product id and it replaces the generated artwork
+everywhere — cards, gallery, cart, search and comparison:
+
+    suqqu-signature-color-eyes.jpg      main image
+    suqqu-signature-color-eyes-2.jpg    second gallery image
+    suqqu-signature-color-eyes-3.jpg    third gallery image
+
+`.jpg` is tried first, then `.png`. `Imagery.enhance()` probes each name once per page, caches
+the result, and swaps the SVG for an `<img>` only on a successful load — so a product without a
+photo keeps its generated art and never shows a broken image. Photos can therefore be added a few
+at a time.
+
+Shoot guidance and the full filename list live in `assets/img/products/README.md`.
+
+### Filenames
+
+### ベースメイク
+
+| 商品 | ファイル名 |
+|---|---|
+| RMK Liquid Foundation | `rmk-liquid-foundation.jpg` |
+| RMK Translucent Face Powder | `rmk-face-powder.jpg` |
+| THREE Angelic Glow Primer | `three-glow-primer.jpg` |
+| ADDICTION The Concealer | `addiction-the-concealer.jpg` |
+| Celvoke Reventive Cushion Foundation | `celvoke-cushion.jpg` |
+
+### ポイントメイク
+
+| 商品 | ファイル名 |
+|---|---|
+| SUQQU Signature Color Eyes | `suqqu-signature-color-eyes.jpg` |
+| SUQQU Blurring Color Blush | `suqqu-blurring-color-blush.jpg` |
+| SUQQU Moisture Glaze Lipstick | `suqqu-moisture-glaze-lipstick.jpg` |
+| Celvoke Indicate Eyebrow Powder | `celvoke-indicate-eyebrow-powder.jpg` |
+| RMK Eye Defining Pencil | `rmk-eye-defining-pencil.jpg` |
+| ADDICTION The Matte Lip Liquid | `addiction-matte-lip-liquid.jpg` |
+| THREE Velvet Last Lipstick | `three-velvet-lipstick.jpg` |
+
+### スキンケア
+
+| 商品 | ファイル名 |
+|---|---|
+| NOEVIR Herbal Skin Lotion | `noevir-herbal-skin-lotion.jpg` |
+| NOEVIR Herbal Milk Lotion | `noevir-herbal-milk-lotion.jpg` |
+| THREE Balancing Cleansing Oil | `three-cleansing-oil.jpg` |
+| Celvoke Concentrate Serum | `celvoke-concentrate-serum.jpg` |
+
+### ツール
+
+| 商品 | ファイル名 |
+|---|---|
+| BROWN ÉTOILE Eyeshadow Brush (A) | `brownetoile-eyeshadow-brush-a.jpg` |
+| BROWN ÉTOILE Blending Brush | `brownetoile-blending-brush.jpg` |
+| BROWN ÉTOILE Eyebrow Brush | `brownetoile-eyebrow-brush.jpg` |
+| BROWN ÉTOILE Face Powder Brush | `brownetoile-face-powder-brush.jpg` |
+| BROWN ÉTOILE Blush Brush | `brownetoile-blush-brush.jpg` |
+| BROWN ÉTOILE Concealer Brush (M) | `brownetoile-concealer-brush-m.jpg` |
+| BROWN ÉTOILE Eyelash Curler | `brownetoile-eyelash-curler.jpg` |
+
+### セット
+
+| 商品 | ファイル名 |
+|---|---|
+| atelierR Base Makeup Set | `base-makeup-set.jpg` |
+| atelierR Skincare Set — Starter | `skincare-set-starter.jpg` |
+| atelierR Skincare Set — Complete | `skincare-set-complete.jpg` |
+
 ## Design notes
 
 Warm ivory and stone palette, Cormorant Garamond over Jost, generous white space, mobile-first.
-There is no photography and there are no model faces: every product visual is generated as an SVG
-by `imagery.js` from the product's `art` descriptor. To move to real photography, replace
-`Imagery.render()` with an `<img>` tag — the call sites already pass a label for the `alt` text.
+No model faces anywhere. Until a product has photography, its visual is generated as an SVG by
+`imagery.js` from the product's `art` descriptor; see **Product photography** above for how a real
+photo takes over.
 
 Google Fonts is the only external request. If it is unavailable the pages fall back to system
 serif and sans-serif and remain fully usable.

@@ -144,7 +144,8 @@
       var url = 'product.html?id=' + encodeURIComponent(p.id);
       return '' +
       '<article class="card">' +
-        '<a class="card-media" href="' + url + '" aria-label="' + esc(p.brand + ' ' + p.name) + '">' +
+        '<a class="card-media" href="' + url + '" aria-label="' + esc(p.brand + ' ' + p.name) + '" ' +
+            'data-photo="' + esc(p.id) + '" data-photo-alt="' + esc(p.brand + ' ' + p.name) + '">' +
           global.Imagery.render(p.art, { label: p.brand + ' ' + p.name }) +
           (sold ? '<span class="flag">Sold out</span>' : (p.bestSeller && opts.flagBest ? '<span class="flag">Best seller</span>' : '')) +
         '</a>' +
@@ -163,6 +164,8 @@
     },
 
     grid: function (products, opts) {
+      /* Photos swap in on the next frame, once this markup is in the document. */
+      requestAnimationFrame(function () { global.Imagery.enhance(); });
       return products.map(function (p) { return UI.card(p, opts); }).join('');
     },
 
@@ -263,17 +266,19 @@
           }
           results.innerHTML = found.map(function (p) {
             return '<a class="search-result" href="product.html?id=' + encodeURIComponent(p.id) + '">' +
-              '<span class="thumb">' + global.Imagery.render(p.art) + '</span>' +
+              '<span class="thumb" data-photo="' + esc(p.id) + '">' + global.Imagery.render(p.art) + '</span>' +
               '<span><span class="card-brand">' + esc(p.brand) + '</span>' +
               '<span class="card-name" style="display:block;margin:2px 0">' + esc(p.name) + '</span>' +
               '<span class="small">' + money(p.priceSGD) + '</span></span></a>';
           }).join('');
+          global.Imagery.enhance(results);
         });
       }
 
       document.addEventListener('cart:change', UI.refreshCart);
       UI.refreshCart();
       UI.accordion();
+      global.Imagery.enhance();
     }
   };
 

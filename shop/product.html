@@ -45,10 +45,13 @@
   /* ---------- gallery ---------- */
   function gallery() {
     return '<div>' +
-      '<div class="gallery-main" data-gallery-main>' + Imagery.render(images[0], { label: p.brand + ' ' + p.name }) + '</div>' +
+      '<div class="gallery-main" data-gallery-main data-photo="' + esc(p.id) + '" data-photo-index="1" ' +
+          'data-photo-alt="' + esc(p.brand + ' ' + p.name) + '">' +
+        Imagery.render(images[0], { label: p.brand + ' ' + p.name }) + '</div>' +
       (images.length > 1
         ? '<div class="gallery-thumbs" role="tablist" aria-label="Product images">' + images.map(function (img, i) {
             return '<button role="tab" data-thumb="' + i + '" aria-selected="' + (i === 0) + '" ' +
+                   'data-photo="' + esc(p.id) + '" data-photo-index="' + (i + 1) + '" ' +
                    'aria-label="View image ' + (i + 1) + '">' + Imagery.render(img, { ratio: '400 400' }) + '</button>';
           }).join('') + '</div>'
         : '') +
@@ -209,6 +212,8 @@
     '</div></div></section>' +
     helpSection();
 
+  Imagery.enhance(root);
+
   /* ---------- behaviour ---------- */
   var chosenShade = shades.length ? shades[0].name + ' ' + shades[0].code : '';
 
@@ -216,7 +221,11 @@
     var thumb = e.target.closest('[data-thumb]');
     if (thumb) {
       var i = +thumb.getAttribute('data-thumb');
-      root.querySelector('[data-gallery-main]').innerHTML = Imagery.render(images[i], { label: p.name });
+      var main = root.querySelector('[data-gallery-main]');
+      main.innerHTML = Imagery.render(images[i], { label: p.name });
+      main.setAttribute('data-photo-index', i + 1);
+      main._photoDone = false;
+      Imagery.enhance(root);
       root.querySelectorAll('[data-thumb]').forEach(function (b) {
         b.setAttribute('aria-selected', b === thumb ? 'true' : 'false');
       });

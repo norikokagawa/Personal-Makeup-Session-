@@ -63,7 +63,8 @@
 
     var lines = cart.lines.map(function (l) {
       return '<div class="cart-line">' +
-        '<a class="media" href="product.html?id=' + l.id + '">' + Imagery.render(l.product.art, { ratio: '400 440' }) + '</a>' +
+        '<a class="media" href="product.html?id=' + l.id + '" data-photo="' + esc(l.id) + '">' +
+          Imagery.render(l.product.art, { ratio: '400 440' }) + '</a>' +
         '<div>' +
           '<p class="card-brand">' + esc(l.product.brand) + '</p>' +
           '<h3 class="card-name" style="margin-top:4px"><a href="product.html?id=' + l.id + '">' + esc(l.product.name) + '</a></h3>' +
@@ -114,6 +115,7 @@
         '</ul>' +
       '</aside>' +
     '</div>';
+    Imagery.enhance(root);
   }
 
   root.addEventListener('click', function (e) {

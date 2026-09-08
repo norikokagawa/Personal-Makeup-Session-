@@ -94,7 +94,8 @@
     '<div class="cmp-scroll"><table class="cmp">' +
       '<thead><tr><th></th>' + list.map(function (p) {
         return '<th scope="col">' +
-          '<a href="product.html?id=' + p.id + '"><span class="media" style="display:block">' +
+          '<a href="product.html?id=' + p.id + '"><span class="media" style="display:block" ' +
+            'data-photo="' + esc(p.id) + '" data-photo-alt="' + esc(p.brand + ' ' + p.name) + '">' +
             Imagery.render(p.art, { ratio: '400 420' }) + '</span>' +
           '<span class="card-brand" style="display:block">' + esc(p.brand) + '</span>' +
           '<span class="card-name" style="display:block">' + esc(p.name) + '</span></a></th>';
@@ -130,6 +131,7 @@
     '</table></div>' +
     '<p class="small mt-24">Choosing a shade rather than a product? Read the ' +
       '<a class="link-under" href="shade-guide.html">Shade Guide</a>.</p>';
+  Imagery.enhance(out);
 })();
 </script>
 </body>

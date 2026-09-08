@@ -130,6 +130,36 @@
     }
   };
 
+  /* ---- real photography -------------------------------------------------
+     Drop a file named after the product id into assets/img/products/ and it
+     replaces the generated art automatically — no code change needed.
+         suqqu-signature-color-eyes.jpg        main image
+         suqqu-signature-color-eyes-2.jpg      second gallery image
+     The SVG renders first and the photo swaps in once it has loaded, so a
+     missing photo simply leaves the generated art in place. */
+  var PHOTO_DIR = 'assets/img/products/';
+  var PHOTO_EXT = ['.jpg', '.png'];
+  var probed = {};                       // url -> true/false, so each is tried once
+
+  function photoName(id, index) {
+    return id + (index > 1 ? '-' + index : '');
+  }
+
+  /* Resolves to a usable URL, or null. Tries .jpg then .png. */
+  function findPhoto(name, done) {
+    var i = 0;
+    (function next() {
+      if (i >= PHOTO_EXT.length) return done(null);
+      var url = PHOTO_DIR + name + PHOTO_EXT[i++];
+      if (probed[url] === false) return next();
+      if (probed[url] === true) return done(url);
+      var img = new Image();
+      img.onload = function () { probed[url] = true; done(url); };
+      img.onerror = function () { probed[url] = false; next(); };
+      img.src = url;
+    })();
+  }
+
   var Imagery = {
     /* Returns an inline SVG string for a product/decor art descriptor. */
     render: function (art, opts) {
@@ -149,7 +179,32 @@
              '<ellipse cx="200" cy="392" rx="118" ry="18" fill="#000" opacity=".055"/>' +
              SHAPES[shape](c) + '</svg>';
     },
-    shapes: Object.keys(SHAPES)
+    shapes: Object.keys(SHAPES),
+
+    /* Swaps generated art for real photography wherever a file exists.
+       Call after rendering markup that contains [data-photo] elements. */
+    enhance: function (root) {
+      (root || document).querySelectorAll('[data-photo]').forEach(function (el) {
+        if (el._photoDone) return;
+        el._photoDone = true;
+        var name = photoName(el.getAttribute('data-photo'),
+                             parseInt(el.getAttribute('data-photo-index') || '1', 10));
+        findPhoto(name, function (url) {
+          if (!url) return;                       // no photo yet — keep the SVG
+          var img = document.createElement('img');
+          img.src = url;
+          img.alt = el.getAttribute('data-photo-alt') || '';
+          img.loading = 'lazy';
+          img.style.width = '100%';
+          img.style.display = 'block';
+          var svg = el.querySelector('svg');
+          if (svg) svg.replaceWith(img); else el.appendChild(img);
+        });
+      });
+    },
+
+    /* The filename atelierR should give a product's photo. */
+    photoFileName: function (id, index) { return photoName(id, index || 1) + PHOTO_EXT[0]; }
   };
 
   function esc(s) { return String(s).replace(/[&<>"]/g, function (m) {

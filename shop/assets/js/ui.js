@@ -6,16 +6,20 @@
 
   var S = global.Store, CFG = global.ATELIER_CONFIG, esc = S.esc, money = S.money;
 
+  /* Four items. Categories live inside Shop, where the filters already are. */
   var NAV = [
-    { label: 'Shop All',     href: 'shop.html' },
+    { label: 'Shop',  href: 'shop.html' },
+    { label: 'Sets',  href: 'category.html?c=sets' },
+    { label: 'FAQ',   href: 'faq.html' },
+    { label: 'About', href: 'about.html' }
+  ];
+
+  /* Secondary links, shown only in the mobile drawer and the footer. */
+  var CATEGORIES = [
     { label: 'Base Makeup',  href: 'category.html?c=base-makeup' },
     { label: 'Point Makeup', href: 'category.html?c=point-makeup' },
     { label: 'Skincare',     href: 'category.html?c=skincare' },
-    { label: 'Tools',        href: 'category.html?c=tools' },
-    { label: 'Sets',         href: 'category.html?c=sets' },
-    { label: 'Brands',       href: 'brands.html' },
-    { label: 'FAQ',          href: 'faq.html' },
-    { label: 'About',        href: 'about.html' }
+    { label: 'Tools',        href: 'category.html?c=tools' }
   ];
 
   var ICONS = {
@@ -58,10 +62,9 @@
             '<button class="icon-btn" data-drawer-close aria-label="Close menu">' + ICONS.close + '</button>' +
           '</div>' +
           '<nav aria-label="Mobile">' +
-            NAV.slice(0, 6).map(function (n) { return '<a href="' + n.href + '">' + esc(n.label) + '</a>'; }).join('') +
+            NAV.map(function (n) { return '<a href="' + n.href + '">' + esc(n.label) + '</a>'; }).join('') +
             '<div class="drawer-sub">' +
-              NAV.slice(6).map(function (n) { return '<a href="' + n.href + '">' + esc(n.label) + '</a>'; }).join('') +
-              '<a href="shade-guide.html">Shade Guide</a>' +
+              CATEGORIES.map(function (n) { return '<a href="' + n.href + '">' + esc(n.label) + '</a>'; }).join('') +
               '<a href="cart.html">Cart</a>' +
             '</div>' +
           '</nav>' +
@@ -94,12 +97,10 @@
               '<h4>Shop</h4>' +
               '<ul>' +
                 '<li><a href="shop.html">Shop All</a></li>' +
-                '<li><a href="category.html?c=base-makeup">Base Makeup</a></li>' +
-                '<li><a href="category.html?c=point-makeup">Point Makeup</a></li>' +
-                '<li><a href="category.html?c=skincare">Skincare</a></li>' +
-                '<li><a href="category.html?c=tools">Tools</a></li>' +
+                CATEGORIES.map(function (n) {
+                  return '<li><a href="' + n.href + '">' + esc(n.label) + '</a></li>';
+                }).join('') +
                 '<li><a href="category.html?c=sets">Sets</a></li>' +
-                '<li><a href="brands.html">Brands</a></li>' +
               '</ul>' +
             '</div>' +
             '<div>' +
@@ -108,7 +109,7 @@
                 '<li><a href="faq.html#payment">Payment</a></li>' +
                 '<li><a href="faq.html#delivery">Delivery</a></li>' +
                 '<li><a href="faq.html#returns">Returns</a></li>' +
-                '<li><a href="shade-guide.html">Shade Guide</a></li>' +
+                '<li><a href="faq.html#shades">Shade Guide</a></li>' +
                 '<li><a href="faq.html">FAQ</a></li>' +
                 '<li><a href="contact.html">Contact</a></li>' +
               '</ul>' +

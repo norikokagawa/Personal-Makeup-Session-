@@ -47,8 +47,7 @@
   root.innerHTML =
     '<h1 class="h1 mb-8">Pay with PayNow</h1>' +
     '<ol class="steps mb-32" aria-label="Checkout progress">' +
-      '<li class="done">Cart</li><li class="done">Your details</li><li class="done">Order review</li>' +
-      '<li class="now">PayNow payment</li><li>Confirmation</li>' +
+      '<li class="done">Cart</li><li class="done">Your details</li><li class="now">Pay by PayNow</li>' +
     '</ol>' +
 
     '<div class="notice mb-32"><strong>Order ' + esc(order.orderNumber) + ' has been created.</strong><br>' +
@@ -107,9 +106,48 @@
           'Nothing is marked as paid automatically.' +
         '</div>' +
 
-        '<a class="btn btn-block" href="payment-confirmation.html?order=' + encodeURIComponent(order.orderNumber) + '">I’ve made the payment</a>' +
+        '<button class="btn btn-block" data-reveal>I’ve made the payment</button>' +
         '<p class="tiny mt-16 center">Not ready yet? This page stays available — ' +
           'bookmark it, or find it again from <a class="link-under" href="order.html?order=' + encodeURIComponent(order.orderNumber) + '">your order page</a>.</p>' +
+
+        /* Reporting the payment happens here, on the same page, rather than on a
+           separate step the customer has to be sent to. */
+        '<div class="mt-32" data-report hidden>' +
+          '<div class="rule mb-32"></div>' +
+          '<h2 class="h2 serif mb-16">Send us your payment screenshot</h2>' +
+          '<p class="lede mb-24">So we can match your transfer to your order. Either option is fine — ' +
+            'you only need to do one.</p>' +
+
+          '<form class="panel mb-24" data-form>' +
+            '<h3 class="section-title mb-16">Option 1 — Upload your screenshot</h3>' +
+            '<div class="drop" data-drop>' +
+              '<input type="file" accept="image/*" data-file aria-label="Upload payment screenshot">' +
+              '<p class="section-title" style="letter-spacing:0.18em">Tap to upload</p>' +
+              '<p class="small mt-8" data-drop-label>PNG or JPG of your PayNow confirmation</p>' +
+            '</div>' +
+            '<div data-preview></div>' +
+            '<button class="btn btn-block mt-24" type="submit" data-submit disabled>Submit payment confirmation</button>' +
+          '</form>' +
+
+          '<div class="panel">' +
+            '<h3 class="section-title mb-16">Option 2 — Send it on WhatsApp</h3>' +
+            '<p class="small mb-16">Opens WhatsApp with your order number, name and amount already written. ' +
+              'Attach the screenshot there and send.</p>' +
+            '<div class="panel panel-stone mb-16"><p class="small" style="white-space:pre-line" data-wa-preview></p></div>' +
+            '<a class="btn btn-outline btn-block" data-wa target="_blank" rel="noopener">Send screenshot via WhatsApp</a>' +
+          '</div>' +
+        '</div>' +
+
+        '<div class="mt-32" data-thanks hidden>' +
+          '<div class="notice notice-ok mb-24">' +
+            '<strong>Thank you. Your payment confirmation has been received.</strong><br>' +
+            'atelierR will verify your PayNow payment before confirming your order.' +
+          '</div>' +
+          '<div class="row">' +
+            '<a class="btn" href="order.html?order=' + encodeURIComponent(order.orderNumber) + '">View my order</a>' +
+            '<a class="btn btn-quiet" href="shop.html">Continue shopping</a>' +
+          '</div>' +
+        '</div>' +
       '</div>' +
 
       '<aside>' +
@@ -130,14 +168,71 @@
 
   root.addEventListener('click', function (e) {
     var b = e.target.closest('[data-copy]');
-    if (!b) return;
-    var text = b.getAttribute('data-copy');
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(text).then(function () { UI.toast('Copied — ' + text); });
-    } else {
-      UI.toast(text);
+    if (b) {
+      var text = b.getAttribute('data-copy');
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(function () { UI.toast('Copied — ' + text); });
+      } else {
+        UI.toast(text);
+      }
+      return;
+    }
+    if (e.target.closest('[data-reveal]')) {
+      var panel = root.querySelector('[data-report]');
+      panel.hidden = false;
+      panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   });
+
+  /* ---------- payment report ---------- */
+  var report = root.querySelector('[data-report]');
+  var thanks = root.querySelector('[data-thanks]');
+  var waMsg = 'Hi atelierR, I’ve completed the PayNow payment for Order #' + order.orderNumber + '.\n' +
+              'Name: ' + order.customer.firstName + ' ' + order.customer.lastName + '\n' +
+              'Amount: ' + money(order.total) + '\n' +
+              'Payment screenshot attached.';
+  root.querySelector('[data-wa-preview]').textContent = waMsg;
+  root.querySelector('[data-wa]').href = S.Orders.whatsappLink(order);
+
+  function done() {
+    report.hidden = true;
+    root.querySelector('[data-reveal]').hidden = true;
+    thanks.hidden = false;
+    thanks.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  root.querySelector('[data-wa]').addEventListener('click', function () {
+    S.Orders.submitPaymentProof(order.orderNumber, { channel: 'whatsapp', uploadedAt: new Date().toISOString() });
+    setTimeout(done, 400);
+  });
+
+  var file = root.querySelector('[data-file]');
+  var proof = null;
+  file.addEventListener('change', function () {
+    var f = file.files && file.files[0];
+    if (!f) return;
+    if (f.size > 4 * 1024 * 1024) { UI.toast('That image is over 4MB — please use a smaller screenshot'); return; }
+    var reader = new FileReader();
+    reader.onload = function () {
+      proof = { name: f.name, dataUrl: reader.result, uploadedAt: new Date().toISOString() };
+      root.querySelector('[data-drop]').classList.add('filled');
+      root.querySelector('[data-drop-label]').textContent = f.name + ' — ready to submit';
+      root.querySelector('[data-preview]').innerHTML =
+        '<img class="preview-img" src="' + reader.result + '" alt="Payment screenshot preview">';
+      root.querySelector('[data-submit]').disabled = false;
+    };
+    reader.readAsDataURL(f);
+  });
+
+  root.querySelector('[data-form]').addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (!proof) return;
+    S.Orders.submitPaymentProof(order.orderNumber, proof);
+    done();
+  });
+
+  /* Returning to this page after reporting shows the thank-you straight away. */
+  if (order.paymentStatus === 'submitted' || order.statusKey === 'AWAITING_VERIFICATION') done();
 })();
 </script>
 </body>

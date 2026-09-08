@@ -100,54 +100,65 @@
     '</div>';
   }
 
-  /* ---------- the answers ---------- */
+  /* ---------- the answers ----------
+     Price, stock and the cart come first; the detail sits in collapsed
+     sections so the page opens short and stays scannable. */
+  function section(title, body, open, id) {
+    return '<div class="acc-item' + (open ? ' open' : '') + '"' + (id ? ' id="' + id + '"' : '') + '>' +
+      '<button class="acc-q">' + esc(title) + '<span class="sign"></span></button>' +
+      '<div class="acc-a">' + body + '</div></div>';
+  }
+
   function infoBlocks() {
-    var out = '';
+    var out = '<div class="acc mt-24">';
 
-    out += '<div class="info-block"><h4>What it is</h4><p>' + esc(p.description) + '</p></div>';
+    out += section('What it is', '<p>' + esc(p.description) + '</p>', true);
 
-    out += '<div class="info-block"><h4>Why atelierR selected this</h4>' +
-           '<p>' + esc(p.whySelected) + '</p></div>';
+    out += section('Why atelierR selected this', '<p>' + esc(p.whySelected) + '</p>', false);
 
+    var suits = '';
     if (p.bestFor && p.bestFor.length) {
-      out += '<div class="info-block"><h4>Best for</h4><div class="pill-list">' +
-        p.bestFor.map(function (b) { return '<span class="pill">' + esc(b) + '</span>'; }).join('') +
-      '</div></div>';
+      suits += '<div class="pill-list mb-16">' +
+        p.bestFor.map(function (b) { return '<span class="pill">' + esc(b) + '</span>'; }).join('') + '</div>';
     }
-
     if (p.finish && p.finish !== '—') {
-      out += '<div class="info-block"><h4>Finish</h4><p>' + esc(p.finish) + ' — ' + esc(finishNote(p.finish)) + '</p></div>';
+      suits += '<p><strong style="font-weight:400">Finish:</strong> ' + esc(p.finish) +
+               ' — ' + esc(finishNote(p.finish)) + '</p>';
     }
+    if (suits) out += section('Who it suits, and the finish', suits, false);
 
     if (p.setContents && p.setContents.length) {
-      out += '<div class="info-block"><h4>What is included</h4><ul class="stack-8">' +
-        S.Catalog.byIds(p.setContents).map(function (c) {
+      out += section('What is included',
+        '<ul class="stack-8">' + S.Catalog.byIds(p.setContents).map(function (c) {
           return '<li><a class="link-under" href="product.html?id=' + c.id + '">' +
                  esc(c.brand + ' ' + c.name) + '</a> <span class="small">· ' + money(c.priceSGD) + '</span></li>';
         }).join('') + '</ul>' +
         '<p class="small mt-8">Bought separately: ' +
-          money(S.Catalog.byIds(p.setContents).reduce(function (n, c) { return n + c.priceSGD; }, 0)) +
-        '</p></div>';
+          money(S.Catalog.byIds(p.setContents).reduce(function (n, c) { return n + c.priceSGD; }, 0)) + '</p>',
+        false);
     }
 
     if (p.howToUse && p.howToUse.length) {
-      out += '<div class="info-block"><h4>How to use</h4><ol class="steps-list">' +
-        p.howToUse.map(function (s) { return '<li>' + esc(s) + '</li>'; }).join('') + '</ol></div>';
+      out += section('How to use',
+        '<ol class="steps-list">' + p.howToUse.map(function (s) {
+          return '<li>' + esc(s) + '</li>';
+        }).join('') + '</ol>', false);
     }
 
     if (p.shadeInfo && (p.shadeInfo.guide || shades.length)) {
-      out += '<div class="info-block" id="shade-guide"><h4>Shade guide</h4>' +
+      out += section('Shade guide',
         (p.shadeInfo.guide ? '<p class="mb-16">' + esc(p.shadeInfo.guide) + '</p>' : '') +
         shades.map(function (s) {
           return '<div class="shade-row"><span class="shade-dot" style="background:' + esc(s.hex) + '"></span>' +
             '<span><strong style="font-weight:400">' + esc(s.name) + ' · ' + esc(s.code) + '</strong>' +
             '<span class="small" style="display:block">' + esc(s.note) + '</span></span></div>';
         }).join('') +
-        '<p class="small mt-16">More on choosing shades in the <a class="link-under" href="shade-guide.html">Shade Guide</a>.</p>' +
-      '</div>';
+        '<p class="small mt-16">More on choosing shades in the ' +
+          '<a class="link-under" href="faq.html#shades">FAQ</a>.</p>',
+        shades.length > 0, 'shade-guide');
     }
 
-    return out;
+    return out + '</div>';
   }
 
   function finishNote(f) {
@@ -163,8 +174,6 @@
   /* ---------- help / pairings ---------- */
   function helpSection() {
     var related = S.Catalog.byIds(p.related).slice(0, 4);
-    var comparable = S.Catalog.byCategory(p.category)
-      .filter(function (x) { return x.id !== p.id && x.subcategory === p.subcategory; }).length;
 
     return '<section class="section bg-paper">' +
       '<div class="wrap">' +
@@ -179,19 +188,12 @@
           '</div>' +
           '<div class="split-body" style="padding:0;background:transparent">' +
             '<div class="help-links">' +
-              '<a href="shade-guide.html"><span><strong style="font-weight:400">1 · Shade Guide</strong>' +
-                '<span class="small" style="display:block">How to choose a shade without seeing it in person</span></span></a>' +
+              '<a href="#shade-guide" data-open-shade><span><strong style="font-weight:400">1 · Shade guide for this product</strong>' +
+                '<span class="small" style="display:block">Which shade suits you, on this page</span></span></a>' +
               '<a href="faq.html#shades"><span><strong style="font-weight:400">2 · FAQ</strong>' +
-                '<span class="small" style="display:block">Payment, delivery, returns and shade selection</span></span></a>' +
-              '<a href="compare.html?c=' + p.category + '&amp;sub=' + encodeURIComponent(p.subcategory) + '">' +
-                '<span><strong style="font-weight:400">3 · Compare products</strong>' +
-                '<span class="small" style="display:block">' +
-                  (comparable ? 'See this next to the ' + comparable + ' other ' + esc(p.subcategory.toLowerCase()) +
-                                (comparable === 1 ? ' option' : ' options') + ' we carry'
-                              : 'See this next to everything else in ' + esc(cat ? cat.name : p.category)) +
-                '</span></span></a>' +
-              '<a href="contact.html"><span><strong style="font-weight:400">4 · Still need help? Contact atelierR</strong>' +
-                '<span class="small" style="display:block">If the three above did not answer it</span></span></a>' +
+                '<span class="small" style="display:block">Shade selection, payment, delivery and returns</span></span></a>' +
+              '<a href="contact.html"><span><strong style="font-weight:400">3 · Still need help? Contact atelierR</strong>' +
+                '<span class="small" style="display:block">If the two above did not answer it</span></span></a>' +
             '</div>' +
           '</div>' +
         '</div>' +
@@ -213,6 +215,16 @@
     helpSection();
 
   Imagery.enhance(root);
+  UI.accordion(root);
+
+  root.addEventListener('click', function (e) {
+    if (!e.target.closest('[data-open-shade]')) return;
+    var sec = root.querySelector('#shade-guide');
+    if (!sec) return;
+    sec.classList.add('open');
+    sec.querySelector('.acc-q').setAttribute('aria-expanded', 'true');
+    sec.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
 
   /* ---------- behaviour ---------- */
   var chosenShade = shades.length ? shades[0].name + ' ' + shades[0].code : '';

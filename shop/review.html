@@ -3,139 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Order Review — atelierR</title>
-<meta name="description" content="Review your order before it is created. Payment is made via PayNow.">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=Jost:wght@200;300;400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/atelier.css">
+<meta name="robots" content="noindex">
+<title>Redirecting — atelierR</title>
+<!-- Order review is now part of Checkout. Kept so existing links and bookmarks still work. -->
+<script>
+  var q = location.search || '';
+  location.replace('checkout.html'.indexOf('?') > -1 ? 'checkout.html' : 'checkout.html' + q);
+</script>
+<meta http-equiv="refresh" content="0; url=checkout.html">
 </head>
 <body>
-<div data-header></div>
-<main>
-  <div class="wrap">
-    <nav class="crumb" aria-label="Breadcrumb">
-      <a href="index.html">Home</a><span>/</span><a href="cart.html">Cart</a><span>/</span>
-      <a href="checkout.html">Your Details</a><span>/</span><span aria-current="page">Order Review</span>
-    </nav>
-  </div>
-
-  <section class="section" style="padding-top:8px">
-    <div class="wrap">
-      <h1 class="h1 mb-8">Order Review</h1>
-      <ol class="steps mb-32" aria-label="Checkout progress">
-        <li class="done">Cart</li>
-        <li class="done">Your details</li>
-        <li class="now">Order review</li>
-        <li>PayNow payment</li>
-        <li>Confirmation</li>
-      </ol>
-      <div data-review></div>
-    </div>
-  </section>
-</main>
-<div data-footer></div>
-
-<script src="assets/js/config.js"></script>
-<script src="assets/js/data/products.js"></script>
-<script src="assets/js/imagery.js"></script>
-<script src="assets/js/store.js"></script>
-<script src="assets/js/ui.js"></script>
-<script>
-(function () {
-  UI.mount({ current: 'checkout.html' });
-  var S = Store, esc = S.esc, money = S.money;
-  var root = document.querySelector('[data-review]');
-  var cart = S.Cart.detailed();
-  var c = S.read('atelierR.customer', null);
-
-  if (!cart.lines.length) {
-    root.innerHTML = '<div class="empty"><p class="h2 serif">Your cart is empty</p>' +
-      '<a class="btn btn-outline mt-16" href="shop.html">Shop All</a></div>';
-    return;
-  }
-  if (!c || !c.firstName) { location.replace('checkout.html'); return; }
-
-  root.innerHTML = '<div class="cart-layout">' +
-    '<div>' +
-      '<div class="panel mb-24">' +
-        '<div class="row row-between mb-16">' +
-          '<h2 class="section-title">Items</h2>' +
-          '<a class="link-more" href="cart.html">Edit</a>' +
-        '</div>' +
-        cart.lines.map(function (l) {
-          return '<div class="cart-line" style="grid-template-columns:70px 1fr auto;padding:16px 0">' +
-            '<span class="media">' + Imagery.render(l.product.art, { ratio: '400 440' }) + '</span>' +
-            '<span><span class="card-brand">' + esc(l.product.brand) + '</span>' +
-              '<span class="card-name" style="display:block;margin:3px 0">' + esc(l.product.name) + '</span>' +
-              (l.shade ? '<span class="small">Shade: ' + esc(l.shade) + '</span><br>' : '') +
-              '<span class="small">Quantity: ' + l.qty + '</span></span>' +
-            '<span class="line-price">' + money(l.lineTotal) + '</span>' +
-          '</div>';
-        }).join('') +
-      '</div>' +
-
-      '<div class="panel mb-24">' +
-        '<div class="row row-between mb-16">' +
-          '<h2 class="section-title">Delivery to</h2>' +
-          '<a class="link-more" href="checkout.html">Edit</a>' +
-        '</div>' +
-        '<dl>' +
-          '<div class="kv"><dt>Name</dt><dd>' + esc(c.firstName + ' ' + c.lastName) + '</dd></div>' +
-          '<div class="kv"><dt>Email</dt><dd>' + esc(c.email) + '</dd></div>' +
-          '<div class="kv"><dt>WhatsApp</dt><dd>' + esc(c.whatsapp) + '</dd></div>' +
-          '<div class="kv"><dt>Address</dt><dd style="max-width:60%">' + esc(c.address) + '</dd></div>' +
-          '<div class="kv"><dt>Postal code</dt><dd>' + esc(c.postalCode) + '</dd></div>' +
-          (c.notes ? '<div class="kv"><dt>Notes</dt><dd style="max-width:60%">' + esc(c.notes) + '</dd></div>' : '') +
-        '</dl>' +
-      '</div>' +
-
-      '<div class="panel mb-24">' +
-        '<h2 class="section-title mb-16">What happens next</h2>' +
-        '<ol class="steps-list">' +
-          '<li>Your order is created and you receive an order number.</li>' +
-          '<li>You transfer the total by PayNow, using your order number as the reference.</li>' +
-          '<li>You send us your payment screenshot.</li>' +
-          '<li>atelierR checks the PayNow transfer manually and confirms your order.</li>' +
-        '</ol>' +
-        '<div class="notice notice-warn mt-16">Your order is <strong>not confirmed</strong> until payment has been verified by atelierR.</div>' +
-      '</div>' +
-    '</div>' +
-
-    '<aside class="summary">' +
-      '<h2 class="section-title mb-16">Total</h2>' +
-      '<div class="summary-row"><span>Subtotal</span><span>' + money(cart.subtotal) + '</span></div>' +
-      '<div class="summary-row"><span>Delivery</span><span>' +
-        (cart.delivery === 0 ? 'Free' : money(cart.delivery)) + '</span></div>' +
-      '<div class="summary-row summary-total"><span>Total</span><span>' + money(cart.total) + '</span></div>' +
-      '<div class="summary-row" style="padding-top:0"><span class="tiny">Payment method</span><span class="tiny">PayNow only</span></div>' +
-
-      '<label class="check mt-24 mb-24">' +
-        '<input type="checkbox" data-ack>' +
-        '<span>I have reviewed my order details and understand that payment will be made via PayNow.</span>' +
-      '</label>' +
-
-      '<button class="btn btn-block" data-place disabled>Create Order</button>' +
-      '<p class="tiny mt-16 center">You are not charged now. Nothing is taken automatically.</p>' +
-    '</aside>' +
-  '</div>';
-
-  var ack = root.querySelector('[data-ack]');
-  var place = root.querySelector('[data-place]');
-
-  ack.addEventListener('change', function () { place.disabled = !ack.checked; });
-
-  place.addEventListener('click', function () {
-    if (!ack.checked) return;
-    place.disabled = true;
-    place.textContent = 'Creating order…';
-    var order = S.Orders.create(c);
-    if (!order) { place.disabled = false; place.textContent = 'Create Order'; return; }
-    S.Orders.markAwaitingPayment(order.orderNumber);
-    S.Cart.clear();
-    location.href = 'paynow.html?order=' + encodeURIComponent(order.orderNumber);
-  });
-})();
-</script>
+<p style="font-family:system-ui;padding:40px">Taking you to <a href="checkout.html">the right page</a>…</p>
 </body>
 </html>

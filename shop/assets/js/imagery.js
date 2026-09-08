@@ -139,24 +139,90 @@
      missing photo simply leaves the generated art in place. */
   var PHOTO_DIR = 'assets/img/products/';
   var PHOTO_EXT = ['.jpg', '.png'];
-  var probed = {};                       // url -> true/false, so each is tried once
+  var CACHE_KEY = 'atelierR.photoIndex';
 
-  function photoName(id, index) {
-    return id + (index > 1 ? '-' + index : '');
+  /* Which products have a photo, and in which format: id -> '.jpg' | '.png' | ''.
+     Held in sessionStorage so browsing several pages probes each product once,
+     not once per page. A new tab picks up newly uploaded photos immediately. */
+  var index = (function () {
+    try { return JSON.parse(sessionStorage.getItem(CACHE_KEY)) || {}; }
+    catch (e) { return {}; }
+  })();
+  function remember(id, ext) {
+    index[id] = ext;
+    try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(index)); } catch (e) {}
   }
 
-  /* Resolves to a usable URL, or null. Tries .jpg then .png. */
-  function findPhoto(name, done) {
-    var i = 0;
+  function photoName(id, i) { return id + (i > 1 ? '-' + i : ''); }
+  function load(url, ok, fail) {
+    var img = new Image();
+    img.onload = ok; img.onerror = fail; img.src = url;
+  }
+
+  /* The deploy workflow writes manifest.json listing the photos actually
+     present. When it is available the page asks once and never guesses; when it
+     is not (local preview, or a deploy that predates it) we fall back to
+     probing, so photos still appear either way. */
+  var manifest = null;           // Set of filenames, or false once known absent
+  var manifestWaiters = [];
+  var manifestState = 'idle';    // idle | loading | done
+
+  function withManifest(cb) {
+    if (manifestState === 'done') return cb(manifest);
+    manifestWaiters.push(cb);
+    if (manifestState === 'loading') return;
+    manifestState = 'loading';
+    var finish = function (value) {
+      manifest = value;
+      manifestState = 'done';
+      var queue = manifestWaiters;
+      manifestWaiters = [];
+      queue.forEach(function (fn) { fn(manifest); });
+    };
+    if (typeof fetch !== 'function') return finish(false);
+    fetch(PHOTO_DIR + 'manifest.json', { cache: 'no-cache' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (list) {
+        finish(Array.isArray(list) ? list.reduce(function (set, name) {
+          set[name] = true; return set;
+        }, {}) : false);
+      })
+      .catch(function () { finish(false); });
+  }
+
+  /* Resolves a product image to a URL, or null.
+     The main image decides the format; gallery images are only looked for once
+     the product is known to have photography, so a product without photos costs
+     at most two requests per session rather than one per image per page. */
+  function findPhoto(id, i, done) {
+    withManifest(function (list) {
+      if (!list) return probe(id, i, done);          // no manifest — probe
+      for (var n = 0; n < PHOTO_EXT.length; n++) {
+        var file = photoName(id, i) + PHOTO_EXT[n];
+        if (list[file]) return done(PHOTO_DIR + file);
+      }
+      done(null);
+    });
+  }
+
+  /* Fallback used only when no manifest is published. */
+  function probe(id, i, done) {
+    var known = index[id];
+
+    if (known === '') return done(null);                 // known to have none
+    if (known) {                                          // format already known
+      if (i === 1) return done(PHOTO_DIR + id + known);
+      var extra = PHOTO_DIR + photoName(id, i) + known;
+      return load(extra, function () { done(extra); }, function () { done(null); });
+    }
+    if (i !== 1) return done(null);                       // main not resolved yet
+
+    var n = 0;
     (function next() {
-      if (i >= PHOTO_EXT.length) return done(null);
-      var url = PHOTO_DIR + name + PHOTO_EXT[i++];
-      if (probed[url] === false) return next();
-      if (probed[url] === true) return done(url);
-      var img = new Image();
-      img.onload = function () { probed[url] = true; done(url); };
-      img.onerror = function () { probed[url] = false; next(); };
-      img.src = url;
+      if (n >= PHOTO_EXT.length) { remember(id, ''); return done(null); }
+      var ext = PHOTO_EXT[n++];
+      var url = PHOTO_DIR + id + ext;
+      load(url, function () { remember(id, ext); done(url); }, next);
     })();
   }
 
@@ -187,9 +253,9 @@
       (root || document).querySelectorAll('[data-photo]').forEach(function (el) {
         if (el._photoDone) return;
         el._photoDone = true;
-        var name = photoName(el.getAttribute('data-photo'),
-                             parseInt(el.getAttribute('data-photo-index') || '1', 10));
-        findPhoto(name, function (url) {
+        var id = el.getAttribute('data-photo');
+        var i = parseInt(el.getAttribute('data-photo-index') || '1', 10);
+        findPhoto(id, i, function (url) {
           if (!url) return;                       // no photo yet — keep the SVG
           var img = document.createElement('img');
           img.src = url;

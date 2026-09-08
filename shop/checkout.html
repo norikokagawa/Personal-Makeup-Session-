@@ -22,13 +22,11 @@
 
   <section class="section" style="padding-top:8px">
     <div class="wrap">
-      <h1 class="h1 mb-8">Your Details</h1>
+      <h1 class="h1 mb-8">Checkout</h1>
       <ol class="steps mb-32" aria-label="Checkout progress">
         <li class="done">Cart</li>
         <li class="now">Your details</li>
-        <li>Order review</li>
-        <li>PayNow payment</li>
-        <li>Confirmation</li>
+        <li>Pay by PayNow</li>
       </ol>
       <div data-checkout></div>
     </div>
@@ -102,12 +100,25 @@
           hint: 'Optional. If you are buying products used during a makeup session, add the session date here and we will check the shades match.' }) +
       '</div>' +
 
-      '<div class="notice mb-24"><strong>Payment is made via PayNow.</strong><br>' +
-        'No card details are collected. On the next screen you will review your order, then receive ' +
-        'PayNow instructions and an order number.</div>' +
+      '<div class="panel mb-24">' +
+        '<h2 class="section-title mb-16">What happens next</h2>' +
+        '<ol class="steps-list">' +
+          '<li>Your order is created and you receive an order number.</li>' +
+          '<li>You transfer the total by PayNow, using your order number as the reference.</li>' +
+          '<li>You send us your payment screenshot — on the same screen.</li>' +
+          '<li>atelierR checks the transfer by hand and confirms your order.</li>' +
+        '</ol>' +
+        '<div class="notice notice-warn mt-16">Your order is <strong>not confirmed</strong> until payment has been verified by atelierR. No card details are collected anywhere.</div>' +
+      '</div>' +
 
-      '<button class="btn btn-block" type="submit">Continue to Order Review</button>' +
-      '<p class="tiny mt-16 center"><a class="link-under" href="cart.html">Back to cart</a></p>' +
+      '<label class="check mb-24">' +
+        '<input type="checkbox" data-ack>' +
+        '<span>I have reviewed my order details and understand that payment will be made via PayNow.</span>' +
+      '</label>' +
+
+      '<button class="btn btn-block" type="submit" data-place disabled>Create Order</button>' +
+      '<p class="tiny mt-16 center">You are not charged now. Nothing is taken automatically.<br>' +
+        '<a class="link-under" href="cart.html">Back to cart</a></p>' +
     '</form>' +
 
     '<aside class="summary">' +
@@ -156,15 +167,20 @@
   }, true);
   form.addEventListener('input', function () { validate(false); });
 
+  var ack = form.querySelector('[data-ack]');
+  var place = form.querySelector('[data-place]');
+  ack.addEventListener('change', function () { place.disabled = !ack.checked; });
+
   form.addEventListener('submit', function (e) {
     e.preventDefault();
+    if (!ack.checked) return;
     if (!validate(true)) {
       var bad = form.querySelector('.invalid input, .invalid textarea');
       if (bad) { bad.focus(); bad.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
       UI.toast('Please complete the highlighted fields');
       return;
     }
-    S.write('atelierR.customer', {
+    var customer = {
       firstName: form.elements.firstName.value.trim(),
       lastName: form.elements.lastName.value.trim(),
       email: form.elements.email.value.trim(),
@@ -172,8 +188,16 @@
       address: form.elements.address.value.trim(),
       postalCode: form.elements.postalCode.value.trim(),
       notes: form.elements.notes.value.trim()
-    });
-    location.href = 'review.html';
+    };
+    S.write('atelierR.customer', customer);
+
+    place.disabled = true;
+    place.textContent = 'Creating order…';
+    var order = S.Orders.create(customer);
+    if (!order) { place.disabled = false; place.textContent = 'Create Order'; return; }
+    S.Orders.markAwaitingPayment(order.orderNumber);
+    S.Cart.clear();
+    location.href = 'paynow.html?order=' + encodeURIComponent(order.orderNumber);
   });
 })();
 </script>

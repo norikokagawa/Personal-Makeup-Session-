@@ -12,7 +12,7 @@
     suqqu-signature-color-eyes-2.jpg    ← 2枚目（任意）
     suqqu-signature-color-eyes-3.jpg    ← 3枚目（任意）
 
-- `.jpg` と `.png` が使えます
+- `.jpg` と `.png` が使えます（メイン写真と同じ形式で揃えてください）
 - 写真が無い商品は、今までどおりイラストが表示されます
 - 1枚だけでも大丈夫です
 

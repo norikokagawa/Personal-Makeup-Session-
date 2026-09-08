@@ -15,7 +15,7 @@
 <main>
   <div class="wrap">
     <nav class="crumb" aria-label="Breadcrumb">
-      <a href="index.html">Home</a><span>/</span><a href="brands.html">Brands</a><span>/</span>
+      <a href="index.html">Home</a><span>/</span><a href="shop.html">Shop</a><span>/</span>
       <span aria-current="page" data-crumb></span>
     </nav>
   </div>
@@ -46,7 +46,7 @@
   if (!brand) {
     document.querySelector('[data-title]').textContent = 'Brand not found';
     document.querySelector('[data-intro]').innerHTML =
-      'We do not carry that brand. <a class="link-under" href="brands.html">See the brands we do carry</a>.';
+      'We do not carry that brand. <a class="link-under" href="shop.html">Browse everything we do carry</a>.';
     document.querySelector('[data-crumb]').textContent = 'Not found';
     return;
   }

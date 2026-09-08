@@ -3,52 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Brands — atelierR</title>
-<meta name="description" content="The Japanese beauty brands atelierR carries and why each one was selected.">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=Jost:wght@200;300;400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/atelier.css">
+<meta name="robots" content="noindex">
+<title>Redirecting — atelierR</title>
+<!-- Brands are now a filter inside Shop. Kept so existing links and bookmarks still work. -->
+<script>
+  var q = location.search || '';
+  location.replace('shop.html'.indexOf('?') > -1 ? 'shop.html' : 'shop.html' + q);
+</script>
+<meta http-equiv="refresh" content="0; url=shop.html">
 </head>
 <body>
-<div data-header></div>
-<main>
-  <div class="wrap">
-    <nav class="crumb" aria-label="Breadcrumb">
-      <a href="index.html">Home</a><span>/</span><span aria-current="page">Brands</span>
-    </nav>
-  </div>
-  <section class="section" style="padding-top:8px">
-    <div class="wrap">
-      <h1 class="h1 mb-16">Brands</h1>
-      <p class="lede mb-32">Seven Japanese houses, each carried for a specific reason. Nothing here is
-        stocked to fill a shelf.</p>
-      <div class="cat-grid" style="grid-template-columns:repeat(1,1fr)" data-brands></div>
-    </div>
-  </section>
-</main>
-<div data-footer></div>
-<script src="assets/js/config.js"></script>
-<script src="assets/js/data/products.js"></script>
-<script src="assets/js/imagery.js"></script>
-<script src="assets/js/store.js"></script>
-<script src="assets/js/ui.js"></script>
-<script>
-(function () {
-  UI.mount({ current: 'brands.html' });
-  var esc = Store.esc;
-  var TONES = ['clay', 'sand', 'sage', 'stone', 'rose', 'ink', 'gold', 'sand'];
-  document.querySelector('[data-brands]').innerHTML = Store.Catalog.brands.map(function (b, i) {
-    var count = Store.Catalog.byBrand(b.id).length;
-    return '<a class="cat-tile" href="brand.html?b=' + b.id + '" style="display:grid;grid-template-columns:110px 1fr;align-items:center;text-align:left">' +
-      '<span class="art">' + Imagery.render({ shape: 'stone', tone: TONES[i % TONES.length] }, { ratio: '400 300' }) + '</span>' +
-      '<span style="padding:18px 22px">' +
-        '<span class="section-title" style="display:block;margin-bottom:6px">' + esc(b.name) + '</span>' +
-        '<span class="small" style="display:block">' + esc(b.note) + '</span>' +
-        '<span class="tiny" style="display:block;margin-top:8px">' + count + (count === 1 ? ' product' : ' products') + ' →</span>' +
-      '</span></a>';
-  }).join('');
-})();
-</script>
+<p style="font-family:system-ui;padding:40px">Taking you to <a href="shop.html">the right page</a>…</p>
 </body>
 </html>

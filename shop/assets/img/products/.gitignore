@@ -1,0 +1,3 @@
+# Generated on every deploy by .github/workflows/deploy.yml — never committed,
+# so it can never go stale against the photos actually in this folder.
+manifest.json

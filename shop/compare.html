@@ -3,136 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Compare Products — atelierR</title>
-<meta name="description" content="Compare atelierR products side by side — price, finish, who each one suits and stock status.">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=Jost:wght@200;300;400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/atelier.css">
-<style>
-  .cmp-scroll { overflow-x: auto; border: 1px solid var(--line); background: var(--paper); }
-  .cmp { min-width: 640px; }
-  .cmp th, .cmp td { text-align: left; padding: 16px 18px; border-bottom: 1px solid var(--line-soft); vertical-align: top; font-size: 0.85rem; }
-  .cmp thead th { background: var(--stone); font-weight: 400; }
-  .cmp tbody th { width: 150px; color: var(--muted); font-weight: 400; font-size: 0.66rem;
-                  letter-spacing: 0.2em; text-transform: uppercase; background: var(--ivory); }
-  .cmp td .media { width: 92px; background: var(--stone); margin-bottom: 10px; }
-</style>
+<meta name="robots" content="noindex">
+<title>Redirecting — atelierR</title>
+<!-- The comparison page has been retired. Kept so existing links and bookmarks still work. -->
+<script>
+  var q = location.search || '';
+  location.replace('shop.html'.indexOf('?') > -1 ? 'shop.html' : 'shop.html' + q);
+</script>
+<meta http-equiv="refresh" content="0; url=shop.html">
 </head>
 <body>
-<div data-header></div>
-<main>
-  <div class="wrap">
-    <nav class="crumb" aria-label="Breadcrumb">
-      <a href="index.html">Home</a><span>/</span><span aria-current="page">Compare</span>
-    </nav>
-  </div>
-  <section class="section" style="padding-top:8px">
-    <div class="wrap">
-      <h1 class="h1 mb-16">Compare</h1>
-      <p class="lede mb-32">The same information from each product page, side by side, so you can see
-        the difference without opening four tabs.</p>
-      <nav class="filter-bar-scroll mb-32" data-cmp-nav aria-label="Compare by group"></nav>
-      <div data-compare></div>
-    </div>
-  </section>
-</main>
-<div data-footer></div>
-
-<script src="assets/js/config.js"></script>
-<script src="assets/js/data/products.js"></script>
-<script src="assets/js/imagery.js"></script>
-<script src="assets/js/store.js"></script>
-<script src="assets/js/ui.js"></script>
-<script>
-(function () {
-  UI.mount({ current: 'compare.html' });
-  var S = Store, esc = S.esc, money = S.money;
-  var out = document.querySelector('[data-compare]');
-
-  var cat = S.param('c') || 'base-makeup';
-  var sub = S.param('sub') || '';
-
-  /* Nav across every subcategory we actually stock. */
-  var groups = [];
-  S.Catalog.all().forEach(function (p) {
-    var key = p.category + '|' + p.subcategory;
-    if (!groups.some(function (g) { return g.key === key; })) {
-      groups.push({ key: key, category: p.category, subcategory: p.subcategory });
-    }
-  });
-
-  document.querySelector('[data-cmp-nav]').innerHTML = groups.map(function (g) {
-    var on = g.category === cat && (sub ? g.subcategory === sub : false);
-    return '<a class="chip" href="compare.html?c=' + g.category + '&sub=' + encodeURIComponent(g.subcategory) + '"' +
-      (on ? ' aria-pressed="true"' : '') + '>' + esc(g.subcategory) + '</a>';
-  }).join('');
-
-  var list = S.Catalog.byCategory(cat);
-  if (sub) {
-    var narrowed = list.filter(function (p) { return p.subcategory === sub; });
-    /* One product alone is not a comparison — widen to the category. */
-    if (narrowed.length > 1) list = narrowed;
-  }
-  list = list.slice(0, 4);
-
-  if (!list.length) {
-    out.innerHTML = '<div class="empty"><p class="h3 serif mb-16">Nothing to compare here</p>' +
-      '<a class="btn btn-outline" href="shop.html">Shop All</a></div>';
-    return;
-  }
-
-  function row(label, cells) {
-    return '<tr><th scope="row">' + esc(label) + '</th>' +
-      cells.map(function (c) { return '<td>' + c + '</td>'; }).join('') + '</tr>';
-  }
-
-  out.innerHTML =
-    '<p class="result-count mb-16">Comparing ' + list.length + ' ' +
-      esc(sub && list[0].subcategory === sub ? sub.toLowerCase() : (S.Catalog.category(cat) || {}).name.toLowerCase()) +
-      (list.length === 1 ? ' product' : ' products') + '</p>' +
-    '<div class="cmp-scroll"><table class="cmp">' +
-      '<thead><tr><th></th>' + list.map(function (p) {
-        return '<th scope="col">' +
-          '<a href="product.html?id=' + p.id + '"><span class="media" style="display:block" ' +
-            'data-photo="' + esc(p.id) + '" data-photo-alt="' + esc(p.brand + ' ' + p.name) + '">' +
-            Imagery.render(p.art, { ratio: '400 420' }) + '</span>' +
-          '<span class="card-brand" style="display:block">' + esc(p.brand) + '</span>' +
-          '<span class="card-name" style="display:block">' + esc(p.name) + '</span></a></th>';
-      }).join('') + '</tr></thead>' +
-      '<tbody>' +
-        row('Price', list.map(function (p) { return money(p.priceSGD); })) +
-        row('Stock', list.map(function (p) {
-          var s = S.Catalog.stockLabel(p);
-          return '<span class="stock ' + s.cls + '">' + esc(s.text) + '</span>';
-        })) +
-        row('Finish', list.map(function (p) { return esc(p.finish); })) +
-        row('Best for', list.map(function (p) {
-          return '<span class="pill-list">' + p.bestFor.map(function (b) {
-            return '<span class="pill">' + esc(b) + '</span>';
-          }).join('') + '</span>';
-        })) +
-        row('What it is', list.map(function (p) { return esc(p.shortDescription); })) +
-        row('Why we chose it', list.map(function (p) { return esc(p.whySelected); })) +
-        row('Shades', list.map(function (p) {
-          var sh = (p.shadeInfo && p.shadeInfo.shades) || [];
-          return sh.length
-            ? sh.map(function (s) {
-                return '<span class="shade-swatch" style="margin:0 6px 6px 0"><i style="background:' + esc(s.hex) + '"></i>' + esc(s.code) + '</span>';
-              }).join('')
-            : '<span class="muted">One shade</span>';
-        })) +
-        row('', list.map(function (p) {
-          return p.stock > 0
-            ? '<button class="btn btn-sm" data-add="' + p.id + '">Add to Cart</button>'
-            : '<span class="btn btn-quiet btn-sm" aria-disabled="true">Sold out</span>';
-        })) +
-      '</tbody>' +
-    '</table></div>' +
-    '<p class="small mt-24">Choosing a shade rather than a product? Read the ' +
-      '<a class="link-under" href="shade-guide.html">Shade Guide</a>.</p>';
-  Imagery.enhance(out);
-})();
-</script>
+<p style="font-family:system-ui;padding:40px">Taking you to <a href="shop.html">the right page</a>…</p>
 </body>
 </html>

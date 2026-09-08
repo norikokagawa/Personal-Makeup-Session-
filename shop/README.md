@@ -129,7 +129,33 @@ homepage preview. Answers are arrays of HTML strings.
 
 ---
 
-## Connecting a database
+## The database
+
+Orders go to Supabase (`assets/js/backend.js`, schema in `supabase/schema.sql`), so atelierR can
+see them from any device rather than only the browser that placed them.
+
+The publishable key in `config.js` is public by design — it ships in the page source of every
+visitor. Row Level Security is what protects the data: the public may insert an order and a
+payment report, and nothing else. There is no select policy for `anon`, so nobody can read orders
+back, their own included, and no delete policy exists at all. Reading and updating require a
+signed-in atelierR account, which `admin.html` asks for.
+
+**Writes are idempotent.** Checkout navigates to the PayNow page the moment an order is created,
+which aborts the in-flight request even though the row has already landed — it looks like a
+failure. Every write therefore carries a client-generated `id` and is sent with
+`Prefer: resolution=ignore-duplicates`, and a 409 is treated as success, so a replayed write is a
+no-op rather than a second order.
+
+**A failed write is queued, not lost.** `Backend` keeps it in `localStorage` and replays it on the
+next page load. The customer is never blocked on the network: they get their order number and
+PayNow instructions regardless, and the browser keeps its own copy of the order either way.
+
+**The customer can never change an order.** Reporting a payment inserts into `payment_reports`
+rather than touching the order row, because a claim is not a confirmation. The order desk derives
+"Awaiting Payment Verification" from the presence of a report, and only a person moves an order to
+Payment Confirmed.
+
+## Connecting a different database
 
 `store.js` is the seam. `Catalog`, `Cart` and `Orders` are the only code that touches storage,
 and each method is already shaped the way its API equivalent would be:

@@ -36,6 +36,19 @@ window.ATELIER_CONFIG = {
     areas: 'All Singapore addresses'
   },
 
-  // --- Storage keys (swap this layer for an API later) ---
+  // --- Supabase ---
+  // The publishable key is public by design: it ships in the page source of
+  // every visitor. Access is controlled by the Row Level Security policies in
+  // supabase/schema.sql, which let the public insert an order and nothing
+  // else — no reading, updating or deleting. Never put a `sb_secret_` key here.
+  supabase: {
+    url: 'https://niztrbssnsildyfykyva.supabase.co',
+    key: 'sb_publishable_1Pq_BvuCs7u_LqLWybm8lw_lCvEJ6Mk'
+  },
+
+  // Where new-order notifications should go once email is wired up.
+  notifyEmail: 'noriko.kagawa@atelier-r-make.com',
+
+  // --- Storage keys (the browser keeps its own copy of every order) ---
   keys: { cart: 'atelierR.cart', orders: 'atelierR.orders', lastOrder: 'atelierR.lastOrder' }
 };

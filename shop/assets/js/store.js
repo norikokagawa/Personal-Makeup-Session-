@@ -214,6 +214,14 @@
       orders.unshift(order);
       write(CFG.keys.orders, orders.slice(0, 40));
       write(CFG.keys.lastOrder, order.orderNumber);
+
+      /* The browser's copy is authoritative for the customer; the database
+         copy is what lets atelierR see the order at all. The write is fired
+         but never awaited, and a failure is queued rather than surfaced —
+         the customer already has their order number and must not be stopped. */
+      if (global.Backend && global.Backend.configured()) {
+        global.Backend.saveOrder(order);
+      }
       return order;
     },
 
@@ -253,6 +261,9 @@
     /* The customer says they have paid. This NEVER means "paid" — it means a
        human at atelierR still has to check PayNow and confirm. */
     submitPaymentProof: function (num, proof) {
+      if (global.Backend && global.Backend.configured()) {
+        global.Backend.reportPayment(num, proof);
+      }
       return Orders.setStatus(num, 'AWAITING_VERIFICATION', {
         paymentStatus: 'submitted',
         paymentScreenshot: proof || { channel: 'whatsapp', uploadedAt: new Date().toISOString() }

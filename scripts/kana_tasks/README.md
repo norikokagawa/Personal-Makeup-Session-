@@ -67,6 +67,13 @@ python3 scripts/kana_tasks/icloud_reminders.py --test-connection
 成功するとリマインダーのリスト名が一覧表示されます。そのうち1つを
 `ICLOUD_REMINDERS_LIST` に設定してください。
 
+### 5. 毎晩の Routine を作る
+
+`nightly_routine_prompt.md` を開き、書かれているとおり claude.ai の Routines 画面で
+定期実行を作成してください（**Gmail コネクタを有効にすること**）。
+
+以上で完了です。以降は毎晩 21 時ごろに自動で動きます。
+
 ## 手元で試す
 
 iCloud に送らずに、生成される内容だけを確認できます（認証情報も不要）。

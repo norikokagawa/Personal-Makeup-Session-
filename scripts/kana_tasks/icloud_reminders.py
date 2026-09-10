@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """iCloud リマインダー (Apple Reminders) への CalDAV 書き込みクライアント.
 
-秘書の kana さんから届いた Gmail をもとに抽出したタスクを、iPhone の
+秘書の kana さんが管理するタスク表から抽出したタスクを、iPhone の
 「リマインダー」App に直接追加するためのスクリプト。
 
 依存は requests のみ（caldav ライブラリは不要）。毎晩の自動実行は使い捨ての
@@ -24,11 +24,11 @@ tasks.json の形式:
     {
       "tasks": [
         {
-          "title": "石鹸の在庫を発注する",
-          "due": "2026-09-11T10:00:00+09:00",   # 省略可
-          "notes": "前回と同じ業者で",            # 省略可
-          "priority": "high",                    # high|normal|low、省略可
-          "source_message_id": "19fb03c774730d98" # 省略可（重複防止に使う）
+          "title": "伊勢丹発注",
+          "due": "2026-09-21",                    # 省略可
+          "notes": "アクションプラン R様 / 2026.9",  # 省略可
+          "priority": "high",                     # high|normal|low、省略可
+          "dedupe_key": "actionplan|伊勢丹発注"     # 重複防止キー（推奨）
         }
       ]
     }
@@ -121,14 +121,23 @@ def _parse_due(value: str) -> tuple[datetime, bool]:
 
 
 def build_uid(task: dict) -> str:
-    """同じタスクからは必ず同じ UID を作り、二重登録を防ぐ。"""
-    seed = "|".join(
-        [
-            str(task.get("source_message_id", "")),
-            str(task.get("title", "")).strip(),
-            str(task.get("due", "")).strip(),
-        ]
-    )
+    """同じタスクからは必ず同じ UID を作り、二重登録を防ぐ。
+
+    `dedupe_key` があればそれだけを種にする。タスク表のように後から期限や
+    優先度が編集される取得元では、これを使わないと編集のたびに別タスクとして
+    追加されてしまう。指定がなければ元メール ID・タイトル・期限から作る。
+    """
+    dedupe_key = str(task.get("dedupe_key", "") or "").strip()
+    if dedupe_key:
+        seed = dedupe_key
+    else:
+        seed = "|".join(
+            [
+                str(task.get("source_message_id", "")),
+                str(task.get("title", "")).strip(),
+                str(task.get("due", "")).strip(),
+            ]
+        )
     if not seed.strip("|"):
         return f"{uuid.uuid4().hex}@{UID_DOMAIN}"
     digest = hashlib.sha1(seed.encode("utf-8")).hexdigest()[:32]

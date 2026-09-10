@@ -1,0 +1,6 @@
+# このリポジトリは public です。タスク本文・認証情報は絶対にコミットしないこと。
+*.json
+!package.json
+.env
+state/
+__pycache__/

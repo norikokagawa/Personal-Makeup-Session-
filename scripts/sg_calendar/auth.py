@@ -104,8 +104,13 @@ def check(include_canva):
         try:
             fn()
             out[name] = "OK"
-        except (AuthError, KeyError, requests.RequestException) as e:
-            out[name] = f"FAIL: {e if not isinstance(e, KeyError) else f'{e} not set'}"
+        except AuthError as e:
+            out[name] = f"FAIL: {e}"
+        except KeyError as e:
+            out[name] = f"FAIL: {e} not set"
+        except requests.RequestException as e:
+            # URL にトークンが含まれ得るので、例外の種類だけを出す
+            out[name] = f"FAIL: network error ({type(e).__name__})"
 
     run("GH_PAT (secrets write)", check_gh_pat)
     run("Gmail", gmail_access_token)
@@ -113,6 +118,28 @@ def check(include_canva):
         run("Canva (refresh + rotate + save)", canva_access_token)
     else:
         out["Canva"] = "SKIPPED: set CHECK_CANVA=true (consumes and rotates the one-time refresh token)"
+    if os.environ.get("IG_ACCESS_TOKEN"):
+        def instagram():
+            # 読み取りのみ: アカウント名と公開枠 (content_publishing_limit) を確認。投稿はしない
+            uid = os.environ["IG_USER_ID"].strip()
+            params = {"access_token": os.environ["IG_ACCESS_TOKEN"].strip()}
+            base = "https://graph.facebook.com/v19.0"
+            r = requests.get(f"{base}/{uid}", params={**params, "fields": "username"}, timeout=30)
+            if not r.ok:
+                err = (r.json().get("error") or {}) if r.headers.get("content-type", "").startswith("application/json") else {}
+                raise AuthError(f"Instagram account lookup failed ({r.status_code} code={err.get('code')} "
+                                f"subcode={err.get('error_subcode')})")
+            q = requests.get(f"{base}/{uid}/content_publishing_limit",
+                             params={**params, "fields": "quota_usage,config"}, timeout=30)
+            if not q.ok:
+                raise AuthError(f"no content-publishing permission ({q.status_code})")
+            data = (q.json().get("data") or [{}])[0]
+            out["Instagram account"] = f"@{r.json().get('username')}"
+            out["Instagram publishing quota (24h)"] = (f"{data.get('quota_usage')}/"
+                                                       f"{(data.get('config') or {}).get('quota_total')}")
+        run("Instagram (read-only)", instagram)
+    else:
+        out["Instagram"] = "SKIPPED: IG_ACCESS_TOKEN not set"
     if os.environ.get("METRICOOL_USER_TOKEN"):
         def metricool():
             r = requests.get("https://app.metricool.com/api/admin/simpleProfiles",

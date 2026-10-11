@@ -67,7 +67,8 @@ jobs:
       - name: Run
         id: run
         env:
-          MODE: ${{ github.event_name == 'schedule' && (github.event.schedule == '0 20 * * *' && 'ledger' || 'post') || inputs.mode || 'post' }}
+          # push (テスト用ブランチ) は認証確認のみ。認証が揃うまで post は手動で
+          MODE: ${{ github.event_name == 'schedule' && (github.event.schedule == '0 20 * * *' && 'ledger' || 'post') || (github.event_name == 'push' && 'auth-check') || inputs.mode || 'post' }}
           # schedule は本番移行時に値を見直す。push / 手動の既定は DRY_RUN
           DRY_RUN: ${{ github.event_name == 'schedule' && 'false' || (github.event_name == 'push' && 'true' || inputs.dry_run) }}
           AUTO_PUBLISH: ${{ github.event_name == 'workflow_dispatch' && inputs.auto_publish || 'false' }}
@@ -79,6 +80,8 @@ jobs:
           GMAIL_CLIENT_ID: ${{ secrets.GMAIL_CLIENT_ID }}
           GMAIL_CLIENT_SECRET: ${{ secrets.GMAIL_CLIENT_SECRET }}
           GMAIL_REFRESH_TOKEN: ${{ secrets.GMAIL_REFRESH_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
           METRICOOL_USER_TOKEN: ${{ secrets.METRICOOL_USER_TOKEN }}
           METRICOOL_USER_ID: ${{ secrets.METRICOOL_USER_ID }}
           METRICOOL_BLOG_ID: ${{ secrets.METRICOOL_BLOG_ID }}

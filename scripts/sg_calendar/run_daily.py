@@ -2,22 +2,24 @@
 """
 atelierR Singapore November calendar — daily run (Asia/Singapore)
 
-毎朝の流れ (本番):
-  04:00  GitHub Actions  `run_daily.py ledger`
-         Gmail の STORES メール → 予約番号単位の台帳 → state/ledger.json (instagram-media ブランチ)
-  04:15  Claude 定期実行  docs/SG_CANVA_ROUTINE.md
-         台帳と Canva 1・2ページ目を照合 → 横線だけ更新 → 検証 → 保存 → state/canva_state.json
-  04:40  GitHub Actions  `run_daily.py post`
-         Gmail を再確認し、Canva 状態と完全一致することを確認 → 1・2ページを高画質書き出し
-         → フィード (2枚カルーセル) + ストーリーズ2本を Metricool に 05:00 SGT で登録
+毎朝の流れ (本番。起動経路は docs/SG_SCHEDULING.md):
+  ledger    Gmail の STORES メール → 予約番号単位の台帳 → state/ledger.json (instagram-media ブランチ)
+  (Canva)   Claude 定期実行 docs/SG_CANVA_ROUTINE.md: 台帳と Canva 1・2ページ目を照合 → 横線だけ更新
+            → 検証 → 保存 → state/canva_state.json
+  post      Gmail を再確認し、最後に検証した Canva 状態と一致することを確認
+            → 1・2ページを高画質書き出し・検証 → JPEG (フィード 1080x1350 / ストーリーズ 1080x1920)
+            → Instagram 公式 API: コンテナ作成 (非公開) → 05:00 SGT まで待機 → 公開
+              フィード (2枚カルーセル)・ストーリーズ2本を個別に状態管理 (post_state.py) → コメントオフ
+  watchdog  05:00 以降に3件すべて公開済みか確認し、そうでなければ失敗 (= 通知)
 
 止める条件: 台帳の矛盾 (同じ枠に2件・元予約のない変更/キャンセル)、未確定の変更・キャンセル依頼、
-            デザインにない日時の予約、Canva 状態が当日分でない/台帳とずれている、画像検証の失敗。
+            デザインにない日時の予約、最後の Canva 更新以降に予約が変わった、画像検証の失敗。
             止めたときは exit 2 → ワークフローが Issue で通知する。
 
-安全設定: DRY_RUN=true (既定) は Metricool・GitHub に一切書き込まず、Canva はテスト用コピーを使う。
-          DRY_RUN では止める条件に当たっても後続の工程を最後まで試し、"WOULD_STOP" と記録する。
-          AUTO_PUBLISH=false (既定) は Metricool に下書きとしてだけ作る。
+安全設定: DRY_RUN=true (既定) は Instagram・GitHub に一切書き込まず、Canva はテスト用コピーを使う。
+            IG_PROBE=true のときだけ、非公開のコンテナ作成 (公開はしない) まで Instagram に送る。
+          DRY_RUN=false + AUTO_PUBLISH=false は、画像の保存とコンテナ作成までで公開しない (非公開リハーサル)。
+          DRY_RUN=false + AUTO_PUBLISH=true で初めて公開する。
 """
 import base64
 import json
@@ -32,7 +34,8 @@ import requests
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from sg_calendar import auth, canva_doc, images, ledger as ledger_mod  # noqa: E402
-from sg_calendar.metricool import Metricool, TYPE_FEED, TYPE_STORY  # noqa: E402
+from sg_calendar.instagram import Instagram  # noqa: E402
+from sg_calendar.post_state import ITEMS, Poster  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 CONFIG = json.loads((ROOT / "config" / "sg_calendar.json").read_text())
@@ -48,6 +51,7 @@ CANVA_API = "https://api.canva.com/rest/v1"
 GMAIL_API = "https://gmail.googleapis.com/gmail/v1"
 GITHUB_API = "https://api.github.com"
 MEDIA_BRANCH = os.environ.get("MEDIA_BRANCH", "instagram-media")
+MEDIA_TEST_BRANCH = "instagram-media-test"
 
 EXIT_OK, EXIT_FAIL, EXIT_STOPPED = 0, 1, 2
 
@@ -152,13 +156,13 @@ def _repo():
     return os.environ["GITHUB_REPOSITORY"]
 
 
-def ensure_media_branch():
+def ensure_media_branch(branch=MEDIA_BRANCH):
     repo = _repo()
-    if requests.get(f"{GITHUB_API}/repos/{repo}/branches/{MEDIA_BRANCH}", headers=_gh(), timeout=30).ok:
+    if requests.get(f"{GITHUB_API}/repos/{repo}/branches/{branch}", headers=_gh(), timeout=30).ok:
         return
     main = requests.get(f"{GITHUB_API}/repos/{repo}/git/ref/heads/main", headers=_gh(), timeout=30).json()
     requests.post(f"{GITHUB_API}/repos/{repo}/git/refs", headers=_gh(), timeout=30, json={
-        "ref": f"refs/heads/{MEDIA_BRANCH}", "sha": main["object"]["sha"]}).raise_for_status()
+        "ref": f"refs/heads/{branch}", "sha": main["object"]["sha"]}).raise_for_status()
 
 
 def read_branch_file(path):
@@ -170,42 +174,182 @@ def read_branch_file(path):
     return base64.b64decode(r.json()["content"])
 
 
-def put_branch_file(path, content, message):
+def put_branch_file(path, content, message, branch=MEDIA_BRANCH):
     url = f"{GITHUB_API}/repos/{_repo()}/contents/{path}"
-    cur = requests.get(url, headers=_gh(), params={"ref": MEDIA_BRANCH}, timeout=30)
-    body = {"message": message, "branch": MEDIA_BRANCH, "content": base64.b64encode(content).decode()}
+    cur = requests.get(url, headers=_gh(), params={"ref": branch}, timeout=30)
+    body = {"message": message, "branch": branch, "content": base64.b64encode(content).decode()}
     if cur.ok:
         body["sha"] = cur.json()["sha"]
     requests.put(url, headers=_gh(), json=body, timeout=60).raise_for_status()
-    return f"https://raw.githubusercontent.com/{_repo()}/{MEDIA_BRANCH}/{path}"
+    return f"https://raw.githubusercontent.com/{_repo()}/{branch}/{path}"
 
 
 # ── Scheduling helpers ─────────────────────────────────────────────────────
 
 def publish_time(now):
-    """Today 05:00 SGT, or the nearest feasible time (+10 min, rounded) if it has passed."""
+    """Today's 05:00 SGT; if that has already passed, publish right away (nearest feasible time)."""
     hh, mm = map(int, CONFIG["post_time"].split(":"))
     target = now.replace(hour=hh, minute=mm, second=0, microsecond=0)
-    if now <= target - timedelta(minutes=5):
-        return target
-    t = now + timedelta(minutes=10)
-    return t.replace(minute=(t.minute // 5) * 5, second=0, microsecond=0)
+    return target if now < target else now
 
 
-def planned_posts():
-    """(record key, Metricool type, page numbers in the media, caption?)"""
-    return [("FEED", TYPE_FEED, CONFIG["pages"], True)] + \
-           [(f"STORY_{p}", TYPE_STORY, [p], False) for p in CONFIG["pages"]]
+def make_waiter(target, max_wait_min=50):
+    """Sleep until `target` (SGT) before publishing; never sleeps longer than max_wait_min."""
+    def wait():
+        delay = (target - datetime.now(SGT)).total_seconds()
+        if delay > max_wait_min * 60:
+            raise RuntimeError(f"started too early ({delay / 60:.0f} min before publish time)")
+        if delay > 0:
+            log(f"waiting {delay / 60:.1f} min until {target:%H:%M} SGT")
+            time.sleep(delay)
+    return wait
 
 
-def already_posted(key, post_type, existing, record):
-    """Same-day duplicate check: our record first, then Metricool's calendar for the day."""
-    if record.get(key, {}).get("metricool_id"):
-        return True
-    same = [p for p in existing if Metricool.post_type(p) == post_type]
-    if post_type == TYPE_FEED:
-        return bool(same)
-    return len(same) >= int(key.split("_")[1])     # STORY_1 → 1本目, STORY_2 → 2本目
+# ── Images ─────────────────────────────────────────────────────────────────
+
+def download_test_exports(day):
+    """DRY_RUN only: official Canva export URLs produced by the Canva connector (file not logged)."""
+    urls = json.loads(Path(ROOT / os.environ["TEST_EXPORT_URLS_FILE"]).read_text())["urls"]
+    paths = []
+    for page, url in zip(CONFIG["pages"], urls):
+        r = requests.get(url, timeout=60)
+        r.raise_for_status()
+        p = OUT / f"sg_feed_p{page}_{day}.png"
+        p.write_bytes(r.content)
+        paths.append(p)
+    return paths
+
+
+def build_images(day, report):
+    """Export pages 1-2 (official, high quality) → verify → JPEG feed + 1080x1920 JPEG stories."""
+    if DRY_RUN and os.environ.get("TEST_EXPORT_URLS_FILE"):
+        pngs = download_test_exports(day)
+        source = "Canva connector export (pro, 1080x1350) of the TEST copy"
+    else:
+        pngs = export_pages(DESIGN_ID, CONFIG["pages"], OUT, day)
+        source = "Canva Connect export (pro, 1080x1350)"
+    for p in pngs:
+        images.verify_feed(p)
+    images.assert_pages_differ(*pngs)
+    files, checks = {}, {}
+    for page, png in zip(CONFIG["pages"], pngs):
+        story_png = OUT / f"sg_story_p{page}_{day}.png"
+        images.make_story(png, story_png)
+        feed_jpg, story_jpg = OUT / f"feed_p{page}.jpg", OUT / f"story_p{page}.jpg"
+        checks[f"feed_p{page}"] = f"1080x1350 JPEG q95 4:4:4, PSNR {images.to_jpeg(png, feed_jpg)} dB"
+        checks[f"story_p{page}"] = f"1080x1920 JPEG, full page unscaled, PSNR {images.to_jpeg(story_png, story_jpg)} dB"
+        files[f"feed_p{page}"], files[f"story_p{page}"] = feed_jpg, story_jpg
+    report["images"] = {"source": source, "checks": checks}
+    return files
+
+
+# ── Instagram ──────────────────────────────────────────────────────────────
+
+def instagram_client(probe=False):
+    return Instagram(os.environ.get("IG_USER_ID", "").strip(), os.environ.get("IG_ACCESS_TOKEN", "").strip(),
+                     dry_run=DRY_RUN, probe=probe)
+
+
+def load_record(day):
+    if DRY_RUN:
+        p = OUT / f"record_{day}.json"
+        return json.loads(p.read_text()) if p.exists() else {}
+    raw = read_branch_file(f"records/{day}.json")
+    return json.loads(raw) if raw else {}
+
+
+def record_saver(day):
+    def save(rec):
+        body = json.dumps(rec, ensure_ascii=False, indent=2)
+        (OUT / f"record_{day}.json").write_text(body)
+        if not DRY_RUN:
+            put_branch_file(f"records/{day}.json", body.encode(), f"SG post state {day}")
+    return save
+
+
+def find_feed_today(ig, day, caption):
+    """Our carousel already on Instagram today (protects against a lost record)."""
+    start = int(datetime.strptime(day, "%Y-%m-%d").replace(tzinfo=SGT).timestamp())
+    for m in ig.media_since(start):
+        if m.get("media_type") == "CAROUSEL_ALBUM" and (m.get("caption") or "").strip() == caption:
+            return m["id"]
+    return None
+
+
+def post_to_instagram(report, day, files, now):
+    caption = CAPTION_PATH.read_text().strip()
+    probe = DRY_RUN and os.environ.get("IG_PROBE", "").lower() == "true"
+    ig = instagram_client(probe)
+    publish = (not DRY_RUN) and AUTO_PUBLISH
+    when = publish_time(now)
+    report["publish_at"] = when.isoformat()
+    report["late"] = now > when.replace(hour=5, minute=5)
+
+    if not DRY_RUN:
+        ensure_media_branch()
+        urls = {k: put_branch_file(f"media/{day}/{f.name}", f.read_bytes(), f"SG {f.stem} {day}")
+                for k, f in files.items()}
+    elif probe:
+        # 非公開コンテナの作成テスト用。画像はテスト用ブランチに置く (本番の記録・画像とは分ける)
+        ensure_media_branch(MEDIA_TEST_BRANCH)
+        urls = {k: put_branch_file(f"probe/{day}/{f.name}", f.read_bytes(), f"SG probe {f.stem} {day}",
+                                   branch=MEDIA_TEST_BRANCH) for k, f in files.items()}
+    else:
+        urls = {k: f"(dry-run) {f.name}" for k, f in files.items()}
+
+    poster = Poster(ig, load_record(day), record_saver(day), publish=publish,
+                    prepare=(not DRY_RUN) or probe, wait_until=make_waiter(when))
+
+    # 記録が失われていても、本日のフィードが既に公開済みなら再投稿しない
+    if poster.item("FEED")["state"] == "pending" and (not DRY_RUN or probe):
+        existing = find_feed_today(ig, day, caption)
+        if existing:
+            poster._set("FEED", state="published", media_id=existing, note="found on Instagram")
+
+    def feed(ig_):
+        children = [ig_.create_image(urls[f"feed_p{p}"], carousel_item=True) for p in CONFIG["pages"]]
+        for c in children:
+            ig_.wait_finished(c)
+        return ig_.create_carousel(children, caption), children
+
+    def story(page):
+        return lambda ig_: (ig_.create_image(urls[f"story_p{page}"], story=True), None)
+
+    errors = []
+    for key, fn in [("FEED", feed)] + [(f"STORY_{p}", story(p)) for p in CONFIG["pages"]]:
+        try:
+            poster.run_item(key, fn)
+        except Exception as e:                       # 1件の失敗で他の投稿を止めない
+            errors.append(f"{key}: {e}")
+    if publish and poster.item("FEED")["state"] == "published":
+        if not poster.item("FEED").get("media_id"):
+            mid = find_feed_today(ig, day, caption)
+            if mid:
+                poster._set("FEED", media_id=mid)
+        poster.comments_off("FEED")
+    report["instagram"] = poster.summary()
+    report["instagram_errors"] = errors
+    return errors
+
+
+def check_against_canva(data, state):
+    """Problems that mean the calendar on Canva may not match the current bookings.
+
+    The Canva step need not have run today: if bookings have not changed since the last
+    verified Canva state, the calendar is still correct and is posted as usual."""
+    if state is None:
+        return ["no Canva state recorded (Canva step never completed)"]
+    problems = []
+    if state["design_id"] != DESIGN_ID:
+        problems.append(f"Canva state is for {state['design_id']}, expected {DESIGN_ID}")
+    if state["ledger_fingerprint"] != ledger_mod.fingerprint(data):
+        problems.append("bookings changed since the last verified Canva update")
+    p = canva_doc.plan(ledger_mod.from_json(data), canva_doc.grid(state["snapshot"]),
+                       CONFIG["manual_closed"], CONFIG["acknowledged_inquiries"])
+    problems += p["blockers"]
+    if p["strike"] or p["unstrike"]:
+        problems.append(f"Canva differs from bookings: strike {p['strike']} unstrike {p['unstrike']}")
+    return problems
 
 
 # ── Steps ──────────────────────────────────────────────────────────────────
@@ -232,94 +376,47 @@ def load_canva_state():
     return json.loads(raw) if raw else None
 
 
-def check_against_canva(data, state, day):
-    """Problems that mean the calendar on Canva may not match today's bookings."""
-    if state is None:
-        return ["no Canva state recorded (Canva step did not run)"]
-    problems = []
-    if state["design_id"] != DESIGN_ID:
-        problems.append(f"Canva state is for {state['design_id']}, expected {DESIGN_ID}")
-    if state["date"] != day:
-        problems.append(f"Canva state is from {state['date']}, not today")
-    if state["ledger_fingerprint"] != ledger_mod.fingerprint(data):
-        problems.append("bookings changed after the Canva step ran")
-    p = canva_doc.plan(ledger_mod.from_json(data), canva_doc.grid(state["snapshot"]),
-                       CONFIG["manual_closed"], CONFIG["acknowledged_inquiries"])
-    problems += p["blockers"]
-    if p["strike"] or p["unstrike"]:
-        problems.append(f"Canva differs from bookings: strike {p['strike']} unstrike {p['unstrike']}")
-    return problems
-
-
 def step_post(report, now):
     day = report["day"]
+    record = load_record(day)
+    if all(record.get("items", {}).get(k, {}).get("state") == "published" for k in ITEMS):
+        report["instagram"] = {k: record["items"][k] for k in ITEMS}
+        return "ALREADY_POSTED"                     # 予備のトリガーで再実行されても何もしない
     try:
         data = current_ledger()
-        problems = check_against_canva(data, load_canva_state(), day)
+        problems = check_against_canva(data, load_canva_state())
     except PermissionError as e:
         if not DRY_RUN:
             raise
-        # DRY_RUN: 認証エラーを記録したうえで、書き出し以降の工程も試す
-        problems = [f"AUTH ERROR: {e}"]
+        problems = [f"AUTH ERROR: {e}"]             # DRY_RUN: 記録したうえで後続の工程も試す
     report["checks"] = problems
     if problems and not DRY_RUN:
         return "STOPPED"
 
-    # Images: 1・2ページの正式エクスポート → 検証 → ストーリーズ生成
-    feeds = export_pages(DESIGN_ID, CONFIG["pages"], OUT, day)
-    stories = []
-    for page, f in zip(CONFIG["pages"], feeds):
-        images.verify_feed(f)
-        s = OUT / f"sg_story_p{page}_{day}.png"
-        images.make_story(f, s)
-        stories.append(s)
-    report["images"] = {"feed": [str(p) for p in feeds], "story": [str(p) for p in stories],
-                        "checks": "1080x1350 PNG, edges clear, stories contain full pages unscaled"}
-
-    # Metricool
-    when = publish_time(now)
-    report["publish_at"] = when.isoformat()
-    mc = Metricool(os.environ.get("METRICOOL_USER_TOKEN", ""), os.environ.get("METRICOOL_USER_ID", ""),
-                   os.environ.get("METRICOOL_BLOG_ID", ""), CONFIG["timezone"], dry_run=DRY_RUN)
-    have_token = bool(os.environ.get("METRICOOL_USER_TOKEN"))
-    existing = mc.list_instagram_posts(when.strftime("%Y-%m-%d")) if have_token else []
-    report["existing_same_day"] = [{"type": Metricool.post_type(p), "status": Metricool.post_status(p),
-                                    "id": p.get("id")} for p in existing]
-    if DRY_RUN:
-        record = {}
-        urls = {f"feed{p}": f"(dry-run) {f.name}" for p, f in zip(CONFIG["pages"], feeds)}
-        urls |= {f"story{p}": f"(dry-run) {s.name}" for p, s in zip(CONFIG["pages"], stories)}
-    else:
-        ensure_media_branch()
-        raw = read_branch_file(f"records/{day}.json")
-        record = json.loads(raw) if raw else {}
-        urls = {}
-        for p, f, s in zip(CONFIG["pages"], feeds, stories):
-            urls[f"feed{p}"] = put_branch_file(f"media/{day}/feed_p{p}.png", f.read_bytes(), f"SG feed p{p} {day}")
-            urls[f"story{p}"] = put_branch_file(f"media/{day}/story_p{p}.png", s.read_bytes(), f"SG story p{p} {day}")
-
-    caption = CAPTION_PATH.read_text().strip()
-    results = {}
-    for key, post_type, pages, with_caption in planned_posts():
-        if already_posted(key, post_type, existing, record):
-            results[key] = {"skipped": "already scheduled/published today"}
-            continue
-        kind = "feed" if post_type == TYPE_FEED else "story"
-        media = [mc.normalize_image(urls[f"{kind}{p}"]) for p in pages]
-        payload = mc.build_payload(when.strftime("%Y-%m-%dT%H:%M:00"), post_type, media,
-                                   caption if with_caption else "", AUTO_PUBLISH)
-        res = mc.create(payload)
-        results[key] = {"scheduled": not DRY_RUN, "published": False, "draft": payload["draft"],
-                        "metricool_id": res.get("id"), "payload": payload if DRY_RUN else None}
-    report["metricool"] = results
-    report["comments_off"] = "manual: Metricool API has no comment-disable option"
-    if not DRY_RUN:
-        put_branch_file(f"records/{day}.json",
-                        json.dumps({**record, **results}, ensure_ascii=False, indent=2).encode(),
-                        f"SG run record {day}")
+    files = build_images(day, report)
+    try:
+        errors = post_to_instagram(report, day, files, now)
+    except PermissionError:
+        raise
+    except Exception as e:
+        if not DRY_RUN:
+            raise
+        errors = [f"instagram: {e}"]
+        report["instagram_errors"] = errors
     if problems:
         return "WOULD_STOP"
-    return "DRY_RUN_OK" if DRY_RUN else "SCHEDULED"
+    if errors:
+        return "WOULD_FAIL" if DRY_RUN else "FAILED"
+    return "DRY_RUN_OK" if DRY_RUN else ("PUBLISHED" if AUTO_PUBLISH else "PREPARED_NOT_PUBLISHED")
+
+
+def step_watchdog(report):
+    """After 05:00: confirm all three posts are published today; otherwise fail → notification."""
+    day = report["day"]
+    items = load_record(day).get("items", {})
+    states = {k: items.get(k, {}).get("state", "missing") for k in ITEMS}
+    report["watchdog"] = states
+    return "ALL_PUBLISHED" if all(v == "published" for v in states.values()) else "NOT_PUBLISHED"
 
 
 def mask(obj):
@@ -342,6 +439,8 @@ def main(mode):
     try:
         if mode == "auth-check":
             status = step_auth_check(report)
+        elif mode == "watchdog":
+            status = step_watchdog(report)
         else:
             status = step_ledger(report) if mode == "ledger" else step_post(report, now)
     except PermissionError as e:
@@ -353,15 +452,15 @@ def main(mode):
     public = mask(report)
     (OUT / "report.json").write_text(json.dumps(public, ensure_ascii=False, indent=2))
     log(json.dumps(public, ensure_ascii=False, indent=2))
-    if status == "AUTH_FAILED":
+    if status in ("AUTH_FAILED", "FAILED", "NOT_PUBLISHED"):
         return EXIT_FAIL
     return EXIT_STOPPED if status == "STOPPED" else EXIT_OK
 
 
 if __name__ == "__main__":
     mode = sys.argv[1] if len(sys.argv) > 1 else "post"
-    if mode not in ("ledger", "post", "auth-check"):
-        sys.exit(f"usage: run_daily.py ledger|post|auth-check (got {mode})")
+    if mode not in ("ledger", "post", "auth-check", "watchdog"):
+        sys.exit(f"usage: run_daily.py ledger|post|auth-check|watchdog (got {mode})")
     try:
         sys.exit(main(mode))
     except PermissionError as e:

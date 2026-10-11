@@ -120,23 +120,22 @@ def check(include_canva):
         out["Canva"] = "SKIPPED: set CHECK_CANVA=true (consumes and rotates the one-time refresh token)"
     if os.environ.get("IG_ACCESS_TOKEN"):
         def instagram():
-            # 読み取りのみ: アカウント名と公開枠 (content_publishing_limit) を確認。投稿はしない
-            uid = os.environ["IG_USER_ID"].strip()
-            params = {"access_token": os.environ["IG_ACCESS_TOKEN"].strip()}
-            base = "https://graph.facebook.com/v19.0"
-            r = requests.get(f"{base}/{uid}", params={**params, "fields": "username"}, timeout=30)
-            if not r.ok:
-                err = (r.json().get("error") or {}) if r.headers.get("content-type", "").startswith("application/json") else {}
-                raise AuthError(f"Instagram account lookup failed ({r.status_code} code={err.get('code')} "
-                                f"subcode={err.get('error_subcode')})")
-            q = requests.get(f"{base}/{uid}/content_publishing_limit",
-                             params={**params, "fields": "quota_usage,config"}, timeout=30)
-            if not q.ok:
-                raise AuthError(f"no content-publishing permission ({q.status_code})")
-            data = (q.json().get("data") or [{}])[0]
-            out["Instagram account"] = f"@{r.json().get('username')}"
-            out["Instagram publishing quota (24h)"] = (f"{data.get('quota_usage')}/"
-                                                       f"{(data.get('config') or {}).get('quota_total')}")
+            # 読み取りのみ: アカウント・権限・公開枠を確認する。投稿もコンテナ作成もしない
+            from sg_calendar.instagram import (COMMENT_PERMISSION, REQUIRED_PERMISSIONS, Instagram,
+                                               InstagramError)
+            ig = Instagram(os.environ.get("IG_USER_ID", "").strip(), os.environ["IG_ACCESS_TOKEN"].strip())
+            try:
+                out["Instagram account"] = f"@{ig.account().get('username')}"
+                granted = ig.permissions()
+                missing = [p for p in REQUIRED_PERMISSIONS if p not in granted]
+                out["Instagram permissions"] = ("OK" if not missing else f"MISSING {missing}") + \
+                    f"; comments control: {'OK' if COMMENT_PERMISSION in granted else 'MISSING ' + COMMENT_PERMISSION}"
+                used, total = ig.publishing_limit()
+                out["Instagram publishing quota (24h)"] = f"{used}/{total}"
+            except InstagramError as e:
+                raise AuthError(str(e)) from None
+            if missing:
+                raise AuthError(f"missing permissions {missing}")
         run("Instagram (read-only)", instagram)
     else:
         out["Instagram"] = "SKIPPED: IG_ACCESS_TOKEN not set"

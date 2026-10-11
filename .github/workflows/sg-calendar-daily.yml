@@ -9,9 +9,9 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'post (照合・画像・Metricool) / ledger (Gmail 台帳) / auth-check (認証確認のみ)'
+        description: 'post (照合・画像・Instagram) / ledger (Gmail 台帳) / watchdog (公開確認) / auth-check (認証確認のみ)'
         type: choice
-        options: [post, ledger, auth-check]
+        options: [post, ledger, watchdog, auth-check]
         default: post
       check_canva:
         description: 'auth-check で Canva も確認する (1回限りの refresh token を消費・更新して保存)'
@@ -22,7 +22,11 @@ on:
         type: boolean
         default: true
       auto_publish:
-        description: 'AUTO_PUBLISH (false = Metricool に下書きとしてのみ作成)'
+        description: 'AUTO_PUBLISH (false = 画像保存と非公開コンテナ作成まで。公開しない)'
+        type: boolean
+        default: false
+      ig_probe:
+        description: 'DRY_RUN 中に Instagram の非公開コンテナ作成だけ試す (公開しない)'
         type: boolean
         default: false
   # テスト期間中のみ: このブランチへの push で DRY_RUN を実行する。本番移行時に削除。
@@ -33,9 +37,12 @@ on:
       - 'config/sg_*'
       - 'tests/**'
       - '.github/workflows/sg-calendar-daily.yml'
+  # GitHub の定時実行は遅延・欠落があるため「予備」。主経路は docs/SG_SCHEDULING.md 参照。
+  # 二重に起動しても投稿状態の記録で重複しない。
   # schedule:
-  #   - cron: '0 20 * * *'    # ledger
-  #   - cron: '40 20 * * *'   # post
+  #   - cron: '7 20 * * *'    # 04:07 SGT ledger (予備)
+  #   - cron: '23 20 * * *'   # 04:23 SGT post   (予備)
+  #   - cron: '17 21 * * *'   # 05:17 SGT watchdog
 
 permissions:
   contents: write   # instagram-media ブランチに状態・画像・実行記録を保存 (DRY_RUN では書かない)
@@ -50,7 +57,7 @@ concurrency:
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 75   # post は 05:00 まで最大50分待機する
     steps:
       - uses: actions/checkout@v4
 
@@ -67,12 +74,14 @@ jobs:
       - name: Run
         id: run
         env:
-          # push (テスト用ブランチ) は認証確認のみ。認証が揃うまで post は手動で
-          MODE: ${{ github.event_name == 'schedule' && (github.event.schedule == '0 20 * * *' && 'ledger' || 'post') || (github.event_name == 'push' && 'auth-check') || inputs.mode || 'post' }}
+          # push (テスト用ブランチ) は DRY_RUN の post: 実画像のダウンロード・検証まで行い、投稿はしない
+          MODE: ${{ github.event_name == 'schedule' && (github.event.schedule == '7 20 * * *' && 'ledger' || (github.event.schedule == '17 21 * * *' && 'watchdog' || 'post')) || inputs.mode || 'post' }}
           # schedule は本番移行時に値を見直す。push / 手動の既定は DRY_RUN
           DRY_RUN: ${{ github.event_name == 'schedule' && 'false' || (github.event_name == 'push' && 'true' || inputs.dry_run) }}
           AUTO_PUBLISH: ${{ github.event_name == 'workflow_dispatch' && inputs.auto_publish || 'false' }}
           CHECK_CANVA: ${{ inputs.check_canva || 'false' }}
+          IG_PROBE: ${{ inputs.ig_probe || 'false' }}
+          TEST_EXPORT_URLS_FILE: ${{ github.event_name == 'push' && 'tests/fixtures/test_export_urls.json' || '' }}
           CANVA_STATE_FILE: ${{ github.event_name == 'push' && 'tests/fixtures/canva_state_test.json' || '' }}
           CANVA_CLIENT_ID: ${{ secrets.CANVA_CLIENT_ID }}
           CANVA_CLIENT_SECRET: ${{ secrets.CANVA_CLIENT_SECRET }}
@@ -101,7 +110,7 @@ jobs:
           python - <<'EOF'
           from pathlib import Path
           from PIL import Image
-          for p in sorted(Path("out").glob("*.png")):
+          for p in sorted([*Path("out").glob("*.png"), *Path("out").glob("*.jpg")]):
               with Image.open(p) as im:
                   print(f"{p.name}: {im.size[0]}x{im.size[1]} {im.format} {p.stat().st_size // 1024} KB")
           EOF

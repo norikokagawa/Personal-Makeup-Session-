@@ -11,7 +11,9 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 from PIL import Image, ImageDraw  # noqa: E402
 from sg_calendar import canva_doc as C, images, ledger as L  # noqa: E402
-from sg_calendar.run_daily import already_posted, planned_posts, publish_time  # noqa: E402
+from sg_calendar.instagram import InstagramError  # noqa: E402
+from sg_calendar.post_state import Poster  # noqa: E402
+from sg_calendar.run_daily import publish_time  # noqa: E402
 
 FIX = ROOT / "tests" / "fixtures"
 BEFORE = C.snapshot(json.loads((FIX / "canva_copy_before.json").read_text()))
@@ -172,18 +174,135 @@ class ImageTest(unittest.TestCase):
 class ScheduleTest(unittest.TestCase):
     def test_publish_time(self):
         self.assertEqual(publish_time(datetime(2026, 11, 1, 4, 40, tzinfo=SGT)).strftime("%H:%M"), "05:00")
-        self.assertEqual(publish_time(datetime(2026, 11, 1, 5, 12, tzinfo=SGT)).strftime("%H:%M"), "05:20")
+        late = datetime(2026, 11, 1, 5, 12, tzinfo=SGT)
+        self.assertEqual(publish_time(late), late)          # 過ぎていれば直ちに公開
 
-    def test_three_independent_posts(self):
-        self.assertEqual([(k, t, p) for k, t, p, _ in planned_posts()],
-                         [("FEED", "POST", [1, 2]), ("STORY_1", "STORY", [1]), ("STORY_2", "STORY", [2])])
 
-    def test_same_day_duplicates(self):
-        story = {"providers": [{"network": "instagram"}], "instagramData": {"type": "STORY"}}
-        self.assertTrue(already_posted("STORY_1", "STORY", [story], {}))
-        self.assertFalse(already_posted("STORY_2", "STORY", [story], {}))
-        self.assertFalse(already_posted("FEED", "POST", [story], {}))
-        self.assertTrue(already_posted("FEED", "POST", [], {"FEED": {"metricool_id": 7}}))
+class FakeIG:
+    """Instagram stand-in: containers go FINISHED → PUBLISHED; can fail on demand."""
+
+    def __init__(self):
+        self.status, self.published, self.n = {}, [], 0
+        self.fail_publish = None          # None | "hard" | "network" | "network_after_apply"
+
+    def _new(self):
+        self.n += 1
+        cid = f"c{self.n}"
+        self.status[cid] = "FINISHED"
+        return cid
+
+    def container_status(self, cid):
+        return self.status[cid]
+
+    def wait_finished(self, cid):
+        return self.status[cid]
+
+    def publish(self, cid):
+        mode, self.fail_publish = self.fail_publish, None
+        if mode == "hard":
+            raise InstagramError("rejected")
+        if mode == "network":
+            raise InstagramError("timeout", ambiguous=True)
+        if self.status[cid] == "PUBLISHED":
+            raise AssertionError("container published twice")
+        self.status[cid] = "PUBLISHED"
+        self.published.append(cid)
+        if mode == "network_after_apply":
+            raise InstagramError("timeout after apply", ambiguous=True)
+        return f"m{cid}"
+
+    def disable_comments(self, mid):
+        return True
+
+
+def run_all(poster):
+    errors = []
+    for key in ("FEED", "STORY_1", "STORY_2"):
+        try:
+            poster.run_item(key, lambda ig: (ig._new(), None))
+        except InstagramError as e:
+            errors.append(key)
+    return errors
+
+
+class PostStateTest(unittest.TestCase):
+    def setUp(self):
+        self.ig, self.saved = FakeIG(), []
+
+    def poster(self, rec, publish=True):
+        return Poster(self.ig, rec, lambda r: self.saved.append(json.loads(json.dumps(r))),
+                      publish=publish, prepare=True)
+
+    def test_three_independent_posts_and_rerun_is_noop(self):
+        rec = {}
+        self.assertEqual(run_all(self.poster(rec)), [])
+        self.assertEqual(len(self.ig.published), 3)
+        self.assertEqual(run_all(self.poster(rec)), [])           # 予備トリガーで再実行
+        self.assertEqual(len(self.ig.published), 3)
+
+    def test_state_saved_before_publish_call(self):
+        rec = {}
+        run_all(self.poster(rec))
+        states = [s["items"]["FEED"]["state"] for s in self.saved if "FEED" in s["items"]]
+        self.assertEqual(states[:3], ["prepared", "publishing", "published"])
+
+    def test_hard_failure_is_retried_without_duplicates(self):
+        rec = {}
+        self.ig.fail_publish = "hard"
+        self.assertEqual(run_all(self.poster(rec)), ["FEED"])
+        self.assertEqual(rec["items"]["FEED"]["state"], "failed")
+        self.assertEqual(rec["items"]["STORY_1"]["state"], "published")   # 他は止めない
+        self.assertEqual(run_all(self.poster(rec)), [])
+        self.assertEqual(len(self.ig.published), 3)
+
+    def test_unknown_result_that_was_applied_is_not_reposted(self):
+        rec = {}
+        self.ig.fail_publish = "network_after_apply"
+        self.assertEqual(run_all(self.poster(rec)), ["FEED"])
+        self.assertEqual(rec["items"]["FEED"]["state"], "publishing")
+        run_all(self.poster(rec))
+        self.assertEqual(rec["items"]["FEED"]["state"], "published")
+        self.assertEqual(len(self.ig.published), 3)                       # 再投稿なし
+
+    def test_unknown_result_not_applied_is_published_once(self):
+        rec = {}
+        self.ig.fail_publish = "network"
+        run_all(self.poster(rec))
+        run_all(self.poster(rec))
+        self.assertEqual(rec["items"]["FEED"]["state"], "published")
+        self.assertEqual(len(self.ig.published), 3)
+
+    def test_expired_container_is_recreated(self):
+        rec = {}
+        run_all(self.poster(rec, publish=False))                          # 非公開リハーサル
+        self.assertEqual(self.ig.published, [])
+        self.ig.status[rec["items"]["FEED"]["container"]] = "EXPIRED"
+        run_all(self.poster(rec))
+        self.assertEqual(len(self.ig.published), 3)
+
+    def test_gives_up_after_max_attempts(self):
+        rec = {"items": {"FEED": {"state": "failed", "attempts": 3}}}
+        self.assertEqual(run_all(self.poster(rec)), ["FEED"])
+        self.assertEqual(len(self.ig.published), 2)
+
+
+class JpegTest(unittest.TestCase):
+    def test_high_quality_jpeg(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            png, jpg = Path(tmp, "a.png"), Path(tmp, "a.jpg")
+            im = Image.new("RGB", images.FEED_SIZE, images.DESIGN_BG)
+            ImageDraw.Draw(im).text((300, 600), "11:00 12:00 1:00", fill=(255, 87, 87))
+            im.save(png)
+            self.assertGreaterEqual(images.to_jpeg(png, jpg), images.MIN_PSNR)
+            with Image.open(jpg) as j:
+                self.assertEqual((j.format, j.size), ("JPEG", images.FEED_SIZE))
+
+    def test_identical_pages_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            a = Path(tmp, "a.png")
+            Image.new("RGB", images.FEED_SIZE, images.DESIGN_BG).save(a)
+            with self.assertRaises(ValueError):
+                images.assert_pages_differ(a, a)
 
 
 if __name__ == "__main__":

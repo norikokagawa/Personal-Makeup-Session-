@@ -5,6 +5,8 @@
 ストーリーズ: 各ページを切り抜かず、1080x1920 のキャンバス中央に等倍で配置する。
 余白はデザイン背景色 (#f6f4f1) で塗る。
 """
+import os
+
 from PIL import Image
 
 FEED_SIZE = (1080, 1350)
@@ -70,3 +72,44 @@ def verify_story(story_path, feed_path):
         if region.tobytes() != f.convert("RGB").tobytes():
             raise ValueError("story does not contain the full, unscaled feed image")
     return True
+
+
+# ── JPEG (Instagram の画像投稿は JPEG のみ) ──────────────────────────────────
+
+JPEG_QUALITY = 95
+MIN_PSNR = 38.0          # dB。これを下回る劣化は「高画質ではない」とみなす
+MAX_BYTES = 8 * 1024 * 1024
+
+
+def psnr(a, b):
+    import math
+    a, b = a.convert("RGB"), b.convert("RGB")
+    if a.size != b.size:
+        return 0.0
+    diff = bytes(abs(x - y) for x, y in zip(a.tobytes(), b.tobytes()))
+    mse = sum(d * d for d in diff) / len(diff)
+    return float("inf") if mse == 0 else 10 * math.log10(255 ** 2 / mse)
+
+
+def to_jpeg(src_path, dst_path):
+    """High-quality JPEG (4:4:4, q95) and proof that it still matches the source."""
+    with Image.open(src_path) as im:
+        rgb = im.convert("RGB")
+        rgb.save(dst_path, "JPEG", quality=JPEG_QUALITY, subsampling=0, optimize=True)
+    with Image.open(dst_path) as out, Image.open(src_path) as src:
+        if out.format != "JPEG" or out.size != src.size:
+            raise ValueError(f"{dst_path}: bad JPEG ({out.format} {out.size})")
+        score = psnr(src, out)
+    if score < MIN_PSNR:
+        raise ValueError(f"{dst_path}: JPEG quality too low (PSNR {score:.1f} dB)")
+    size = os.path.getsize(dst_path)
+    if size > MAX_BYTES:
+        raise ValueError(f"{dst_path}: {size} bytes exceeds Instagram's 8 MB limit")
+    return round(score, 1)
+
+
+def assert_pages_differ(a_path, b_path):
+    """Guard against exporting the same page twice."""
+    with Image.open(a_path) as a, Image.open(b_path) as b:
+        if a.convert("RGB").tobytes() == b.convert("RGB").tobytes():
+            raise ValueError("page 1 and page 2 exports are identical")

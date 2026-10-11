@@ -1,0 +1,94 @@
+name: SG November calendar — daily Instagram (TEST MODE)
+
+# 本番移行はユーザーの明示的な承認後。承認までは手動実行のみ。
+# 本番化するときは下の schedule のコメントを外し、DRY_RUN / AUTO_PUBLISH の既定値を変える。
+# 04:40 SGT = 20:40 UTC (前日)。GitHub の cron は遅延することがあるため 05:00 より前に起動し、
+# Metricool には 05:00 SGT で予約する (過ぎていれば直近の実行可能時刻)。
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'DRY_RUN (true = 何も書き込まない)'
+        type: boolean
+        default: true
+      auto_publish:
+        description: 'AUTO_PUBLISH (false = Metricool に下書きとしてのみ作成)'
+        type: boolean
+        default: false
+  # schedule:
+  #   - cron: '40 20 * * *'
+
+permissions:
+  contents: write   # instagram-media ブランチに画像と実行記録を保存
+  issues: write     # 停止・失敗時の通知
+
+concurrency:
+  group: sg-calendar-daily
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests pytz PyNaCl Pillow
+
+      - name: Unit tests
+        run: python -m unittest tests/test_sg_calendar.py
+
+      - name: Run
+        id: run
+        env:
+          DRY_RUN: ${{ github.event_name == 'schedule' && 'false' || inputs.dry_run }}
+          AUTO_PUBLISH: ${{ github.event_name == 'schedule' && 'false' || inputs.auto_publish }}
+          CANVA_CLIENT_ID: ${{ secrets.CANVA_CLIENT_ID }}
+          CANVA_CLIENT_SECRET: ${{ secrets.CANVA_CLIENT_SECRET }}
+          CANVA_REFRESH_TOKEN: ${{ secrets.CANVA_REFRESH_TOKEN }}
+          GMAIL_CLIENT_ID: ${{ secrets.GMAIL_CLIENT_ID }}
+          GMAIL_CLIENT_SECRET: ${{ secrets.GMAIL_CLIENT_SECRET }}
+          GMAIL_REFRESH_TOKEN: ${{ secrets.GMAIL_REFRESH_TOKEN }}
+          METRICOOL_USER_TOKEN: ${{ secrets.METRICOOL_USER_TOKEN }}
+          METRICOOL_USER_ID: ${{ secrets.METRICOOL_USER_ID }}
+          METRICOOL_BLOG_ID: ${{ secrets.METRICOOL_BLOG_ID }}
+          GH_PAT: ${{ secrets.GH_PAT }}
+          GITHUB_TOKEN: ${{ github.token }}
+          SG_OUT_DIR: out
+        run: |
+          set +e
+          python scripts/sg_calendar/run_daily.py
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit $code
+
+      - name: Upload report and images
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sg-calendar-${{ github.run_id }}
+          path: out/
+          if-no-files-found: ignore
+
+      # 停止 (要承認) と失敗 (認証切れ等) は Issue で通知 → リポジトリ所有者にメールが届く
+      - name: Notify
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CODE: ${{ steps.run.outputs.exit_code }}
+        run: |
+          if [ "$CODE" = "2" ]; then
+            title="SG calendar: 予約変更あり — Canva 更新の承認が必要 ($(date -u +%F))"
+          else
+            title="SG calendar: 実行失敗 / 認証切れの可能性 ($(date -u +%F))"
+          fi
+          body="Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          if [ -f out/report.json ]; then
+            body="$body"$'\n\n```json\n'"$(head -c 60000 out/report.json)"$'\n```'
+          fi
+          gh issue create --repo "${{ github.repository }}" --title "$title" --body "$body"

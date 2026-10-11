@@ -66,7 +66,8 @@ def gmail_token():
         "client_secret": os.environ["GMAIL_CLIENT_SECRET"].strip(),
     }, timeout=30)
     if not r.ok:
-        raise PermissionError(f"Gmail token refresh failed ({r.status_code}): re-authorise Gmail")
+        raise PermissionError(f"Gmail token refresh failed ({r.status_code} {r.text[:120]!r}): "
+                              "re-authorise Gmail and update GMAIL_REFRESH_TOKEN")
     return r.json()["access_token"]
 
 
@@ -124,7 +125,8 @@ def canva_token():
         "client_secret": os.environ["CANVA_CLIENT_SECRET"].strip(),
     }, timeout=30)
     if not r.ok:
-        raise PermissionError(f"Canva token refresh failed ({r.status_code}): re-authorise Canva")
+        raise PermissionError(f"Canva token refresh failed ({r.status_code} {r.text[:120]!r}): "
+                              "re-authorise Canva and update CANVA_REFRESH_TOKEN")
     data = r.json()
     if "refresh_token" in data:
         # 既存の daily_post.py と同じローテーション処理を再利用
@@ -273,8 +275,14 @@ def check_against_canva(data, state, day):
 
 def step_post(report, now):
     day = report["day"]
-    data = current_ledger()
-    problems = check_against_canva(data, load_canva_state(), day)
+    try:
+        data = current_ledger()
+        problems = check_against_canva(data, load_canva_state(), day)
+    except PermissionError as e:
+        if not DRY_RUN:
+            raise
+        # DRY_RUN: 認証エラーを記録したうえで、書き出し以降の工程も試す
+        problems = [f"AUTH ERROR: {e}"]
     report["checks"] = problems
     if problems and not DRY_RUN:
         return "STOPPED"
@@ -343,7 +351,13 @@ def main(mode):
               "dry_run": DRY_RUN, "auto_publish": AUTO_PUBLISH, "design_id": DESIGN_ID}
     log(f"=== SG calendar {mode} {now:%Y-%m-%d %H:%M} SGT | DRY_RUN={DRY_RUN} "
         f"AUTO_PUBLISH={AUTO_PUBLISH} design={DESIGN_ID} ===")
-    status = step_ledger(report) if mode == "ledger" else step_post(report, now)
+    try:
+        status = step_ledger(report) if mode == "ledger" else step_post(report, now)
+    except PermissionError as e:
+        report["status"] = "AUTH_ERROR"
+        report["error"] = str(e)
+        (OUT / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2, default=str))
+        raise
     report["status"] = status
     (OUT / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2, default=str))
     log(json.dumps(report, ensure_ascii=False, indent=2, default=str))

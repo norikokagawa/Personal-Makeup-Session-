@@ -1,25 +1,40 @@
 name: SG November calendar — daily Instagram (TEST MODE)
 
-# 本番移行はユーザーの明示的な承認後。承認までは手動実行のみ。
-# 本番化するときは下の schedule のコメントを外し、DRY_RUN / AUTO_PUBLISH の既定値を変える。
-# 04:40 SGT = 20:40 UTC (前日)。GitHub の cron は遅延することがあるため 05:00 より前に起動し、
-# Metricool には 05:00 SGT で予約する (過ぎていれば直近の実行可能時刻)。
+# 既存の daily-instagram-post.yml とは独立したワークフロー。
+# 本番移行はテスト成功・明示的な承認の後。承認までは schedule を有効にしない。
+#   04:00 SGT (20:00 UTC 前日)  mode=ledger : Gmail → 台帳
+#   04:15 SGT                   Claude 定期実行: Canva 1・2ページの横線を更新・検証・保存
+#   04:40 SGT (20:40 UTC 前日)  mode=post   : 照合 → 高画質書き出し → Metricool (05:00 SGT)
 on:
   workflow_dispatch:
     inputs:
+      mode:
+        description: 'ledger (Gmail 台帳) / post (照合・画像・Metricool)'
+        type: choice
+        options: [post, ledger]
+        default: post
       dry_run:
-        description: 'DRY_RUN (true = 何も書き込まない)'
+        description: 'DRY_RUN (true = 書き込みなし、Canva はテスト用コピー)'
         type: boolean
         default: true
       auto_publish:
         description: 'AUTO_PUBLISH (false = Metricool に下書きとしてのみ作成)'
         type: boolean
         default: false
+  # テスト期間中のみ: このブランチへの push で DRY_RUN を実行する。本番移行時に削除。
+  push:
+    branches: [claude/loving-franklin-wr0o7p]
+    paths:
+      - 'scripts/sg_calendar/**'
+      - 'config/sg_*'
+      - 'tests/**'
+      - '.github/workflows/sg-calendar-daily.yml'
   # schedule:
-  #   - cron: '40 20 * * *'
+  #   - cron: '0 20 * * *'    # ledger
+  #   - cron: '40 20 * * *'   # post
 
 permissions:
-  contents: write   # instagram-media ブランチに画像と実行記録を保存
+  contents: write   # instagram-media ブランチに状態・画像・実行記録を保存 (DRY_RUN では書かない)
   issues: write     # 停止・失敗時の通知
 
 concurrency:
@@ -46,8 +61,11 @@ jobs:
       - name: Run
         id: run
         env:
-          DRY_RUN: ${{ github.event_name == 'schedule' && 'false' || inputs.dry_run }}
-          AUTO_PUBLISH: ${{ github.event_name == 'schedule' && 'false' || inputs.auto_publish }}
+          MODE: ${{ github.event_name == 'schedule' && (github.event.schedule == '0 20 * * *' && 'ledger' || 'post') || inputs.mode || 'post' }}
+          # schedule は本番移行時に値を見直す。push / 手動の既定は DRY_RUN
+          DRY_RUN: ${{ github.event_name == 'schedule' && 'false' || (github.event_name == 'push' && 'true' || inputs.dry_run) }}
+          AUTO_PUBLISH: ${{ github.event_name == 'workflow_dispatch' && inputs.auto_publish || 'false' }}
+          CANVA_STATE_FILE: ${{ github.event_name == 'push' && 'tests/fixtures/canva_state_test.json' || '' }}
           CANVA_CLIENT_ID: ${{ secrets.CANVA_CLIENT_ID }}
           CANVA_CLIENT_SECRET: ${{ secrets.CANVA_CLIENT_SECRET }}
           CANVA_REFRESH_TOKEN: ${{ secrets.CANVA_REFRESH_TOKEN }}
@@ -62,10 +80,21 @@ jobs:
           SG_OUT_DIR: out
         run: |
           set +e
-          python scripts/sg_calendar/run_daily.py
+          python scripts/sg_calendar/run_daily.py "$MODE"
           code=$?
           echo "exit_code=$code" >> "$GITHUB_OUTPUT"
           exit $code
+
+      - name: Image check summary
+        if: always()
+        run: |
+          python - <<'EOF'
+          from pathlib import Path
+          from PIL import Image
+          for p in sorted(Path("out").glob("*.png")):
+              with Image.open(p) as im:
+                  print(f"{p.name}: {im.size[0]}x{im.size[1]} {im.format} {p.stat().st_size // 1024} KB")
+          EOF
 
       - name: Upload report and images
         if: always()
@@ -75,15 +104,15 @@ jobs:
           path: out/
           if-no-files-found: ignore
 
-      # 停止 (要承認) と失敗 (認証切れ等) は Issue で通知 → リポジトリ所有者にメールが届く
+      # 停止 (exit 2) と失敗 (認証切れ等) は Issue で通知 → リポジトリ所有者にメールが届く
       - name: Notify
-        if: failure()
+        if: failure() && github.event_name != 'push'
         env:
           GH_TOKEN: ${{ github.token }}
           CODE: ${{ steps.run.outputs.exit_code }}
         run: |
           if [ "$CODE" = "2" ]; then
-            title="SG calendar: 予約変更あり — Canva 更新の承認が必要 ($(date -u +%F))"
+            title="SG calendar: 自動停止 — 予約情報の確認が必要 ($(date -u +%F))"
           else
             title="SG calendar: 実行失敗 / 認証切れの可能性 ($(date -u +%F))"
           fi

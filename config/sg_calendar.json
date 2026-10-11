@@ -1,0 +1,11 @@
+{
+  "_comment": "Singapore November calendar automation. Pages 1-2 of the production design are updated automatically; page 3 (Sydney) is never touched. In DRY_RUN the Canva step works on the TEST copy only.",
+  "design_id": "DAGsRHlSvkw",
+  "test_design_id": "DAHXvZlAaxU",
+  "pages": [1, 2],
+  "period": ["2026-11-06", "2026-11-30"],
+  "post_time": "05:00",
+  "timezone": "Asia/Singapore",
+  "manual_closed": [],
+  "acknowledged_inquiries": []
+}

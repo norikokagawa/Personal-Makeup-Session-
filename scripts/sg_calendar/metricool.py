@@ -1,7 +1,7 @@
 """
 Metricool スケジューラ API
 
-フィード投稿とストーリーズを別々の予約として作成する。
+フィード (1・2ページの2枚カルーセル) とストーリーズ (各ページ1本ずつ) を別々の予約として作成する。
 DRY_RUN では書き込み系 API を一切呼ばず、送るはずのペイロードだけを返す。
 
 NOTE: エンドポイントとフィールド名は Metricool API (Advanced プラン) の
@@ -57,12 +57,14 @@ class Metricool:
         data = self._get("/actions/normalize/image/url", url=url)
         return data if isinstance(data, str) else data.get("url", url)
 
-    def build_payload(self, when_local, post_type, media_url, text, auto_publish):
+    def build_payload(self, when_local, post_type, media_urls, text, auto_publish):
+        if post_type == TYPE_STORY and len(media_urls) != 1:
+            raise ValueError("a story carries exactly one image")
         return {
             "publicationDate": {"dateTime": when_local, "timezone": self.tz},
             "text": text,
             "providers": [{"network": NETWORK}],
-            "media": [media_url],
+            "media": list(media_urls),     # 2枚ならカルーセル
             "instagramData": {"type": post_type},
             "autoPublish": bool(auto_publish),
             # AUTO_PUBLISH=false の間は下書きとして作り、勝手に公開されないようにする

@@ -5,6 +5,8 @@ STORES 予約メール → 予約番号単位の台帳
 推測はしない: 解釈できないメールや矛盾があれば ``anomalies`` に積み、
 呼び出し側はそれを見て更新を停止する。
 """
+import hashlib
+import json
 import re
 from dataclasses import dataclass, field
 
@@ -39,6 +41,8 @@ class Ledger:
     reservations: dict = field(default_factory=dict)  # no -> {"state", "slot", "history"}
     inquiries: list = field(default_factory=list)
     anomalies: list = field(default_factory=list)
+    period: tuple = None
+    pending_ids: list = None   # from_json() 用。None なら inquiries から判定
 
     def booked_slots(self, dates=None):
         """{date: sorted [time,...]} of confirmed (not cancelled) reservations."""
@@ -102,6 +106,7 @@ def parse_message(message_id, received_at, subject, body):
 def build_ledger(events, period_start, period_end):
     """Apply events in received order. Period bounds are 'YYYY-MM-DD' inclusive."""
     ledger = Ledger()
+    ledger.period = (period_start, period_end)
 
     def in_period(slot):
         return slot is not None and period_start <= slot[0] <= period_end
@@ -142,8 +147,11 @@ def build_ledger(events, period_start, period_end):
                 ledger.anomalies.append(
                     f"{ev.reservation_no}: change says previous slot {ev.previous_slot} "
                     f"but ledger has {cur['slot']}")
+            released = list(cur.get("released", [])) if cur else []
+            if cur and cur["slot"] != ev.slot:
+                released.append(cur["slot"])      # 変更前の枠は空く
             ledger.reservations[ev.reservation_no] = {
-                "state": KIND_BOOKED, "slot": ev.slot,
+                "state": KIND_BOOKED, "slot": ev.slot, "released": released,
                 "history": (cur["history"] if cur else []) + [ev.message_id]}
         elif ev.kind == KIND_CANCELLED:
             if cur is None:
@@ -154,9 +162,10 @@ def build_ledger(events, period_start, period_end):
             cur["state"] = KIND_CANCELLED
             cur["history"].append(ev.message_id)
 
-    # 対象期間外の予約は落とす
+    # 対象期間外の予約は落とす (期間内の枠を空けた変更は残す)
     ledger.reservations = {
-        no: r for no, r in ledger.reservations.items() if in_period(r["slot"])}
+        no: r for no, r in ledger.reservations.items()
+        if in_period(r["slot"]) or any(in_period(s) for s in r.get("released", []))}
 
     # 同じ枠に2件以上の有効予約
     seen = {}
@@ -170,21 +179,47 @@ def build_ledger(events, period_start, period_end):
     return ledger
 
 
-def diff_against_design(ledger, grid):
-    """
-    Compare the ledger with the approved Canva state for the dates the page covers.
-    Returns (to_strike, to_unstrike, unknown_slots), each a list of (date, time).
-    unknown_slots = bookings at a date/time the page has no cell for → stop and ask.
-    """
-    covered = set(grid["covered_dates"])
-    booked = ledger.booked_slots(covered)
-    to_strike, to_unstrike, unknown = [], [], []
-    for d in grid["covered_dates"]:
-        want = set(booked.get(d, []))
-        have = set(grid["approved_booked"].get(d, []))
-        cells = grid["cells"].get(d, {})
-        for t in sorted(want - have):
-            (to_strike if t in cells else unknown).append((d, t))
-        for t in sorted(have - want):
-            to_unstrike.append((d, t))
-    return to_strike, to_unstrike, unknown
+_REQUEST_WORDS = ("cancel", "change", "reschedule", "move", "postpone", "キャンセル", "変更")
+_PERIOD_WORDS = ("nov", "11月", "11/")
+
+
+def pending_request_ids(ledger):
+    if ledger.pending_ids is not None:
+        return list(ledger.pending_ids)
+    return [i.message_id for i in pending_requests(ledger)]
+
+
+def pending_requests(ledger):
+    """Inquiries that look like an unconfirmed change/cancel request for the November period."""
+    out = []
+    for i in ledger.inquiries:
+        t = i.text.lower()
+        if any(w in t for w in _REQUEST_WORDS) and any(w in t for w in _PERIOD_WORDS):
+            out.append(i)
+    return out
+
+
+def to_json(ledger):
+    """Serialisable ledger (予約番号・枠のみ。氏名・連絡先は含めない)."""
+    return {
+        "period": list(ledger.period),
+        "reservations": {no: {"state": r["state"], "slot": list(r["slot"]),
+                              "released": [list(x) for x in r.get("released", [])]}
+                         for no, r in sorted(ledger.reservations.items())},
+        "anomalies": list(ledger.anomalies),
+        "pending_requests": [i.message_id for i in pending_requests(ledger)],
+    }
+
+
+def from_json(data):
+    lg = Ledger(period=tuple(data["period"]), anomalies=list(data["anomalies"]))
+    lg.reservations = {no: {"state": r["state"], "slot": tuple(r["slot"]),
+                            "released": [tuple(x) for x in r.get("released", [])], "history": []}
+                       for no, r in data["reservations"].items()}
+    lg.pending_ids = list(data["pending_requests"])
+    return lg
+
+
+def fingerprint(data):
+    """Stable hash of a to_json() ledger, used to detect new mail between steps."""
+    return hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()[:16]

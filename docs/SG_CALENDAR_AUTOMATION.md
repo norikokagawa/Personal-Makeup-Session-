@@ -1,54 +1,53 @@
 # atelierR Singapore November Calendar — Daily Instagram Automation
 
-Status: **TEST MODE** (`DRY_RUN=true`, `AUTO_PUBLISH=false`, no cron). Do not enable the schedule until production go-live is explicitly approved.
+Status: **TEST MODE** (`DRY_RUN=true`, `AUTO_PUBLISH=false`, schedules commented out). The existing `daily-instagram-post.yml` / `scripts/daily_post.py` are untouched.
 
-## 1. Existing environment (survey 2026-10-11)
+## Policy (2026-10-11)
 
-| Item | Finding |
+- Canva `DAGsRHlSvkw` pages **1 and 2** are updated automatically every morning. Page 3 (Sydney) is never changed.
+- Booked slot = `#ff5757` + strikethrough. Open slot = `#545454`, no strikethrough. A struck slot with no booking record is treated as manually closed and never reopened automatically.
+- Only confirmed bookings from STORES mail (by reservation number) are applied. Normal changes need no per-change approval.
+- **Automatic stop + notification**:
+  - two active bookings on one slot
+  - change/cancel mail without an original booking
+  - an unconfirmed change/cancel request
+  - a booking at a date/time the design has no cell for
+  - Canva not matching the ledger
+  - any failed verification or image check
+  - auth errors
+- **Instagram (via Metricool) at 05:00 SGT daily**, even when nothing changed:
+  - feed: 2-image carousel (pages 1 and 2)
+  - two separate stories (page 1, page 2)
+  - no same-day duplicates
+
+## Architecture
+
+| Time (SGT) | Runner | Does |
+|---|---|---|
+| 04:00 | GitHub Actions `run_daily.py ledger` | Gmail → ledger by reservation number → `state/ledger.json` on branch `instagram-media` |
+| 04:15 | Claude routine (`docs/SG_CANVA_ROUTINE.md`) | ledger vs. Canva pages 1–2 → `format_text` on the time cells only → `canva_step.py verify` → commit → `state/canva_state.json` |
+| 04:40 | GitHub Actions `run_daily.py post` | Re-reads Gmail; refuses to post unless it matches `canva_state.json` → Canva export (PNG, pro, 1080×1350, pages 1–2) → image checks → stories 1080×1920 → Metricool |
+
+Why the Canva step is a Claude routine: Canva's public REST API (Connect API) exports and copies designs but cannot edit elements in an existing design. The Canva connector's editing transaction can, and it was verified on a copy first (below). No layout is rebuilt.
+
+Code: `scripts/sg_calendar/` (`ledger.py`, `canva_doc.py`, `canva_step.py`, `images.py`, `metricool.py`, `run_daily.py`). Config: `config/sg_calendar.json`, `config/sg_caption.txt`. Tests: `python -m unittest tests/test_sg_calendar.py`.
+
+## Test results (2026-10-11)
+
+| Check | Result |
 |---|---|
-| Existing job | `.github/workflows/daily-instagram-post.yml` + `scripts/daily_post.py`. Manual trigger only; its cron was removed on 2026-05-31 ("Disable scheduled Instagram posting"). It posts **directly through the Instagram Graph API**, not Metricool, as a 6-page carousel, and only lists Gmail subjects. Left untouched. |
-| Secrets used | `CANVA_CLIENT_ID/SECRET/REFRESH_TOKEN` (scopes `asset:read design:content:read`, rotated via `GH_PAT`), `GMAIL_CLIENT_ID/SECRET/REFRESH_TOKEN`, `IG_USER_ID`, `IG_ACCESS_TOKEN`. **No Metricool secrets yet.** |
-| Metricool | Not referenced anywhere in the repo; no Metricool connector in Claude. |
-| Canva `DAGsRHlSvkw` | 3 pages, 1080×1350. p1 = Singapore Nov 6–15, p2 = Singapore Nov 18–29, p3 = Sydney Oct 23–Nov 1. |
-| Booked marker ("横線") | Table cell **text strikethrough + colour `#ff5757`**; an open slot has no strikethrough and colour `#545454`. Font, size and weight are untouched by the toggle. Cell map: `config/sg_nov_page1.json`. |
-| Slots on p1 | Weekdays 11/12/13/14:00 (4); Sat/Sun 11/12/13/15/16/17:00 (6, **no 14:00**). |
+| Gmail ledger | 34 active Nov reservations; no Nov change/cancel mails |
+| Pages 1–2 read automatically from cell text (no hard-coded IDs) | 15 dates; weekdays 4 slots, weekends 6 |
+| Plan on the real ledger | strike 11/15 11:00; keep 11/08 17:00 as manual; **2 blockers** (11/29 15:00 double booking; open change request 1a12b734…) |
+| Auto-update on test copy `DAHXvZlAaxU` | page 1 strike + page 2 reopen applied, `verify` OK (and it rejects unplanned/no-op diffs), committed, re-read confirmed |
+| Original `DAGsRHlSvkw` | not modified |
+| High-quality export | Canva export job for pages 1–2 (pro, 1080×1350) succeeded. Download and pixel checks run in GitHub Actions (blocked in the Claude sandbox) |
+| Metricool | payloads built (carousel POST + 2 STORY, drafts). Live API not tested: no `METRICOOL_*` secrets yet |
 
-## 2. Daily flow (`scripts/sg_calendar/run_daily.py`)
+## Before production
 
-1. **Gmail**: read STORES mail (booked / changed / cancelled / inquiry), build a ledger **by reservation number**, period 2026-11-06..30. Duplicate notifications count once; inquiries never change the ledger.
-2. **Stop conditions** (exit 2 → GitHub Issue): any anomaly (double-booked slot, change/cancel for unknown number, unparseable mail), a booking at a time the page has no cell for, or any difference from the approved Canva state. In those cases **nothing is posted**, so an outdated calendar is never published.
-3. **Canva update** is never automatic: a Claude session opens a draft edit, shows the before/after preview, and saves only after approval. Then `approved_booked` in `config/sg_nov_page1.json` is updated.
-4. **Images**: official Canva export (`png`, `export_quality: pro`, 1080×1350, lossless) → verified size/format. The story image is a 1080×1920 canvas with the **whole** feed image pasted 1:1 at y=285 on the design background `#f6f4f1`, then verified pixel-for-pixel.
-5. **Metricool**: list the day's Instagram posts first. The feed (`POST`, approved caption from `config/sg_caption.txt`) and the story (`STORY`, no caption) are created independently, and each is skipped if one of that type already exists that day. Publish time is 05:00 SGT, or the nearest feasible time (+10 min) if that has passed. With `AUTO_PUBLISH=false`, posts are created as **drafts**.
-6. **Record**: `records/<date>.json` on the `instagram-media` branch distinguishes *scheduled* from *published*. Instagram publication is confirmed later from Metricool's status, never assumed at scheduling time.
-
-Comments-off: the Metricool API exposes no option to disable comments, so this must be set **manually** (or the published media switched afterwards via the Graph API `comment_enabled=false`, if wanted).
-
-## 3. One-day test plan
-
-| # | Check | How | Result 2026-10-11 |
-|---|---|---|---|
-| 1 | Gmail extraction is accurate | Ledger from all STORES Singapore mail | 34 Nov reservations; 0 cancellations/changes in Nov ✅ |
-| 2 | Booked slots match Canva lines | `diff_against_design` | **2 differences** (see §4) ⚠️ |
-| 3 | Other Canva elements unchanged | Draft edit of one cell, compare document + thumbnail, then cancel | Only the target cell changed ✅ (draft discarded) |
-| 4 | High-quality images | Canva export `pro` 1080×1350 succeeded; size/story checks run in code and tests | Export job ✅; download blocked in this sandbox, so verify in Actions |
-| 5 | Two independent Metricool posts | Dry-run payloads (POST + STORY) | Payloads ✅; live API untested (no token, host blocked here) |
-| 6 | Same-day duplicate prevention | Unit test + Metricool listing | Unit-tested ✅; live pending |
-| 7 | Posts even with no booking change | No-diff path runs to scheduling | ✅ (dry run) |
-
-Run the tests with `python -m unittest tests/test_sg_calendar.py`.
-
-## 4. Open items found in the test
-
-- **11/15 11:00**: booked (#136683000) but not struck → preview ready, awaiting approval.
-- **11/08 17:00**: struck, but no booking mail → not changed automatically (it may be a manual block).
-- **11/29 15:00** (page 2): two active reservations (#136653243, #144069220). Page 2 must not be edited.
-- **Inquiry 2026-10-11**: #136683000 asks to move from 15 Nov to 11 Nov. Not applied; no STORES change mail yet.
-- Bookings on 18–29 Nov sit on page 2, which is out of scope for edits.
-
-## 5. Go-live checklist (only after explicit approval)
-
-1. Add secrets `METRICOOL_USER_TOKEN`, `METRICOOL_USER_ID`, `METRICOOL_BLOG_ID` (Metricool Advanced plan API).
-2. Run the workflow manually with `dry_run=false, auto_publish=false` → confirm two drafts in Metricool.
-3. Uncomment the `schedule` in `.github/workflows/sg-calendar-daily.yml` and set `AUTO_PUBLISH` for scheduled runs.
-4. Failures and stops open a GitHub Issue, which emails the repo owner. Auth failures (Gmail, Canva, Metricool 401/403) exit 1 with "re-authorise".
+1. Resolve the two blockers (or add the inquiry id to `acknowledged_inquiries`).
+2. Add `METRICOOL_USER_TOKEN`, `METRICOOL_USER_ID`, `METRICOOL_BLOG_ID` secrets; run `post` manually with `dry_run=false, auto_publish=false` → confirm 3 drafts.
+3. Create the Claude routine (04:15 SGT, Canva connector, this repo) with `docs/SG_CANVA_ROUTINE.md` as its prompt; switch the target to `DAGsRHlSvkw`.
+4. Remove the `push` trigger, uncomment `schedule`, set `AUTO_PUBLISH` for scheduled runs.
+5. Instagram comments-off must be set manually (no Metricool API option).

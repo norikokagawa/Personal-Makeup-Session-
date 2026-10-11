@@ -31,7 +31,7 @@ from zoneinfo import ZoneInfo
 import requests
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from sg_calendar import canva_doc, images, ledger as ledger_mod  # noqa: E402
+from sg_calendar import auth, canva_doc, images, ledger as ledger_mod  # noqa: E402
 from sg_calendar.metricool import Metricool, TYPE_FEED, TYPE_STORY  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -59,16 +59,7 @@ def log(msg):
 # ── Gmail ──────────────────────────────────────────────────────────────────
 
 def gmail_token():
-    r = requests.post("https://oauth2.googleapis.com/token", data={
-        "grant_type": "refresh_token",
-        "refresh_token": os.environ["GMAIL_REFRESH_TOKEN"].strip(),
-        "client_id": os.environ["GMAIL_CLIENT_ID"].strip(),
-        "client_secret": os.environ["GMAIL_CLIENT_SECRET"].strip(),
-    }, timeout=30)
-    if not r.ok:
-        raise PermissionError(f"Gmail token refresh failed ({r.status_code} {r.text[:120]!r}): "
-                              "re-authorise Gmail and update GMAIL_REFRESH_TOKEN")
-    return r.json()["access_token"]
+    return auth.gmail_access_token()
 
 
 def _body_text(payload):
@@ -118,21 +109,8 @@ def current_ledger():
 # ── Canva (Connect API: export only) ───────────────────────────────────────
 
 def canva_token():
-    r = requests.post(f"{CANVA_API}/oauth/token", data={
-        "grant_type": "refresh_token",
-        "refresh_token": os.environ["CANVA_REFRESH_TOKEN"].strip(),
-        "client_id": os.environ["CANVA_CLIENT_ID"].strip(),
-        "client_secret": os.environ["CANVA_CLIENT_SECRET"].strip(),
-    }, timeout=30)
-    if not r.ok:
-        raise PermissionError(f"Canva token refresh failed ({r.status_code} {r.text[:120]!r}): "
-                              "re-authorise Canva and update CANVA_REFRESH_TOKEN")
-    data = r.json()
-    if "refresh_token" in data:
-        # 既存の daily_post.py と同じローテーション処理を再利用
-        from daily_post import _save_canva_refresh_token
-        _save_canva_refresh_token(data["refresh_token"])
-    return data["access_token"]
+    # 1回限りの refresh token を消費し、新しい token を Secrets に保存 (失敗したら停止)
+    return auth.canva_access_token()
 
 
 def export_pages(design_id, pages, dest_dir, day):
@@ -344,6 +322,16 @@ def step_post(report, now):
     return "DRY_RUN_OK" if DRY_RUN else "SCHEDULED"
 
 
+def mask(obj):
+    """Hide all but the last 3 digits of reservation numbers (the repo, its logs and issues are public)."""
+    return json.loads(ledger_mod.mask_numbers(json.dumps(obj, ensure_ascii=False, default=str)))
+
+
+def step_auth_check(report):
+    report["auth"] = auth.check(include_canva=os.environ.get("CHECK_CANVA", "").lower() == "true")
+    return "AUTH_OK" if all(not v.startswith("FAIL") for v in report["auth"].values()) else "AUTH_FAILED"
+
+
 def main(mode):
     now = datetime.now(SGT)
     OUT.mkdir(parents=True, exist_ok=True)
@@ -352,22 +340,28 @@ def main(mode):
     log(f"=== SG calendar {mode} {now:%Y-%m-%d %H:%M} SGT | DRY_RUN={DRY_RUN} "
         f"AUTO_PUBLISH={AUTO_PUBLISH} design={DESIGN_ID} ===")
     try:
-        status = step_ledger(report) if mode == "ledger" else step_post(report, now)
+        if mode == "auth-check":
+            status = step_auth_check(report)
+        else:
+            status = step_ledger(report) if mode == "ledger" else step_post(report, now)
     except PermissionError as e:
         report["status"] = "AUTH_ERROR"
         report["error"] = str(e)
-        (OUT / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2, default=str))
+        (OUT / "report.json").write_text(json.dumps(mask(report), ensure_ascii=False, indent=2))
         raise
     report["status"] = status
-    (OUT / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2, default=str))
-    log(json.dumps(report, ensure_ascii=False, indent=2, default=str))
+    public = mask(report)
+    (OUT / "report.json").write_text(json.dumps(public, ensure_ascii=False, indent=2))
+    log(json.dumps(public, ensure_ascii=False, indent=2))
+    if status == "AUTH_FAILED":
+        return EXIT_FAIL
     return EXIT_STOPPED if status == "STOPPED" else EXIT_OK
 
 
 if __name__ == "__main__":
     mode = sys.argv[1] if len(sys.argv) > 1 else "post"
-    if mode not in ("ledger", "post"):
-        sys.exit(f"usage: run_daily.py ledger|post (got {mode})")
+    if mode not in ("ledger", "post", "auth-check"):
+        sys.exit(f"usage: run_daily.py ledger|post|auth-check (got {mode})")
     try:
         sys.exit(main(mode))
     except PermissionError as e:

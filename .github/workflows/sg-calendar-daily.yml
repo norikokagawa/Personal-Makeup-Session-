@@ -9,10 +9,14 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'ledger (Gmail 台帳) / post (照合・画像・Metricool)'
+        description: 'post (照合・画像・Metricool) / ledger (Gmail 台帳) / auth-check (認証確認のみ)'
         type: choice
-        options: [post, ledger]
+        options: [post, ledger, auth-check]
         default: post
+      check_canva:
+        description: 'auth-check で Canva も確認する (1回限りの refresh token を消費・更新して保存)'
+        type: boolean
+        default: false
       dry_run:
         description: 'DRY_RUN (true = 書き込みなし、Canva はテスト用コピー)'
         type: boolean
@@ -37,8 +41,10 @@ permissions:
   contents: write   # instagram-media ブランチに状態・画像・実行記録を保存 (DRY_RUN では書かない)
   issues: write     # 停止・失敗時の通知
 
+# Canva の refresh token は1回限りなので、同時に2つ実行しない
+# (既存の daily-instagram-post.yml も同じ token を使う。テスト中は同時に手動実行しないこと)
 concurrency:
-  group: sg-calendar-daily
+  group: canva-refresh-token
   cancel-in-progress: false
 
 jobs:
@@ -65,6 +71,7 @@ jobs:
           # schedule は本番移行時に値を見直す。push / 手動の既定は DRY_RUN
           DRY_RUN: ${{ github.event_name == 'schedule' && 'false' || (github.event_name == 'push' && 'true' || inputs.dry_run) }}
           AUTO_PUBLISH: ${{ github.event_name == 'workflow_dispatch' && inputs.auto_publish || 'false' }}
+          CHECK_CANVA: ${{ inputs.check_canva || 'false' }}
           CANVA_STATE_FILE: ${{ github.event_name == 'push' && 'tests/fixtures/canva_state_test.json' || '' }}
           CANVA_CLIENT_ID: ${{ secrets.CANVA_CLIENT_ID }}
           CANVA_CLIENT_SECRET: ${{ secrets.CANVA_CLIENT_SECRET }}

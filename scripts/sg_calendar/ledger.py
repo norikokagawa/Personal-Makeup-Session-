@@ -199,14 +199,28 @@ def pending_requests(ledger):
     return out
 
 
+_NUM_RE = re.compile(r"(?<![\d-])\d{6,}(\d{3})(?![\d-])")
+
+
+def mask_numbers(text):
+    """'136653243' → '***243' (リポジトリは公開なので予約番号をそのまま残さない)."""
+    return _NUM_RE.sub(r"***\1", text)
+
+
+def _key(no):
+    if re.fullmatch(r"r[0-9a-f]{12}", no):      # from_json() 由来: すでにハッシュ済み
+        return no
+    return "r" + hashlib.sha256(no.encode()).hexdigest()[:12]
+
+
 def to_json(ledger):
-    """Serialisable ledger (予約番号・枠のみ。氏名・連絡先は含めない)."""
+    """Serialisable ledger: 枠と状態のみ。予約番号はハッシュ化、氏名・連絡先は含めない。"""
     return {
         "period": list(ledger.period),
-        "reservations": {no: {"state": r["state"], "slot": list(r["slot"]),
-                              "released": [list(x) for x in r.get("released", [])]}
+        "reservations": {_key(no): {"state": r["state"], "slot": list(r["slot"]),
+                                    "released": [list(x) for x in r.get("released", [])]}
                          for no, r in sorted(ledger.reservations.items())},
-        "anomalies": list(ledger.anomalies),
+        "anomalies": [mask_numbers(a) for a in ledger.anomalies],
         "pending_requests": [i.message_id for i in pending_requests(ledger)],
     }
 

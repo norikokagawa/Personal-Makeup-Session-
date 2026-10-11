@@ -1,4 +1,4 @@
-# Canva step — instructions for the daily Claude routine (04:15 SGT)
+# Canva step — instructions for the daily Claude routine (04:00 SGT)
 
 Why a Claude routine: the public Canva Connect REST API cannot edit elements inside an existing design. The only route verified to change **just the strikethrough and colour of a time cell** is the Canva connector's editing transaction (`read-design` → `edit-design format_text` → `commit`). It was verified on 2026-10-11 on the test copy `DAHXvZlAaxU`. The routine needs the **Canva** connector and push access to this repository.
 
@@ -6,7 +6,8 @@ Target design: `DAGsRHlSvkw` in production, `DAHXvZlAaxU` (test copy) while `DRY
 
 ## Steps
 
-1. `git fetch origin instagram-media` and read `state/ledger.json` (written by the 04:00 `ledger` job). If it is missing or not from today, **stop** and report.
+0. Dispatch `sg-calendar-daily.yml` with `mode=ledger` (GitHub connector, `actions_run_trigger`) and wait until that run completes.
+1. `git fetch origin instagram-media` and read `state/ledger.json`. If it is missing or its last commit (`git log -1 --format=%cI origin/instagram-media -- state/ledger.json`) is not from today (SGT), **stop** and report; the 04:30 backup `post` will then post only if bookings are unchanged.
 2. `read-design` the target with `open_transaction: true`, `page_indices: [1, 2]`, `fields: ["design_content", "thumbnails"]`.
 3. Save the returned `design_content` as `before.json`, either verbatim or in the compact form used by `tests/fixtures/canva_copy_before.json` (one string per cell: `id|text|strike(1/0)|color|weight`).
 4. `python scripts/sg_calendar/canva_step.py plan --ledger state/ledger.json --before before.json > plan.json`
@@ -18,7 +19,7 @@ Target design: `DAGsRHlSvkw` in production, `DAHXvZlAaxU` (test copy) while `DRY
    - exit 0 → `edit-design finalize: commit`
    - otherwise → `edit-design finalize: cancel`, open an issue with the problems, **stop**.
 7. `python scripts/sg_calendar/canva_step.py state --ledger state/ledger.json --snapshot after.json --design <target> > canva_state.json`, then commit it to `instagram-media` as `state/canva_state.json` and push.
-8. The 04:40 `post` job re-reads Gmail and refuses to post unless the ledger and this state match exactly.
+8. Dispatch `sg-calendar-daily.yml` with `mode=post`. It prepares the Instagram containers, waits until 05:00 SGT and publishes. It re-reads Gmail and refuses to post unless the bookings still match this state.
 
 ## Rules
 

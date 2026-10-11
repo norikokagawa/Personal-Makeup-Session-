@@ -222,7 +222,8 @@ def download_test_exports(day):
 
 def build_images(day, report):
     """Export pages 1-2 (official, high quality) → verify → JPEG feed + 1080x1920 JPEG stories."""
-    if DRY_RUN and os.environ.get("TEST_EXPORT_URLS_FILE"):
+    test_file = os.environ.get("TEST_EXPORT_URLS_FILE")
+    if DRY_RUN and test_file and (ROOT / test_file).exists():
         pngs = download_test_exports(day)
         source = "Canva connector export (pro, 1080x1350) of the TEST copy"
     else:

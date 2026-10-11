@@ -74,8 +74,8 @@ jobs:
       - name: Run
         id: run
         env:
-          # push (テスト用ブランチ) は DRY_RUN の post: 実画像のダウンロード・検証まで行い、投稿はしない
-          MODE: ${{ github.event_name == 'schedule' && (github.event.schedule == '7 20 * * *' && 'ledger' || (github.event.schedule == '17 21 * * *' && 'watchdog' || 'post')) || inputs.mode || 'post' }}
+          # push (テスト用ブランチ) は認証確認のみ。画像テストは一時ファイルがあるときだけ post で行う
+          MODE: ${{ github.event_name == 'schedule' && (github.event.schedule == '7 20 * * *' && 'ledger' || (github.event.schedule == '17 21 * * *' && 'watchdog' || 'post')) || (github.event_name == 'push' && 'auth-check') || inputs.mode || 'post' }}
           # schedule は本番移行時に値を見直す。push / 手動の既定は DRY_RUN
           DRY_RUN: ${{ github.event_name == 'schedule' && 'false' || (github.event_name == 'push' && 'true' || inputs.dry_run) }}
           AUTO_PUBLISH: ${{ github.event_name == 'workflow_dispatch' && inputs.auto_publish || 'false' }}

@@ -57,7 +57,21 @@ GitHub → Settings → Developer settings → **Fine-grained tokens** → gener
 
 Then save it without showing it: `gh secret set GH_PAT --repo norikokagawa/Personal-Makeup-Session-` and paste at the hidden prompt.
 
-## 4. Metricool — `METRICOOL_USER_TOKEN` / `METRICOOL_USER_ID` / `METRICOOL_BLOG_ID`
+## 4. Instagram — `IG_USER_ID` / `IG_ACCESS_TOKEN` (official API, replaces Metricool)
+
+Status 2026-10-12: `IG_ACCESS_TOKEN` is **expired** (Graph API error 190/463).
+
+1. @r.makeup.session must be an Instagram **Business** account linked to a Facebook Page. Instagram app → Settings → Account type. Stories publishing via the API needs a Business account.
+2. Recommended: a **non-expiring System User token**.
+   1. business.facebook.com → Business settings → Users → **System users** → Add (role: Admin or Employee).
+   2. Assign assets: the Facebook Page linked to the account, the Instagram account, and the Meta app used by the existing system (Full control).
+   3. **Generate new token** for that app with token expiration **Never** and these permissions: `instagram_basic`, `instagram_content_publish`, `instagram_manage_comments` (comments off), `pages_show_list`, `pages_read_engagement`, `business_management`.
+3. Save it without displaying it: `gh secret set IG_ACCESS_TOKEN --repo norikokagawa/Personal-Makeup-Session-`, then paste at the hidden prompt. `IG_USER_ID` (the Instagram business account ID) stays as is unless the account changed.
+4. Alternative: a 60-day long-lived user token works too, but expires unless it is refreshed in time. The System User token avoids that.
+5. Verify with `auth-check`. It reports the account name, missing permissions (including comment control) and the 24-hour publishing quota. Nothing is posted.
+6. Real Instagram check without posting: run `post` with `dry_run=true, ig_probe=true`. It uploads test images to the `instagram-media-test` branch and creates **private containers** (feed carousel and 2 stories), waits for `FINISHED`, and never publishes. Unpublished containers expire after 24 h.
+
+## 4b. Metricool — not used (official Instagram API chosen; kept for reference)
 
 - **Availability:** the API is only on the **Advanced** and **Custom** plans. Check the current plan in Metricool → Billing.
 - **Token:** Metricool → Account settings → **API**. It is sent as the `X-Mc-Auth` header. Regenerating it invalidates the old one immediately.

@@ -76,26 +76,39 @@ def _body_text(payload):
     return ""
 
 
+def _gmail_get(path, headers, params, tries=6):
+    """GET with backoff on Gmail's rate limits (429, 403 *RateLimitExceeded) and 5xx."""
+    for attempt in range(tries):
+        r = requests.get(f"{GMAIL_API}/{path}", headers=headers, params=params, timeout=30)
+        reason = ""
+        if r.status_code == 403:
+            try:
+                reason = (r.json().get("error", {}).get("errors") or [{}])[0].get("reason", "")
+            except ValueError:
+                pass
+        limited = r.status_code == 429 or r.status_code >= 500 or reason.endswith("RateLimitExceeded")
+        if not limited or attempt == tries - 1:
+            if not r.ok:
+                raise RuntimeError(f"Gmail request failed: HTTP {r.status_code} {reason}".strip())
+            return r.json()
+        time.sleep(2 ** attempt)
+
+
 def fetch_events():
     h = {"Authorization": f"Bearer {gmail_token()}"}
     q = ('from:hello@stores.jp ({"予約が入りました" "予約が変更されました" '
          '"予約がキャンセルされました" "お問い合わせがあります"}) newer_than:400d')
     ids, page = [], None
     while True:
-        r = requests.get(f"{GMAIL_API}/users/me/messages", headers=h, timeout=30,
-                         params={"q": q, "maxResults": 500, "pageToken": page})
-        r.raise_for_status()
-        d = r.json()
+        d = _gmail_get("users/me/messages", h, {"q": q, "maxResults": 500, "pageToken": page})
         ids += [m["id"] for m in d.get("messages", [])]
         page = d.get("nextPageToken")
         if not page:
             break
     events = []
     for mid in ids:
-        r = requests.get(f"{GMAIL_API}/users/me/messages/{mid}", headers=h,
-                         params={"format": "full"}, timeout=30)
-        r.raise_for_status()
-        m = r.json()
+        m = _gmail_get(f"users/me/messages/{mid}", h, {"format": "full"})
+        time.sleep(0.05)                            # 1通ずつ少し間をあけて上限を避ける
         hdrs = {x["name"]: x["value"] for x in m["payload"].get("headers", [])}
         received = datetime.fromtimestamp(int(m["internalDate"]) / 1000, ZoneInfo("UTC")).isoformat()
         ev = ledger_mod.parse_message(mid, received, hdrs.get("Subject", ""), _body_text(m["payload"]))

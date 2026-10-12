@@ -94,21 +94,30 @@ def _gmail_get(path, headers, params, tries=6):
         time.sleep(2 ** attempt)
 
 
-def fetch_events():
-    h = {"Authorization": f"Bearer {gmail_token()}"}
-    q = ('from:hello@stores.jp ({"予約が入りました" "予約が変更されました" '
-         '"予約がキャンセルされました" "お問い合わせがあります"}) newer_than:400d')
+def _list_ids(h, q):
     ids, page = [], None
     while True:
         d = _gmail_get("users/me/messages", h, {"q": q, "maxResults": 500, "pageToken": page})
         ids += [m["id"] for m in d.get("messages", [])]
         page = d.get("nextPageToken")
         if not page:
-            break
+            return ids
+
+
+def fetch_events():
+    """STORES mails that matter for the period: bookings/changes/cancellations whose body names
+    the period's month (e.g. 2026年11月), plus recent customer inquiries."""
+    h = {"Authorization": f"Bearer {gmail_token()}"}
+    start = datetime.strptime(CONFIG["period"][0], "%Y-%m-%d")
+    month = f"{start.year}年{start.month}月"
+    booking_q = (f'from:hello@stores.jp "{month}" {{"予約が入りました" "予約が変更されました" '
+                 f'"予約がキャンセルされました"}} newer_than:400d')
+    inquiry_q = 'from:hello@stores.jp "お問い合わせがあります" newer_than:120d'
+    ids = list(dict.fromkeys(_list_ids(h, booking_q) + _list_ids(h, inquiry_q)))
     events = []
     for mid in ids:
         m = _gmail_get(f"users/me/messages/{mid}", h, {"format": "full"})
-        time.sleep(0.05)                            # 1通ずつ少し間をあけて上限を避ける
+        time.sleep(0.2)                             # 1通ずつ間をあけて Gmail の上限を避ける
         hdrs = {x["name"]: x["value"] for x in m["payload"].get("headers", [])}
         received = datetime.fromtimestamp(int(m["internalDate"]) / 1000, ZoneInfo("UTC")).isoformat()
         ev = ledger_mod.parse_message(mid, received, hdrs.get("Subject", ""), _body_text(m["payload"]))

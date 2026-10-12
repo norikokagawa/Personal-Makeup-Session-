@@ -63,6 +63,8 @@ def run_check():
             "app_name": d.get("application"),
             "type": d.get("type"),
             "expires": _when(d.get("expires_at")),
+            "days_left": (int((int(d["expires_at"]) - datetime.now(timezone.utc).timestamp()) // 86400)
+                          if d.get("expires_at") else None),
             "data_access_expires": _when(d.get("data_access_expires_at")),
         }
         targets = {g.get("scope"): len(g.get("target_ids") or []) for g in d.get("granular_scopes", [])}

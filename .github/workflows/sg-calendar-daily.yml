@@ -80,6 +80,7 @@ jobs:
           DRY_RUN: ${{ github.event_name == 'schedule' && 'false' || (github.event_name == 'push' && 'true' || inputs.dry_run) }}
           AUTO_PUBLISH: ${{ github.event_name == 'workflow_dispatch' && inputs.auto_publish || 'false' }}
           CHECK_CANVA: ${{ inputs.check_canva || 'false' }}
+          AUTH_CHECK_LEDGER: 'true'     # auth-check で Gmail が通れば予約を読み取り専用で要約
           IG_PROBE: ${{ (github.event_name == 'push' && hashFiles('tests/fixtures/test_export_urls.json') != '') && 'true' || inputs.ig_probe || 'false' }}
           TEST_EXPORT_URLS_FILE: ${{ github.event_name == 'push' && 'tests/fixtures/test_export_urls.json' || '' }}
           CANVA_STATE_FILE: ${{ github.event_name == 'push' && 'tests/fixtures/canva_state_test.json' || '' }}

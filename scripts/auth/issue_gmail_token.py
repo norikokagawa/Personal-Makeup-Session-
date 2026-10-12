@@ -40,7 +40,14 @@ def main():
         "redirect_uri": REDIRECT, "grant_type": "authorization_code", "code_verifier": verifier,
     }, timeout=30)
     if not r.ok:
-        sys.exit(f"トークン交換に失敗: {r.status_code} {r.json().get('error')}")
+        err = r.json().get("error")
+        hint = ""
+        if err in ("redirect_uri_mismatch", "invalid_request"):
+            hint = (f"\n→ OAuth クライアントが『ウェブ アプリケーション』型なら、承認済みのリダイレクト URI に "
+                    f"{REDIRECT} を追加してから再実行してください。")
+        elif err == "invalid_client":
+            hint = "\n→ Client ID / Secret の組み合わせが違います。Google Cloud の『認証情報』で確認してください。"
+        sys.exit(f"トークン交換に失敗: {r.status_code} {err}{hint}")
     data = r.json()
     if "refresh_token" not in data:
         sys.exit("refresh token が返りませんでした (Google アカウントの『サードパーティ接続』から"

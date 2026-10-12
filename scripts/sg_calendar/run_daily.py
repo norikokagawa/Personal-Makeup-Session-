@@ -426,8 +426,33 @@ def mask(obj):
     return json.loads(ledger_mod.mask_numbers(json.dumps(obj, ensure_ascii=False, default=str)))
 
 
+def ledger_summary(data):
+    """Read-only overview for the report: booked times per date, no reservation numbers or names."""
+    by_date, cancelled = {}, 0
+    for r in data["reservations"].values():
+        if r["state"] == "cancelled":
+            cancelled += 1
+            continue
+        if data["period"][0] <= r["slot"][0] <= data["period"][1]:
+            by_date.setdefault(r["slot"][0], []).append(r["slot"][1])
+    return {"period": data["period"],
+            "active_bookings": sum(len(v) for v in by_date.values()),
+            "cancelled": cancelled,
+            "booked_by_date": {d: sorted(v) for d, v in sorted(by_date.items())},
+            "anomalies": data["anomalies"],
+            "unconfirmed_change_requests": data["pending_requests"]}
+
+
 def step_auth_check(report):
     report["auth"] = auth.check(include_canva=os.environ.get("CHECK_CANVA", "").lower() == "true")
+    # Gmail が通ったら、11/6〜30 の予約を読み取り専用で取得して要約する (書き込みは一切しない)
+    if report["auth"].get("Gmail") == "OK" and os.environ.get("AUTH_CHECK_LEDGER", "").lower() == "true":
+        try:
+            data = current_ledger()
+            OUT.joinpath("ledger.json").write_text(json.dumps(data, ensure_ascii=False, indent=2))
+            report["gmail_ledger"] = ledger_summary(data)
+        except Exception as e:                      # 要約の失敗は認証結果とは分けて記録
+            report["gmail_ledger"] = f"FAIL: {type(e).__name__}: {e}"
     return "AUTH_OK" if all(not str(v).startswith("FAIL") for v in report["auth"].values()) else "AUTH_FAILED"
 
 

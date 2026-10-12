@@ -247,7 +247,8 @@ def build_images(day, report):
 # ── Instagram ──────────────────────────────────────────────────────────────
 
 def instagram_client(probe=False):
-    return Instagram(os.environ.get("IG_USER_ID", "").strip(), os.environ.get("IG_ACCESS_TOKEN", "").strip(),
+    # 新ワークフローはシステムユーザーの META_ACCESS_TOKEN のみを使う (旧 IG_ACCESS_TOKEN は使わない)
+    return Instagram(os.environ.get("IG_USER_ID", "").strip(), os.environ.get("META_ACCESS_TOKEN", "").strip(),
                      dry_run=DRY_RUN, probe=probe)
 
 

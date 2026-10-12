@@ -286,6 +286,44 @@ class PostStateTest(unittest.TestCase):
         self.assertEqual(len(self.ig.published), 2)
 
 
+class ProbeSafetyTest(unittest.TestCase):
+    """IG_PROBE (DRY_RUN) may create private containers but must never publish or change posts."""
+
+    def test_probe_never_publishes(self):
+        from unittest import mock
+        from sg_calendar import instagram as ig_mod
+        calls = []
+
+        class Resp:
+            ok = True
+
+            def __init__(self, body):
+                self._b = body
+
+            def json(self):
+                return self._b
+
+        def fake_post(url, data=None, timeout=None):
+            calls.append(url.rsplit("/", 1)[-1])
+            return Resp({"id": f"c{len(calls)}", "success": True})
+
+        ig = ig_mod.Instagram("123", "tok", dry_run=True, probe=True)
+        with mock.patch.object(ig_mod.requests, "post", side_effect=fake_post):
+            self.assertTrue(ig.create_image("https://x/a.jpg", story=True))
+            self.assertTrue(ig.create_carousel(["c1", "c2"], "cap"))
+            self.assertIsNone(ig.publish("c1"))
+            self.assertFalse(ig.disable_comments("m1"))
+        self.assertEqual(calls, ["media", "media"])            # media_publish / コメント変更は送られない
+
+        rec = {}
+        poster = Poster(ig, rec, lambda r: None, publish=False, prepare=True)
+        with mock.patch.object(ig_mod.requests, "post", side_effect=fake_post), \
+                mock.patch.object(ig, "wait_finished", return_value="FINISHED"):
+            poster.run_item("STORY_1", lambda i: (i.create_image("https://x/s.jpg", story=True), None))
+        self.assertEqual(rec["items"]["STORY_1"]["state"], "prepared")
+        self.assertNotIn("media_publish", calls)
+
+
 class JpegTest(unittest.TestCase):
     def test_high_quality_jpeg(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -118,30 +118,14 @@ def check(include_canva):
         run("Canva (refresh + rotate + save)", canva_access_token)
     else:
         out["Canva"] = "SKIPPED: set CHECK_CANVA=true (consumes and rotates the one-time refresh token)"
-    if os.environ.get("IG_ACCESS_TOKEN"):
-        def instagram():
-            # 読み取りのみ: アカウント・権限・公開枠を確認する。投稿もコンテナ作成もしない
-            from sg_calendar.instagram import (COMMENT_PERMISSION, REQUIRED_PERMISSIONS, Instagram,
-                                               InstagramError)
-            ig = Instagram(os.environ.get("IG_USER_ID", "").strip(), os.environ["IG_ACCESS_TOKEN"].strip())
-            try:
-                out["Instagram account"] = f"@{ig.account().get('username')}"
-                granted = ig.permissions()
-                missing = [p for p in REQUIRED_PERMISSIONS if p not in granted]
-                out["Instagram permissions"] = ("OK" if not missing else f"MISSING {missing}") + \
-                    f"; comments control: {'OK' if COMMENT_PERMISSION in granted else 'MISSING ' + COMMENT_PERMISSION}"
-                used, total = ig.publishing_limit()
-                out["Instagram publishing quota (24h)"] = f"{used}/{total}"
-            except InstagramError as e:
-                raise AuthError(str(e)) from None
-            if missing:
-                raise AuthError(f"missing permissions {missing}")
-        run("Instagram (read-only)", instagram)
-    else:
-        out["Instagram"] = "SKIPPED: IG_ACCESS_TOKEN not set"
     if os.environ.get("META_ACCESS_TOKEN"):
         from sg_calendar.meta_check import run_check
-        out["Meta (META_ACCESS_TOKEN, read-only)"] = run_check()
+        meta = run_check()
+        out["Meta (META_ACCESS_TOKEN, read-only)"] = meta
+        if not str(meta.get("verdict", "")).startswith("READY"):
+            out["Meta verdict"] = f"FAIL: {meta.get('verdict')}"
+    else:
+        out["Meta"] = "FAIL: META_ACCESS_TOKEN not set"
     if os.environ.get("METRICOOL_USER_TOKEN"):
         def metricool():
             r = requests.get("https://app.metricool.com/api/admin/simpleProfiles",

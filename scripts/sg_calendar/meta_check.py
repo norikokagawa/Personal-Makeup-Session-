@@ -75,6 +75,7 @@ def run_check():
         out["permissions"] = f"FAIL: {err}"
     else:
         out["permissions"] = {p: ("OK" if p in granted else "MISSING") + f" — {why}" for p, why in NEEDED.items()}
+        out["granted_all"] = granted
 
     # 3. トークンの主体
     me, err = _get("me", token, fields="id,name")

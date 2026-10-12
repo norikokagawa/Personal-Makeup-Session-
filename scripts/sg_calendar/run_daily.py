@@ -128,7 +128,8 @@ def fetch_events():
 
 
 def current_ledger():
-    lg = ledger_mod.build_ledger(fetch_events(), *CONFIG["period"])
+    lg = ledger_mod.build_ledger(fetch_events(), *CONFIG["period"],
+                                 cancelled_in_stores=CONFIG.get("cancelled_in_stores", []))
     return ledger_mod.to_json(lg)
 
 

@@ -103,8 +103,11 @@ def parse_message(message_id, received_at, subject, body):
     return ev
 
 
-def build_ledger(events, period_start, period_end):
-    """Apply events in received order. Period bounds are 'YYYY-MM-DD' inclusive."""
+def build_ledger(events, period_start, period_end, cancelled_in_stores=()):
+    """Apply events in received order. Period bounds are 'YYYY-MM-DD' inclusive.
+
+    cancelled_in_stores: hashed reservation numbers (_key) that the owner cancelled in the
+    STORES dashboard. STORES sends no mail for those, so they are listed in the config."""
     ledger = Ledger()
     ledger.period = (period_start, period_end)
 
@@ -166,6 +169,12 @@ def build_ledger(events, period_start, period_end):
     ledger.reservations = {
         no: r for no, r in ledger.reservations.items()
         if in_period(r["slot"]) or any(in_period(s) for s in r.get("released", []))}
+
+    # 管理画面で取り消した予約 (メールが来ない) を反映
+    owner_cancelled = set(cancelled_in_stores)
+    for no, r in ledger.reservations.items():
+        if _key(no) in owner_cancelled:
+            r["state"] = KIND_CANCELLED
 
     # 同じ枠に2件以上の有効予約
     seen = {}

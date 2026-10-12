@@ -16,6 +16,17 @@
   "post_time": "05:00",
   "timezone": "Asia/Singapore",
   "delete_previous_feed": true,
-  "manual_closed": [],
-  "acknowledged_inquiries": []
+  "_cancelled_in_stores": "Reservations cancelled in the STORES dashboard (no mail is sent). Hashed reservation numbers: python3 -c \"import sys; sys.path.insert(0,'scripts'); from sg_calendar.ledger import _key; print(_key('NUMBER'))\"",
+  "cancelled_in_stores": [
+    "r414584f91b14"
+  ],
+  "manual_closed": [
+    [
+      "2026-11-08",
+      "17:00"
+    ]
+  ],
+  "acknowledged_inquiries": [
+    "1a12b734c679291d"
+  ]
 }

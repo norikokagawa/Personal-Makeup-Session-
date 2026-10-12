@@ -81,6 +81,15 @@ class LedgerTest(unittest.TestCase):
                              mail("4", 7, "12:00", "2026-10-01T00:00:00Z")], *PERIOD)
         self.assertEqual(len(lg.anomalies), 2)
 
+    def test_cancelled_in_stores_dashboard(self):
+        mails = [mail("1001", 29, "15:00", "2026-10-01T00:00:00Z"),
+                 mail("1002", 29, "15:00", "2026-10-02T00:00:00Z")]
+        self.assertTrue(L.build_ledger(mails, *PERIOD).anomalies)          # 二重予約
+        lg = L.build_ledger(mails, *PERIOD, cancelled_in_stores=[L._key("1001")])
+        self.assertEqual(lg.anomalies, [])
+        self.assertEqual(lg.reservations["1001"]["state"], L.KIND_CANCELLED)
+        self.assertEqual(lg.reservations["1002"]["state"], L.KIND_BOOKED)
+
     def test_json_round_trip(self):
         lg = L.build_ledger([mail("1", 6, "11:00", "2026-10-01T00:00:00Z")], *PERIOD)
         data = L.to_json(lg)

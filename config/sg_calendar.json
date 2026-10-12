@@ -14,6 +14,10 @@
     "2026-11-30"
   ],
   "post_time": "05:00",
+  "posting_window": [
+    "2026-10-14",
+    "2026-11-30"
+  ],
   "timezone": "Asia/Singapore",
   "delete_previous_feed": true,
   "_cancelled_in_stores": "Reservations cancelled in the STORES dashboard (no mail is sent). Hashed reservation numbers: python3 -c \"import sys; sys.path.insert(0,'scripts'); from sg_calendar.ledger import _key; print(_key('NUMBER'))\"",

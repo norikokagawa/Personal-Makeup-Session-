@@ -1,6 +1,6 @@
 # atelierR Singapore November Calendar — Daily Instagram Automation
 
-Status: **TEST MODE** (`DRY_RUN=true`, `AUTO_PUBLISH=false`, schedules commented out). The existing `daily-instagram-post.yml` / `scripts/daily_post.py`, the original Canva design and the Instagram account are untouched.
+Status: **LIVE** from 2026-10-14 to 2026-11-30 (`posting_window`): scheduled runs publish at 05:00 SGT. Push and manual runs stay `DRY_RUN` by default. The existing `daily-instagram-post.yml` / `scripts/daily_post.py`, the original Canva design and the Instagram account are untouched.
 
 ## What it does every morning
 

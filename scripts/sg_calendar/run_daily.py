@@ -181,7 +181,7 @@ def publish_time(now):
     return target if now < target else now
 
 
-def make_waiter(target, max_wait_min=50):
+def make_waiter(target, max_wait_min=58):
     """Sleep until `target` (SGT) before publishing; never sleeps longer than max_wait_min."""
     def wait():
         delay = (target - datetime.now(SGT)).total_seconds()
@@ -473,7 +473,10 @@ def main(mode):
     log(f"=== SG calendar {mode} {now:%Y-%m-%d %H:%M} SGT | DRY_RUN={DRY_RUN} "
         f"AUTO_PUBLISH={AUTO_PUBLISH} ===")
     try:
-        if mode == "auth-check":
+        lo, hi = CONFIG["posting_window"]
+        if mode in ("post", "watchdog") and not lo <= report["day"] <= hi:
+            status = "OUTSIDE_POSTING_WINDOW"          # 投稿期間外は何もしない
+        elif mode == "auth-check":
             status = step_auth_check(report)
         elif mode == "watchdog":
             status = step_watchdog(report)

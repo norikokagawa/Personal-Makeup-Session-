@@ -370,6 +370,7 @@ def step_post(report, now):
     try:
         data = current_ledger()
         booked, problems = booked_slots(data)
+        report["bookings"] = ledger_summary(data)
     except PermissionError as e:
         if not DRY_RUN:
             raise

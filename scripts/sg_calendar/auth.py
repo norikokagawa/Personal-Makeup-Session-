@@ -55,6 +55,9 @@ def check():
         out["Meta (META_ACCESS_TOKEN, read-only)"] = meta
         if not str(meta.get("verdict", "")).startswith("READY"):
             out["Meta verdict"] = f"FAIL: {meta.get('verdict')}"
+        days = (meta.get("token") or {}).get("days_left") if isinstance(meta.get("token"), dict) else None
+        if days is not None and days < 10:
+            out["Meta expiry"] = f"FAIL: META_ACCESS_TOKEN expires in {days} days — generate a new one"
     else:
         out["Meta"] = "FAIL: META_ACCESS_TOKEN not set"
     return out

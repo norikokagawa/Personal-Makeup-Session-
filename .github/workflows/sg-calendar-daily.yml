@@ -1,0 +1,129 @@
+name: SG November calendar — daily Instagram
+
+# 既存の daily-instagram-post.yml とは独立したワークフロー。
+# 本番移行はテスト成功・明示的な承認の後。承認までは schedule を有効にしない。
+# 毎朝必要なのは Gmail と Instagram (META_ACCESS_TOKEN) だけ。Canva には毎日アクセスしない。
+#   mode=post : Gmail → 台帳 → 元画像から1・2ページを合成・検証 → Instagram (05:00 SGT) → 前日分を削除
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'post (予約確認・画像・Instagram) / ledger (Gmail 台帳) / watchdog (公開確認) / auth-check (認証確認のみ)'
+        type: choice
+        options: [post, ledger, watchdog, auth-check]
+        default: post
+      dry_run:
+        description: 'DRY_RUN (true = Instagram・GitHub に書き込まない)'
+        type: boolean
+        default: true
+      auto_publish:
+        description: 'AUTO_PUBLISH (false = 画像保存と非公開コンテナ作成まで。公開しない)'
+        type: boolean
+        default: false
+      ig_probe:
+        description: 'DRY_RUN 中に Instagram の非公開コンテナ作成だけ試す (公開しない)'
+        type: boolean
+        default: false
+  # テスト期間中のみ: このブランチへの push で DRY_RUN を実行する。本番移行時に削除。
+  push:
+    branches: [claude/loving-franklin-wr0o7p]
+    paths:
+      - 'scripts/sg_calendar/**'
+      - 'config/sg_*'
+      - 'assets/sg_masters/*.png'
+      - 'tests/**'
+      - '.github/workflows/sg-calendar-daily.yml'
+  # 本番 (投稿期間は config/sg_calendar.json の posting_window。期間外は何もしない)。
+  # GitHub の定時実行は遅れることがあるので早めに起動し、05:00 まで待って公開する。
+  # 2回目は1回目が遅れた・落ちたときの予備 (投稿状態の記録で二重投稿しない)。
+  schedule:
+    - cron: '13 20 * * *'   # 04:13 SGT post
+    - cron: '37 20 * * *'   # 04:37 SGT post (予備)
+    - cron: '17 21 * * *'   # 05:17 SGT watchdog
+
+permissions:
+  contents: write   # instagram-media ブランチに状態・画像・実行記録を保存 (DRY_RUN では書かない)
+  issues: write     # 停止・失敗時の通知
+
+# 同時に2つ実行しない (二重投稿防止の記録を同時に書き換えないため)
+concurrency:
+  group: sg-calendar-daily
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75   # post は 05:00 まで最大50分待機する
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests Pillow numpy
+
+      - name: Unit tests
+        run: python -m unittest tests/test_sg_calendar.py
+
+      - name: Run
+        id: run
+        env:
+          # push (テスト用ブランチ): 認証確認 (Gmail・Meta を読み取りのみで確認し、予約を要約。投稿しない)
+          MODE: ${{ github.event_name == 'schedule' && (github.event.schedule == '17 21 * * *' && 'watchdog' || 'post') || (github.event_name == 'push' && 'auth-check') || inputs.mode || 'post' }}
+          # 定時実行は本番 (公開する)。push / 手動の既定は DRY_RUN
+          DRY_RUN: ${{ github.event_name == 'schedule' && 'false' || (github.event_name == 'push' && 'true' || inputs.dry_run) }}
+          AUTO_PUBLISH: ${{ github.event_name == 'schedule' && 'true' || (github.event_name == 'workflow_dispatch' && inputs.auto_publish || 'false') }}
+          AUTH_CHECK_LEDGER: 'true'     # auth-check で Gmail が通れば予約を読み取り専用で要約
+          IG_PROBE: ${{ github.event_name == 'workflow_dispatch' && inputs.ig_probe || 'false' }}
+          GMAIL_CLIENT_ID: ${{ secrets.GMAIL_CLIENT_ID }}
+          GMAIL_CLIENT_SECRET: ${{ secrets.GMAIL_CLIENT_SECRET }}
+          GMAIL_REFRESH_TOKEN: ${{ secrets.GMAIL_REFRESH_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+          SG_OUT_DIR: out
+        run: |
+          set +e
+          python scripts/sg_calendar/run_daily.py "$MODE"
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit $code
+
+      - name: Image check summary
+        if: always()
+        run: |
+          python - <<'EOF'
+          from pathlib import Path
+          from PIL import Image
+          for p in sorted([*Path("out").glob("*.png"), *Path("out").glob("*.jpg")]):
+              with Image.open(p) as im:
+                  print(f"{p.name}: {im.size[0]}x{im.size[1]} {im.format} {p.stat().st_size // 1024} KB")
+          EOF
+
+      - name: Upload report and images
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sg-calendar-${{ github.run_id }}
+          path: out/
+          if-no-files-found: ignore
+
+      # 停止 (exit 2) と失敗 (認証切れ等) は Issue で通知 → リポジトリ所有者にメールが届く
+      - name: Notify
+        if: failure() && github.event_name != 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CODE: ${{ steps.run.outputs.exit_code }}
+        run: |
+          if [ "$CODE" = "2" ]; then
+            title="SG calendar: 自動停止 — 予約情報の確認が必要 ($(date -u +%F))"
+          else
+            title="SG calendar: 実行失敗 / 認証切れの可能性 ($(date -u +%F))"
+          fi
+          body="Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          if [ -f out/report.json ]; then
+            body="$body"$'\n\n```json\n'"$(head -c 60000 out/report.json)"$'\n```'
+          fi
+          gh issue create --repo "${{ github.repository }}" --title "$title" --body "$body"

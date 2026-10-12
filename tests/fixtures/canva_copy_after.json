@@ -1,0 +1,184 @@
+{
+  "_comment": "TEST copy DAHXvZlAaxU after the 2026-10-11 test edits, as returned by edit-design (page 1 CBMVJ… struck, page 2 CBqpC… opened).",
+  "design_id": "DAHXvZlAaxU",
+  "pages": [
+    {
+      "page_id": "PBHB5tM9wW3v89p4",
+      "table_id": "LBhp08b4JQVkJzbS",
+      "others": [
+        "LB51vDrPbDnJKXTS shape",
+        "LBp4VNq2XDnyV4Nk SINGAPORE",
+        "LBzt21K3LW35ySC8 MARCH",
+        "LBHNDs4TfqY75k0v NOVEMBER",
+        "LBlqMXK6NHnDsYBY line"
+      ],
+      "rows": [
+        [
+          "A1|FRI|0|#545454|normal",
+          "B1|SAT|0|#545454|light",
+          "C1|SUN|0|#ff5757|light",
+          "D1|TUE|0|#545454|light",
+          "CB7f0XJyCctRr7Kg|WED|0|#545454|light",
+          "CBtXZqlbPfYBKlg6|thu|0|#545454|light",
+          "CB8rkhqgkTDf52b9|SAT|0|#545454|light",
+          "CB2xBDnpFM2MvtBY|SUN|0|#ff5757|light"
+        ],
+        [
+          "A2|6|0|#545454|normal",
+          "B2|7|0|#545454|normal",
+          "C2|8|0|#ff5757|normal",
+          "D2|10|0|#545454|normal",
+          "CBbpXqTqTVBKVVGX|11|0|#545454|normal",
+          "CBbh66JQvNkYqG3b|12|0|#545454|normal",
+          "CB0MpxzRJj1Dd8Dw|14|0|#545454|normal",
+          "CBlDppLK5dYGHPPX|15|0|#ff5757|normal"
+        ],
+        [
+          "A4|11:00|1|#ff5757|light",
+          "B4|11:00|1|#ff5757|light",
+          "C4|11:00|1|#ff5757|light",
+          "D4|11:00|1|#ff5757|light",
+          "CBt0xcWq9SjjVsNf|11:00|1|#ff5757|light",
+          "CBjMWSkNq42bzpFR|11:00|0|#545454|light",
+          "CB7KRz3cd6C3V03Y|11:00|1|#ff5757|light",
+          "CBMVJcDXbYyRw1wG|11:00|1|#ff5757|light"
+        ],
+        [
+          "A5|12:00|1|#ff5757|light",
+          "B5|12:00|1|#ff5757|light",
+          "C5|12:00|1|#ff5757|light",
+          "D5|12:00|1|#ff5757|light",
+          "CBLmXFpVPR92WfbG|12:00|1|#ff5757|light",
+          "CBlB1cCxDPqbDQRM|12:00|1|#ff5757|light",
+          "CBp4YkB9cqZjwv7P|12:00|1|#ff5757|light",
+          "CBy5cklsSbLs1gWv|12:00|0|#545454|light"
+        ],
+        [
+          "A6|1:00|1|#ff5757|light",
+          "B6|1:00|1|#ff5757|light",
+          "C6|1:00|0|#545454|light",
+          "D6|1:00|1|#ff5757|light",
+          "CBKFHVKPb6Sc9Gc8|1:00|0|#545454|light",
+          "CBKXW2mc8srjDbVY|1:00|0|#545454|light",
+          "CBZHC5wtfPgqD01y|1:00|0|#545454|light",
+          "CBvzkt2r2gC2SMW4|1:00|0|#545454|light"
+        ],
+        [
+          "A7|2:00|1|#ff5757|light",
+          "B7|3:00|1|#ff5757|light",
+          "C7|3:00|0|#545454|light",
+          "D7|2:00|1|#ff5757|normal",
+          "CBSJNb4rrXnbwQCD|2:00|0|#545454|normal",
+          "CBjbsKMZVvyqDWB4|2:00|0|#545454|normal",
+          "CBCQDC43qSTZgppx|3:00|1|#ff5757|light",
+          "CBcRpk14T9jHxpX2|3:00|0|#545454|light"
+        ],
+        [
+          "A8||",
+          "B8|4:00|1|#ff5757|light",
+          "C8|4:00|1|#ff5757|light",
+          "D8||",
+          "CB6077mMpgmDt8Xr||",
+          "CBxjxMpL9VHZ7F6T||",
+          "CBDtgzS4JMt13qZB|4:00|0|#545454|light",
+          "CBynZNQ8y0k5hPMy|4:00|0|#545454|light"
+        ],
+        [
+          "CBl0DNhlBqwGXYlP||",
+          "CBx41hb0KVcCw6lD|5:00|1|#ff5757|light",
+          "CB8Kr1qmZhy26xfs|5:00|1|#ff5757|light",
+          "CBrDn1vLz2wjgd0g||",
+          "CBR44cjqMQQxvz6N||",
+          "CBnys6GWbpynTntW||",
+          "CB96YJQhr4hl98qs|5:00|0|#545454|light",
+          "CB5SFmrktDj5f0qL|5:00|0|#545454|light"
+        ]
+      ]
+    },
+    {
+      "page_id": "PBj2PhcBGdkDymdm",
+      "table_id": "LBqlMKLtxn2d6cDB",
+      "others": [
+        "LBWqcCq78Vb077kB shape",
+        "LBbpbZGC4nLYmRxS SINGAPORE",
+        "LBfBTLLSFDsscmcH MARCH",
+        "LBqKHjDL5gbKZXt1 NOVEMBER",
+        "LBJmTNY68j1FPtwX line"
+      ],
+      "rows": [
+        [
+          "A1|Wed|0|#545454|light",
+          "B1|thu|0|#545454|light",
+          "C1|sat|0|#545454|light",
+          "D1|sun|0|#ff5757|light",
+          "E1|tue|0|#545454|normal",
+          "H1|sat|0|#545454|light",
+          "CBdPQxd4dGH05mFz|sun|0|#ff5757|light"
+        ],
+        [
+          "A2|18|0|#545454|normal",
+          "B2|19|0|#545454|normal",
+          "C2|21|0|#545454|normal",
+          "D2|22|0|#ff5757|normal",
+          "E2|24|0|#545454|normal",
+          "H2|28|0|#545454|normal",
+          "CB2dWBKlmN5wk31m|29|0|#ff5757|normal"
+        ],
+        [
+          "A3|11:00|0|#545454|light",
+          "B3|11:00|0|#545454|light",
+          "C3|11:00|1|#ff5757|light",
+          "D3|11:00|0|#545454|light",
+          "E3|11:00|1|#ff5757|light",
+          "H3|11:00|0|#545454|light",
+          "CBqpCklZm1Xpr1r9|11:00|0|#545454|light"
+        ],
+        [
+          "A4|12:00|0|#545454|light",
+          "B4|12:00|0|#545454|light",
+          "C4|12:00|0|#545454|light",
+          "D4|12:00|0|#545454|light",
+          "E4|12:00|0|#545454|light",
+          "H4|12:00|0|#545454|light",
+          "CB6v40gY1Q8l61C7|12:00|1|#ff5757|light"
+        ],
+        [
+          "A5|1:00|0|#545454|light",
+          "B5|1:00|0|#545454|light",
+          "C5|1:00|1|#ff5757|light",
+          "D5|1:00|1|#ff5757|light",
+          "E5|1:00|0|#545454|light",
+          "H5|1:00|0|#545454|light",
+          "CB6VQHdSxT77G80f|1:00|1|#ff5757|light"
+        ],
+        [
+          "A6|2:00|0|#545454|light",
+          "B6|2:00|0|#545454|light",
+          "C6|3:00|0|#545454|light",
+          "D6|3:00|0|#545454|light",
+          "E6|2:00|0|#545454|normal",
+          "H6|3:00|0|#545454|light",
+          "CBgNXtjSQk13PkJs|3:00|1|#ff5757|light"
+        ],
+        [
+          "A7||",
+          "B7||",
+          "C7|4:00|0|#545454|light",
+          "D7|4:00|1|#ff5757|light",
+          "E7||",
+          "H7|4:00|0|#545454|light",
+          "CBKzFqSZZtK47JhC|4:00|0|#545454|light"
+        ],
+        [
+          "A8||",
+          "B8||",
+          "C8|5:00|0|#545454|light",
+          "D8|5:00|0|#545454|light",
+          "E8||",
+          "H8|5:00|0|#545454|light",
+          "CBVnzwl7dykN4Lqj|5:00|0|#545454|light"
+        ]
+      ]
+    }
+  ]
+}

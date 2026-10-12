@@ -139,6 +139,9 @@ def check(include_canva):
         run("Instagram (read-only)", instagram)
     else:
         out["Instagram"] = "SKIPPED: IG_ACCESS_TOKEN not set"
+    if os.environ.get("META_ACCESS_TOKEN"):
+        from sg_calendar.meta_check import run_check
+        out["Meta (META_ACCESS_TOKEN, read-only)"] = run_check()
     if os.environ.get("METRICOOL_USER_TOKEN"):
         def metricool():
             r = requests.get("https://app.metricool.com/api/admin/simpleProfiles",

@@ -427,7 +427,7 @@ def mask(obj):
 
 def step_auth_check(report):
     report["auth"] = auth.check(include_canva=os.environ.get("CHECK_CANVA", "").lower() == "true")
-    return "AUTH_OK" if all(not v.startswith("FAIL") for v in report["auth"].values()) else "AUTH_FAILED"
+    return "AUTH_OK" if all(not str(v).startswith("FAIL") for v in report["auth"].values()) else "AUTH_FAILED"
 
 
 def main(mode):

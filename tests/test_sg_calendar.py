@@ -220,7 +220,7 @@ def run_all(poster):
     for key in ("FEED", "STORY_1", "STORY_2"):
         try:
             poster.run_item(key, lambda ig: (ig._new(), None))
-        except InstagramError as e:
+        except InstagramError:
             errors.append(key)
     return errors
 

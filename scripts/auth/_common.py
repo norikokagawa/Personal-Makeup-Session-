@@ -91,8 +91,11 @@ def set_secret(name, value):
 2. 一覧の {name} の右にある鉛筆アイコン (Update) を押します
    (一覧にない場合は「New repository secret」→ Name に {name})
 3. 値の欄をクリックして ⌘ + V で貼り付け → 「Update secret」(または「Add secret」) を押します
+4. 一覧に戻ったら、{name} の右の「Last updated」が「now」になっていることを確認します
 ──────────────────────────────────────────────""")
-    input("保存できたら Enter キーを押してください (クリップボードを消去します): ")
+    while not confirm(f"{name} の Last updated が「now」になりましたか"):
+        print(f"  → まだ保存されていません。もう一度 {name} の鉛筆アイコンから ⌘ + V で貼り付けて保存してください。")
+        subprocess.run(["pbcopy"], input=value, text=True, check=True)
     subprocess.run(["pbcopy"], input="", text=True, check=True)
     print(f"✓ {name} を保存し、クリップボードを消去しました")
 

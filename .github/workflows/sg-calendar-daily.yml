@@ -2,23 +2,18 @@ name: SG November calendar — daily Instagram (TEST MODE)
 
 # 既存の daily-instagram-post.yml とは独立したワークフロー。
 # 本番移行はテスト成功・明示的な承認の後。承認までは schedule を有効にしない。
-#   04:00 SGT (20:00 UTC 前日)  mode=ledger : Gmail → 台帳
-#   04:15 SGT                   Claude 定期実行: Canva 1・2ページの横線を更新・検証・保存
-#   04:40 SGT (20:40 UTC 前日)  mode=post   : 照合 → 高画質書き出し → Metricool (05:00 SGT)
+# 毎朝必要なのは Gmail と Instagram (META_ACCESS_TOKEN) だけ。Canva には毎日アクセスしない。
+#   mode=post : Gmail → 台帳 → 元画像から1・2ページを合成・検証 → Instagram (05:00 SGT) → 前日分を削除
 on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'post (照合・画像・Instagram) / ledger (Gmail 台帳) / watchdog (公開確認) / auth-check (認証確認のみ)'
+        description: 'post (予約確認・画像・Instagram) / ledger (Gmail 台帳) / watchdog (公開確認) / auth-check (認証確認のみ)'
         type: choice
         options: [post, ledger, watchdog, auth-check]
         default: post
-      check_canva:
-        description: 'auth-check で Canva も確認する (1回限りの refresh token を消費・更新して保存)'
-        type: boolean
-        default: false
       dry_run:
-        description: 'DRY_RUN (true = 書き込みなし、Canva はテスト用コピー)'
+        description: 'DRY_RUN (true = Instagram・GitHub に書き込まない)'
         type: boolean
         default: true
       auto_publish:
@@ -35,23 +30,23 @@ on:
     paths:
       - 'scripts/sg_calendar/**'
       - 'config/sg_*'
+      - 'assets/sg_masters/*.png'
       - 'tests/**'
       - '.github/workflows/sg-calendar-daily.yml'
-  # GitHub の定時実行は遅延・欠落があるため「予備」。主経路は docs/SG_SCHEDULING.md 参照。
-  # 二重に起動しても投稿状態の記録で重複しない。
+  # 本番移行時に有効にする。GitHub の定時実行は遅れることがあるので早めに起動し、05:00 まで待って公開する。
+  # 2回目は1回目が遅れた・落ちたときの予備 (投稿状態の記録で二重投稿しない)。cron-job.org からの起動も予備。
   # schedule:
-  #   - cron: '7 20 * * *'    # 04:07 SGT ledger (予備)
-  #   - cron: '23 20 * * *'   # 04:23 SGT post   (予備)
+  #   - cron: '7 20 * * *'    # 04:07 SGT post
+  #   - cron: '31 20 * * *'   # 04:31 SGT post (予備)
   #   - cron: '17 21 * * *'   # 05:17 SGT watchdog
 
 permissions:
   contents: write   # instagram-media ブランチに状態・画像・実行記録を保存 (DRY_RUN では書かない)
   issues: write     # 停止・失敗時の通知
 
-# Canva の refresh token は1回限りなので、同時に2つ実行しない
-# (既存の daily-instagram-post.yml も同じ token を使う。テスト中は同時に手動実行しないこと)
+# 同時に2つ実行しない (二重投稿防止の記録を同時に書き換えないため)
 concurrency:
-  group: canva-refresh-token
+  group: sg-calendar-daily
   cancel-in-progress: false
 
 jobs:
@@ -66,7 +61,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install requests pytz PyNaCl Pillow
+        run: pip install requests Pillow numpy
 
       - name: Unit tests
         run: python -m unittest tests/test_sg_calendar.py
@@ -74,28 +69,18 @@ jobs:
       - name: Run
         id: run
         env:
-          # push (テスト用ブランチ) は認証確認のみ。画像テストは一時ファイルがあるときだけ post で行う
-          MODE: ${{ github.event_name == 'schedule' && (github.event.schedule == '7 20 * * *' && 'ledger' || (github.event.schedule == '17 21 * * *' && 'watchdog' || 'post')) || (github.event_name == 'push' && (hashFiles('tests/fixtures/test_export_urls.json') != '' && 'post' || 'auth-check')) || inputs.mode || 'post' }}
+          # push (テスト用ブランチ): 元画像があれば post の DRY_RUN (画像を作るだけ)、なければ認証確認
+          MODE: ${{ github.event_name == 'schedule' && (github.event.schedule == '17 21 * * *' && 'watchdog' || 'post') || (github.event_name == 'push' && (hashFiles('assets/sg_masters/open_p1.png') != '' && 'post' || 'auth-check')) || inputs.mode || 'post' }}
           # schedule は本番移行時に値を見直す。push / 手動の既定は DRY_RUN
           DRY_RUN: ${{ github.event_name == 'schedule' && 'false' || (github.event_name == 'push' && 'true' || inputs.dry_run) }}
           AUTO_PUBLISH: ${{ github.event_name == 'workflow_dispatch' && inputs.auto_publish || 'false' }}
-          CHECK_CANVA: ${{ inputs.check_canva || 'false' }}
           AUTH_CHECK_LEDGER: 'true'     # auth-check で Gmail が通れば予約を読み取り専用で要約
-          IG_PROBE: ${{ (github.event_name == 'push' && hashFiles('tests/fixtures/test_export_urls.json') != '') && 'true' || inputs.ig_probe || 'false' }}
-          TEST_EXPORT_URLS_FILE: ${{ github.event_name == 'push' && 'tests/fixtures/test_export_urls.json' || '' }}
-          CANVA_STATE_FILE: ${{ github.event_name == 'push' && 'tests/fixtures/canva_state_test.json' || '' }}
-          CANVA_CLIENT_ID: ${{ secrets.CANVA_CLIENT_ID }}
-          CANVA_CLIENT_SECRET: ${{ secrets.CANVA_CLIENT_SECRET }}
-          CANVA_REFRESH_TOKEN: ${{ secrets.CANVA_REFRESH_TOKEN }}
+          IG_PROBE: ${{ github.event_name == 'workflow_dispatch' && inputs.ig_probe || 'false' }}
           GMAIL_CLIENT_ID: ${{ secrets.GMAIL_CLIENT_ID }}
           GMAIL_CLIENT_SECRET: ${{ secrets.GMAIL_CLIENT_SECRET }}
           GMAIL_REFRESH_TOKEN: ${{ secrets.GMAIL_REFRESH_TOKEN }}
           IG_USER_ID: ${{ secrets.IG_USER_ID }}
           META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
-          METRICOOL_USER_TOKEN: ${{ secrets.METRICOOL_USER_TOKEN }}
-          METRICOOL_USER_ID: ${{ secrets.METRICOOL_USER_ID }}
-          METRICOOL_BLOG_ID: ${{ secrets.METRICOOL_BLOG_ID }}
-          GH_PAT: ${{ secrets.GH_PAT }}
           GITHUB_TOKEN: ${{ github.token }}
           SG_OUT_DIR: out
         run: |

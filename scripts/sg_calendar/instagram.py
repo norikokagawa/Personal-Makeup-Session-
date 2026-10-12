@@ -6,7 +6,8 @@ Instagram 公式 API (Graph API / Facebook ログイン方式) — 既存 daily_
 既存実装との違い:
 - コンテナ ID を記録してから公開するので、途中で止まっても再実行で二重投稿しない
   (公開済みコンテナの status_code は PUBLISHED になり、再公開できない)
-- ストーリーズ (media_type=STORIES)、公開後のコメントオフ (comment_enabled=false) に対応
+- ストーリーズ (media_type=STORIES)、公開後のコメントオフ (comment_enabled=false)、
+  前日の自分の投稿の削除 (DELETE /{media-id}) に対応
 - dry_run では書き込み系 (POST) を一切呼ばない。probe=True のときだけ非公開のコンテナ作成まで行う
 - エラーにはトークンを含めない (Graph API のエラーコードのみ)
 """
@@ -18,6 +19,7 @@ import requests
 GRAPH = f"https://graph.facebook.com/{os.environ.get('IG_GRAPH_VERSION', 'v23.0')}"
 REQUIRED_PERMISSIONS = ("instagram_basic", "instagram_content_publish", "pages_show_list")
 COMMENT_PERMISSION = "instagram_manage_comments"
+DELETE_PERMISSION = "instagram_manage_contents"     # 前日の投稿の削除に必要とされる権限 (初回の削除で確認する)
 
 
 class InstagramError(RuntimeError):
@@ -74,6 +76,9 @@ class Instagram:
         """Stories currently live (last 24h)."""
         return self._get(f"{self.uid}/stories", fields="id,timestamp,media_type").get("data", [])
 
+    def media_info(self, media_id):
+        return self._get(media_id, fields="id,media_type,caption,timestamp")
+
     def container_status(self, container_id):
         return self._get(container_id, fields="status_code").get("status_code", "UNKNOWN")
 
@@ -123,3 +128,15 @@ class Instagram:
     def disable_comments(self, media_id):
         res = self._post(media_id, {"comment_enabled": "false"}, "disable comments")
         return bool(res and res.get("success"))
+
+    def delete_media(self, media_id):
+        """Delete one of our own feed posts (never called in dry_run, not even in probe)."""
+        if self.dry_run:
+            return False
+        try:
+            r = requests.delete(f"{GRAPH}/{media_id}", params={"access_token": self.token}, timeout=60)
+        except requests.RequestException as e:
+            raise InstagramError(f"delete media: network error ({type(e).__name__})", ambiguous=True) from None
+        if not r.ok:
+            _raise(r, "delete media")
+        return bool(r.json().get("success"))

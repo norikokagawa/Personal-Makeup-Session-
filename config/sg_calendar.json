@@ -1,11 +1,21 @@
 {
-  "_comment": "Singapore November calendar automation. Pages 1-2 of the production design are updated automatically; page 3 (Sydney) is never touched. In DRY_RUN the Canva step works on the TEST copy only.",
+  "_comment": "Singapore November calendar automation. Daily images are composed from two fixed master exports of pages 1-2 (assets/sg_masters/); the Canva designs are not touched day to day. Page 3 (Sydney) is never used.",
   "design_id": "DAGsRHlSvkw",
-  "test_design_id": "DAHXvZlAaxU",
-  "pages": [1, 2],
-  "period": ["2026-11-06", "2026-11-30"],
+  "masters": {
+    "open": "DAHX1S2EPR0",
+    "booked": "DAHX1QJavPQ"
+  },
+  "pages": [
+    1,
+    2
+  ],
+  "period": [
+    "2026-11-06",
+    "2026-11-30"
+  ],
   "post_time": "05:00",
   "timezone": "Asia/Singapore",
+  "delete_previous_feed": true,
   "manual_closed": [],
   "acknowledged_inquiries": []
 }

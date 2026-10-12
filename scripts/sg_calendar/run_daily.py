@@ -2,21 +2,22 @@
 """
 atelierR Singapore November calendar — daily run (Asia/Singapore)
 
-毎朝の流れ (本番。起動経路は docs/SG_SCHEDULING.md):
-  ledger    Gmail の STORES メール → 予約番号単位の台帳 → state/ledger.json (instagram-media ブランチ)
-  (Canva)   Claude 定期実行 docs/SG_CANVA_ROUTINE.md: 台帳と Canva 1・2ページ目を照合 → 横線だけ更新
-            → 検証 → 保存 → state/canva_state.json
-  post      Gmail を再確認し、最後に検証した Canva 状態と一致することを確認
-            → 1・2ページを高画質書き出し・検証 → JPEG (フィード 1080x1350 / ストーリーズ 1080x1920)
+毎朝の流れ (GitHub Actions だけで完結。Canva・Claude には毎日アクセスしない):
+  post      Gmail の STORES メール → 予約番号単位の台帳
+            → 予約済みの枠 (+ 手動で閉じた枠) を決める
+            → 2枚の元画像 (全部空き / 全部予約済み、assets/sg_masters/) から枠ごとに切り貼りして
+              1・2ページを作り、画素単位で検証 → JPEG (フィード 1080x1350 / ストーリーズ 1080x1920)
             → Instagram 公式 API: コンテナ作成 (非公開) → 05:00 SGT まで待機 → 公開
               フィード (2枚カルーセル)・ストーリーズ2本を個別に状態管理 (post_state.py) → コメントオフ
+            → 前日までにこの仕組みが投稿したフィードを削除 (自分の記録にある投稿だけ)
+  ledger    台帳だけ作って保存・確認 (投稿しない)
   watchdog  05:00 以降に3件すべて公開済みか確認し、そうでなければ失敗 (= 通知)
 
 止める条件: 台帳の矛盾 (同じ枠に2件・元予約のない変更/キャンセル)、未確定の変更・キャンセル依頼、
-            デザインにない日時の予約、最後の Canva 更新以降に予約が変わった、画像検証の失敗。
+            カレンダーにない日時の予約、画像検証の失敗。
             止めたときは exit 2 → ワークフローが Issue で通知する。
 
-安全設定: DRY_RUN=true (既定) は Instagram・GitHub に一切書き込まず、Canva はテスト用コピーを使う。
+安全設定: DRY_RUN=true (既定) は Instagram・GitHub に一切書き込まない。
             IG_PROBE=true のときだけ、非公開のコンテナ作成 (公開はしない) まで Instagram に送る。
           DRY_RUN=false + AUTO_PUBLISH=false は、画像の保存とコンテナ作成までで公開しない (非公開リハーサル)。
           DRY_RUN=false + AUTO_PUBLISH=true で初めて公開する。
@@ -33,7 +34,7 @@ from zoneinfo import ZoneInfo
 import requests
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from sg_calendar import auth, canva_doc, images, ledger as ledger_mod  # noqa: E402
+from sg_calendar import auth, compose, images, ledger as ledger_mod  # noqa: E402
 from sg_calendar.instagram import Instagram  # noqa: E402
 from sg_calendar.post_state import ITEMS, Poster  # noqa: E402
 
@@ -45,9 +46,8 @@ OUT = Path(os.environ.get("SG_OUT_DIR", ROOT / "out"))
 
 DRY_RUN = os.environ.get("DRY_RUN", "true").lower() != "false"
 AUTO_PUBLISH = os.environ.get("AUTO_PUBLISH", "false").lower() == "true"
-DESIGN_ID = CONFIG["test_design_id"] if DRY_RUN else CONFIG["design_id"]
+MASTERS = Path(os.environ.get("SG_MASTERS_DIR", ROOT / "assets" / "sg_masters"))
 
-CANVA_API = "https://api.canva.com/rest/v1"
 GMAIL_API = "https://gmail.googleapis.com/gmail/v1"
 GITHUB_API = "https://api.github.com"
 MEDIA_BRANCH = os.environ.get("MEDIA_BRANCH", "instagram-media")
@@ -108,41 +108,6 @@ def fetch_events():
 def current_ledger():
     lg = ledger_mod.build_ledger(fetch_events(), *CONFIG["period"])
     return ledger_mod.to_json(lg)
-
-
-# ── Canva (Connect API: export only) ───────────────────────────────────────
-
-def canva_token():
-    # 1回限りの refresh token を消費し、新しい token を Secrets に保存 (失敗したら停止)
-    return auth.canva_access_token()
-
-
-def export_pages(design_id, pages, dest_dir, day):
-    h = {"Authorization": f"Bearer {canva_token()}"}
-    r = requests.post(f"{CANVA_API}/exports", headers=h, timeout=60, json={
-        "design_id": design_id,
-        "format": {"type": "png", "pages": pages, "width": 1080, "height": 1350,
-                   "export_quality": "pro", "lossless": True},
-    })
-    r.raise_for_status()
-    job = r.json()["job"]["id"]
-    for _ in range(40):
-        time.sleep(3)
-        s = requests.get(f"{CANVA_API}/exports/{job}", headers=h, timeout=30).json()["job"]
-        if s["status"] == "success":
-            if len(s["urls"]) != len(pages):
-                raise RuntimeError(f"Canva returned {len(s['urls'])} files for {len(pages)} pages")
-            paths = []
-            for page, url in zip(pages, s["urls"]):
-                img = requests.get(url, timeout=60)
-                img.raise_for_status()
-                p = dest_dir / f"sg_feed_p{page}_{day}.png"
-                p.write_bytes(img.content)
-                paths.append(p)
-            return paths
-        if s["status"] == "failed":
-            raise RuntimeError(f"Canva export failed: {s}")
-    raise TimeoutError("Canva export timed out")
 
 
 # ── GitHub media branch (public image URLs, state, run records) ────────────
@@ -207,28 +172,34 @@ def make_waiter(target, max_wait_min=50):
 
 # ── Images ─────────────────────────────────────────────────────────────────
 
-def download_test_exports(day):
-    """DRY_RUN only: official Canva export URLs produced by the Canva connector (file not logged)."""
-    urls = json.loads(Path(ROOT / os.environ["TEST_EXPORT_URLS_FILE"]).read_text())["urls"]
-    paths = []
-    for page, url in zip(CONFIG["pages"], urls):
-        r = requests.get(url, timeout=60)
-        r.raise_for_status()
+def booked_slots(data):
+    """(booked {(date, time)}, blockers) from the ledger: active bookings + manually closed slots."""
+    layout = compose.load_layout()
+    on_calendar = {(sl["date"], sl["time"]) for pg in layout["pages"] for sl in pg["slots"]}
+    blockers = list(data["anomalies"])
+    blockers += [f"unconfirmed change/cancel request in mail {m}" for m in data["pending_requests"]
+                 if m not in CONFIG["acknowledged_inquiries"]]
+    lo, hi = data["period"]
+    booked = set()
+    for r in data["reservations"].values():
+        if r["state"] != "cancelled" and lo <= r["slot"][0] <= hi:
+            booked.add(tuple(r["slot"]))
+    for d, t in sorted(booked - on_calendar):
+        blockers.append(f"booking at {d} {t} has no slot on the calendar")
+    manual = {tuple(m) for m in CONFIG["manual_closed"]}
+    for d, t in sorted(manual - on_calendar):
+        blockers.append(f"manual_closed {d} {t} is not a slot on the calendar (check config)")
+    return (booked | manual) & on_calendar, blockers
+
+
+def build_images(day, report, booked):
+    """Pages 1-2 from the master images → verify → JPEG feed + 1080x1920 JPEG stories."""
+    pages = compose.build_pages(MASTERS, booked, OUT / "pages")
+    pngs = []
+    for page, src in zip(CONFIG["pages"], pages):
         p = OUT / f"sg_feed_p{page}_{day}.png"
-        p.write_bytes(r.content)
-        paths.append(p)
-    return paths
-
-
-def build_images(day, report):
-    """Export pages 1-2 (official, high quality) → verify → JPEG feed + 1080x1920 JPEG stories."""
-    test_file = os.environ.get("TEST_EXPORT_URLS_FILE")
-    if DRY_RUN and test_file and (ROOT / test_file).exists():
-        pngs = download_test_exports(day)
-        source = "Canva connector export (pro, 1080x1350) of the TEST copy"
-    else:
-        pngs = export_pages(DESIGN_ID, CONFIG["pages"], OUT, day)
-        source = "Canva Connect export (pro, 1080x1350)"
+        src.replace(p)
+        pngs.append(p)
     for p in pngs:
         images.verify_feed(p)
     images.assert_pages_differ(*pngs)
@@ -240,7 +211,8 @@ def build_images(day, report):
         checks[f"feed_p{page}"] = f"1080x1350 JPEG q95 4:4:4, PSNR {images.to_jpeg(png, feed_jpg)} dB"
         checks[f"story_p{page}"] = f"1080x1920 JPEG, full page unscaled, PSNR {images.to_jpeg(story_png, story_jpg)} dB"
         files[f"feed_p{page}"], files[f"story_p{page}"] = feed_jpg, story_jpg
-    report["images"] = {"source": source, "checks": checks}
+    report["images"] = {"source": "master images (Canva export, pro, lossless) composed per slot",
+                        "booked_slots": len(booked), "checks": checks}
     return files
 
 
@@ -329,29 +301,48 @@ def post_to_instagram(report, day, files, now):
             if mid:
                 poster._set("FEED", media_id=mid)
         poster.comments_off("FEED")
+    if poster.item("FEED")["state"] == "published" or DRY_RUN:
+        done, problems = delete_previous_feeds(ig, day, caption)
+        report["previous_feed"] = {"done": done, "problems": problems}
     report["instagram"] = poster.summary()
     report["instagram_errors"] = errors
     return errors
 
 
-def check_against_canva(data, state):
-    """Problems that mean the calendar on Canva may not match the current bookings.
+def delete_previous_feeds(ig, day, caption):
+    """After today's feed is live: delete the feed posts this system published on earlier days.
 
-    The Canva step need not have run today: if bookings have not changed since the last
-    verified Canva state, the calendar is still correct and is posted as usual."""
-    if state is None:
-        return ["no Canva state recorded (Canva step never completed)"]
-    problems = []
-    if state["design_id"] != DESIGN_ID:
-        problems.append(f"Canva state is for {state['design_id']}, expected {DESIGN_ID}")
-    if state["ledger_fingerprint"] != ledger_mod.fingerprint(data):
-        problems.append("bookings changed since the last verified Canva update")
-    p = canva_doc.plan(ledger_mod.from_json(data), canva_doc.grid(state["snapshot"]),
-                       CONFIG["manual_closed"], CONFIG["acknowledged_inquiries"])
-    problems += p["blockers"]
-    if p["strike"] or p["unstrike"]:
-        problems.append(f"Canva differs from bookings: strike {p['strike']} unstrike {p['unstrike']}")
-    return problems
+    Only media IDs from our own records are touched, and only if Instagram still reports them as
+    our carousel with our caption. Returns (done, problems)."""
+    done, problems = [], []
+    if not CONFIG.get("delete_previous_feed"):
+        return done, problems
+    today = datetime.strptime(day, "%Y-%m-%d")
+    for back in range(1, 8):
+        d = (today - timedelta(days=back)).strftime("%Y-%m-%d")
+        rec = load_record(d)
+        feed = rec.get("items", {}).get("FEED", {})
+        mid = feed.get("media_id")
+        if feed.get("state") != "published" or not mid or feed.get("deleted_at"):
+            continue
+        if DRY_RUN:
+            done.append(f"{d}: would delete")
+            continue
+        save = record_saver(d)
+        try:
+            info = ig.media_info(mid)
+            if info.get("media_type") != "CAROUSEL_ALBUM" or (info.get("caption") or "").strip() != caption:
+                problems.append(f"{d}: not deleted — the post no longer looks like ours (type/caption changed)")
+                continue
+            if not ig.delete_media(mid):
+                raise RuntimeError("Instagram did not confirm the deletion")
+            feed.update(deleted_at=datetime.now(SGT).isoformat(timespec="seconds"), delete_error=None)
+            done.append(f"{d}: deleted")
+        except Exception as e:
+            feed["delete_error"] = str(e)
+            problems.append(f"{d}: delete failed — {e}")
+        save(rec)
+    return done, problems
 
 
 # ── Steps ──────────────────────────────────────────────────────────────────
@@ -364,18 +355,10 @@ def step_ledger(report):
         ensure_media_branch()
         put_branch_file("state/ledger.json", json.dumps(data, ensure_ascii=False, indent=2).encode(),
                         f"SG ledger {report['day']}")
-    blockers = data["anomalies"] + [f"unconfirmed change/cancel request in mail {m}"
-                                    for m in data["pending_requests"]
-                                    if m not in CONFIG["acknowledged_inquiries"]]
+    booked, blockers = booked_slots(data)
+    report["booked_slots"] = len(booked)
     report["blockers"] = blockers
     return ("STOPPED" if not DRY_RUN else "WOULD_STOP") if blockers else "LEDGER_OK"
-
-
-def load_canva_state():
-    if os.environ.get("CANVA_STATE_FILE"):              # テスト用: リポジトリ内のファイル
-        return json.loads(Path(ROOT / os.environ["CANVA_STATE_FILE"]).read_text())
-    raw = read_branch_file("state/canva_state.json")
-    return json.loads(raw) if raw else None
 
 
 def step_post(report, now):
@@ -386,16 +369,16 @@ def step_post(report, now):
         return "ALREADY_POSTED"                     # 予備のトリガーで再実行されても何もしない
     try:
         data = current_ledger()
-        problems = check_against_canva(data, load_canva_state())
+        booked, problems = booked_slots(data)
     except PermissionError as e:
         if not DRY_RUN:
             raise
-        problems = [f"AUTH ERROR: {e}"]             # DRY_RUN: 記録したうえで後続の工程も試す
+        booked, problems = set(), [f"AUTH ERROR: {e}"]   # DRY_RUN: 記録したうえで後続の工程も試す
     report["checks"] = problems
     if problems and not DRY_RUN:
         return "STOPPED"
 
-    files = build_images(day, report)
+    files = build_images(day, report, booked)
     try:
         errors = post_to_instagram(report, day, files, now)
     except PermissionError:
@@ -409,6 +392,8 @@ def step_post(report, now):
         return "WOULD_STOP"
     if errors:
         return "WOULD_FAIL" if DRY_RUN else "FAILED"
+    if report.get("previous_feed", {}).get("problems"):
+        return "PUBLISHED_OLD_POST_NOT_DELETED"     # 投稿は成功。前日分は手動で削除してもらう (通知)
     return "DRY_RUN_OK" if DRY_RUN else ("PUBLISHED" if AUTO_PUBLISH else "PREPARED_NOT_PUBLISHED")
 
 
@@ -444,7 +429,7 @@ def ledger_summary(data):
 
 
 def step_auth_check(report):
-    report["auth"] = auth.check(include_canva=os.environ.get("CHECK_CANVA", "").lower() == "true")
+    report["auth"] = auth.check()
     # Gmail が通ったら、11/6〜30 の予約を読み取り専用で取得して要約する (書き込みは一切しない)
     if report["auth"].get("Gmail") == "OK" and os.environ.get("AUTH_CHECK_LEDGER", "").lower() == "true":
         try:
@@ -460,9 +445,9 @@ def main(mode):
     now = datetime.now(SGT)
     OUT.mkdir(parents=True, exist_ok=True)
     report = {"mode": mode, "run_at": now.isoformat(), "day": now.strftime("%Y-%m-%d"),
-              "dry_run": DRY_RUN, "auto_publish": AUTO_PUBLISH, "design_id": DESIGN_ID}
+              "dry_run": DRY_RUN, "auto_publish": AUTO_PUBLISH}
     log(f"=== SG calendar {mode} {now:%Y-%m-%d %H:%M} SGT | DRY_RUN={DRY_RUN} "
-        f"AUTO_PUBLISH={AUTO_PUBLISH} design={DESIGN_ID} ===")
+        f"AUTO_PUBLISH={AUTO_PUBLISH} ===")
     try:
         if mode == "auth-check":
             status = step_auth_check(report)
@@ -479,7 +464,7 @@ def main(mode):
     public = mask(report)
     (OUT / "report.json").write_text(json.dumps(public, ensure_ascii=False, indent=2))
     log(json.dumps(public, ensure_ascii=False, indent=2))
-    if status in ("AUTH_FAILED", "FAILED", "NOT_PUBLISHED"):
+    if status in ("AUTH_FAILED", "FAILED", "NOT_PUBLISHED", "PUBLISHED_OLD_POST_NOT_DELETED"):
         return EXIT_FAIL
     return EXIT_STOPPED if status == "STOPPED" else EXIT_OK
 

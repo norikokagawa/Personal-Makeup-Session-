@@ -345,3 +345,125 @@ class JpegTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# ── composing pages from the master images ─────────────────────────────────
+
+from sg_calendar import compose, run_daily as RD  # noqa: E402
+
+THUMBS = FIX / "masters_thumb"      # Canva previews (480x600) of the two master copies
+
+
+class ComposeTest(unittest.TestCase):
+    def setUp(self):
+        self.layout = compose.load_layout()
+
+    def masters(self, n):
+        return Image.open(THUMBS / f"open_p{n}.png"), Image.open(THUMBS / f"booked_p{n}.png")
+
+    def test_every_layout_slot_is_found(self):
+        for pl in self.layout["pages"]:
+            boxes = compose.slot_boxes(*self.masters(pl["page"]), pl)
+            self.assertEqual(set(boxes), {(s["date"], s["time"]) for s in pl["slots"]})
+
+    def test_only_booked_slots_change(self):
+        booked = {("2026-11-06", "11:00"), ("2026-11-29", "15:00")}
+        with tempfile.TemporaryDirectory() as d:
+            p1, p2 = compose.build_pages(THUMBS, booked, d, self.layout)
+            o1, b1 = self.masters(1)
+            boxes = compose.slot_boxes(o1, b1, self.layout["pages"][0])
+            img = Image.open(p1)
+            compose.verify(img, o1, b1, boxes, {("2026-11-06", "11:00")})
+            with self.assertRaises(compose.ComposeError):        # 違う枠の組み合わせでは一致しない
+                compose.verify(img, o1, b1, boxes, set())
+
+    def test_slot_not_on_calendar_is_rejected(self):
+        with tempfile.TemporaryDirectory() as d, self.assertRaises(compose.ComposeError):
+            compose.build_pages(THUMBS, {("2026-11-09", "11:00")}, d, self.layout)
+
+    def test_layout_mismatch_is_rejected(self):
+        pl = json.loads(json.dumps(self.layout["pages"][0]))
+        pl["slots"].pop()
+        with self.assertRaises(compose.ComposeError):
+            compose.slot_boxes(*self.masters(1), pl)
+
+    def test_masters_differing_elsewhere_are_rejected(self):
+        o, b = self.masters(1)
+        b = b.copy()
+        b.putpixel((10, 10), (0, 0, 0))
+        with self.assertRaises(compose.ComposeError):
+            compose.slot_boxes(o, b, self.layout["pages"][0])
+
+
+class BookedSlotsTest(unittest.TestCase):
+    def data(self, mails):
+        return L.to_json(L.build_ledger(mails, *PERIOD))
+
+    def test_active_bookings_and_manual_closed(self):
+        d = self.data([mail("1001", 6, "11:00", "2026-10-01T00:00:00Z")])
+        old = RD.CONFIG["manual_closed"]
+        RD.CONFIG["manual_closed"] = [["2026-11-07", "12:00"]]
+        try:
+            booked, blockers = RD.booked_slots(d)
+        finally:
+            RD.CONFIG["manual_closed"] = old
+        self.assertEqual(booked, {("2026-11-06", "11:00"), ("2026-11-07", "12:00")})
+        self.assertEqual(blockers, [])
+
+    def test_double_booking_and_unknown_slot_stop(self):
+        d = self.data([mail("1001", 29, "15:00", "2026-10-01T00:00:00Z"),
+                       mail("1002", 29, "15:00", "2026-10-02T00:00:00Z"),
+                       mail("1003", 9, "11:00", "2026-10-02T00:00:00Z")])
+        _, blockers = RD.booked_slots(d)
+        self.assertTrue(any("2026-11-09 11:00" in b for b in blockers))
+        self.assertGreaterEqual(len(blockers), 2)
+
+
+class DeletePreviousFeedTest(unittest.TestCase):
+    CAPTION = "cap"
+
+    def setUp(self):
+        self.records = {
+            "2026-11-09": {"items": {"FEED": {"state": "published", "media_id": "m9"}}},
+            "2026-11-08": {"items": {"FEED": {"state": "published", "media_id": "m8", "deleted_at": "x"}}},
+            "2026-11-07": {"items": {"FEED": {"state": "published", "media_id": "m7"}}},
+        }
+        self.saved = {}
+        self.patch = {"DRY_RUN": False,
+                      "load_record": lambda d: json.loads(json.dumps(self.records.get(d, {}))),
+                      "record_saver": lambda d: (lambda rec: self.saved.__setitem__(d, rec))}
+        self.orig = {k: getattr(RD, k) for k in self.patch}
+        for k, v in self.patch.items():
+            setattr(RD, k, v)
+
+    def tearDown(self):
+        for k, v in self.orig.items():
+            setattr(RD, k, v)
+
+    def ig(self, info):
+        class IG:
+            deleted = []
+
+            def media_info(self, mid):
+                return info[mid]
+
+            def delete_media(self, mid):
+                IG.deleted.append(mid)
+                return True
+        return IG()
+
+    def test_deletes_only_our_undeleted_posts(self):
+        ig = self.ig({"m9": {"media_type": "CAROUSEL_ALBUM", "caption": "cap"},
+                      "m7": {"media_type": "CAROUSEL_ALBUM", "caption": "edited by hand"}})
+        done, problems = RD.delete_previous_feeds(ig, "2026-11-10", self.CAPTION)
+        self.assertEqual(ig.deleted, ["m9"])                       # m8 は削除済み、m7 は中身が変わっている
+        self.assertEqual(done, ["2026-11-09: deleted"])
+        self.assertEqual(len(problems), 1)
+        self.assertIn("deleted_at", self.saved["2026-11-09"]["items"]["FEED"])
+
+    def test_dry_run_deletes_nothing(self):
+        RD.DRY_RUN = True
+        ig = self.ig({})
+        done, _ = RD.delete_previous_feeds(ig, "2026-11-10", self.CAPTION)
+        self.assertEqual(ig.deleted, [])
+        self.assertEqual(done, ["2026-11-09: would delete", "2026-11-07: would delete"])

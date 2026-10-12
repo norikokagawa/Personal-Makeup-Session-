@@ -14,7 +14,7 @@ import secrets
 import sys
 import urllib.parse
 
-from _common import confirm, http, pkce, receive_code, require_gh, set_secret
+from _common import confirm, pkce, receive_code, request, require_gh, set_secret
 
 CLIENT_ID = "OC-AZ44ZCIXRVRk"
 PORT = 8080
@@ -32,7 +32,7 @@ def main():
         "code_challenge": challenge, "code_challenge_method": "S256", "state": state,
     })
     code = receive_code(url, PORT, state)
-    r = http("POST", "https://api.canva.com/rest/v1/oauth/token", basic_auth=(CLIENT_ID, client_secret), data={
+    r = request("POST", "https://api.canva.com/rest/v1/oauth/token", basic_auth=(CLIENT_ID, client_secret), data={
         "grant_type": "authorization_code", "code": code, "code_verifier": verifier,
         "redirect_uri": REDIRECT,
     })
@@ -46,7 +46,7 @@ def main():
     if granted and missing:
         sys.exit(f"不足しているスコープ: {' '.join(sorted(missing))}")
     # access token で読み取り専用の呼び出しを1回だけ試す (refresh token は消費しない)
-    me = http("GET", "https://api.canva.com/rest/v1/users/me",
+    me = request("GET", "https://api.canva.com/rest/v1/users/me",
               headers={"Authorization": f"Bearer {data['access_token']}"})
     print("✓ Canva の認証を確認しました" if me.ok else f"注意: 確認用 API が {me.status_code} を返しました")
 

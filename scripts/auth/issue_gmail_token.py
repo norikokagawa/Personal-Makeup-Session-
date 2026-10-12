@@ -15,7 +15,7 @@ import secrets
 import sys
 import urllib.parse
 
-from _common import confirm, http, pkce, receive_code, require_gh, set_secret
+from _common import confirm, pkce, receive_code, request, require_gh, set_secret
 
 PORT = 8765
 REDIRECT = f"http://127.0.0.1:{PORT}"
@@ -35,7 +35,7 @@ def main():
         "login_hint": "noriko.kagawa@atelier-r-make.com",
     })
     code = receive_code(url, PORT, state)
-    r = http("POST", "https://oauth2.googleapis.com/token", data={
+    r = request("POST", "https://oauth2.googleapis.com/token", data={
         "code": code, "client_id": client_id, "client_secret": client_secret,
         "redirect_uri": REDIRECT, "grant_type": "authorization_code", "code_verifier": verifier,
     })
@@ -56,7 +56,7 @@ def main():
         sys.exit("gmail.readonly が許可されていません。同意画面でチェックを入れて再実行してください")
 
     # 保存前の動作確認 (Google の refresh token は再利用可能なので消費しても問題ない)
-    t = http("POST", "https://oauth2.googleapis.com/token", data={
+    t = request("POST", "https://oauth2.googleapis.com/token", data={
         "grant_type": "refresh_token", "refresh_token": data["refresh_token"],
         "client_id": client_id, "client_secret": client_secret})
     if not t.ok:

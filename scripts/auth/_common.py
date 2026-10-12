@@ -8,7 +8,6 @@
 """
 import base64
 import hashlib
-import http.server
 import json
 import secrets
 import shutil
@@ -18,6 +17,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import webbrowser
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 REPO = "norikokagawa/Personal-Makeup-Session-"
 
@@ -50,7 +50,7 @@ def receive_code(auth_url, port, state):
     """Open the consent page and wait for the redirect on 127.0.0.1:<port>."""
     result = {}
 
-    class Handler(http.server.BaseHTTPRequestHandler):
+    class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
             q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
             if q.get("state", [None])[0] != state:
@@ -67,7 +67,7 @@ def receive_code(auth_url, port, state):
         def log_message(self, *args):
             pass
 
-    server = http.server.HTTPServer(("127.0.0.1", port), Handler)
+    server = HTTPServer(("127.0.0.1", port), Handler)
     print("ブラウザで許可してください…")
     webbrowser.open(auth_url)
     server.handle_request()
@@ -115,7 +115,7 @@ class Resp:
         return self._json
 
 
-def http(method, url, data=None, headers=None, basic_auth=None):
+def request(method, url, data=None, headers=None, basic_auth=None):
     body = urllib.parse.urlencode(data).encode() if data is not None else None
     req = urllib.request.Request(url, data=body, method=method, headers=dict(headers or {}))
     if body is not None:

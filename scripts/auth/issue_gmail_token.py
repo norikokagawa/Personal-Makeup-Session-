@@ -5,7 +5,9 @@ GMAIL_REFRESH_TOKEN を再発行して GitHub Secrets に直接保存する (手
   python3 scripts/auth/issue_gmail_token.py
 
 - スコープは gmail.readonly のみ (読み取り専用)
-- Client ID / Secret は非表示入力。トークンは画面に出さず gh secret set に渡す
+- Client ID / Secret は非表示入力。トークンは画面に出さず GitHub Secrets に保存する
+  (gh があれば直接、なければクリップボード経由で GitHub の画面に貼り付け)
+- GMAIL_CLIENT_ID は変更しない。GMAIL_CLIENT_SECRET は確認のうえ今回の値で更新できる
 - 保存前に、取得した refresh token でアクセストークンを取得できることを確認する
 """
 import getpass
@@ -13,9 +15,7 @@ import secrets
 import sys
 import urllib.parse
 
-import requests
-
-from _common import confirm, pkce, receive_code, require_gh, set_secret
+from _common import confirm, http, pkce, receive_code, require_gh, set_secret
 
 PORT = 8765
 REDIRECT = f"http://127.0.0.1:{PORT}"
@@ -35,10 +35,10 @@ def main():
         "login_hint": "noriko.kagawa@atelier-r-make.com",
     })
     code = receive_code(url, PORT, state)
-    r = requests.post("https://oauth2.googleapis.com/token", data={
+    r = http("POST", "https://oauth2.googleapis.com/token", data={
         "code": code, "client_id": client_id, "client_secret": client_secret,
         "redirect_uri": REDIRECT, "grant_type": "authorization_code", "code_verifier": verifier,
-    }, timeout=30)
+    })
     if not r.ok:
         err = r.json().get("error")
         hint = ""
@@ -56,18 +56,17 @@ def main():
         sys.exit("gmail.readonly が許可されていません。同意画面でチェックを入れて再実行してください")
 
     # 保存前の動作確認 (Google の refresh token は再利用可能なので消費しても問題ない)
-    t = requests.post("https://oauth2.googleapis.com/token", data={
+    t = http("POST", "https://oauth2.googleapis.com/token", data={
         "grant_type": "refresh_token", "refresh_token": data["refresh_token"],
-        "client_id": client_id, "client_secret": client_secret}, timeout=30)
+        "client_id": client_id, "client_secret": client_secret})
     if not t.ok:
         sys.exit(f"取得した refresh token で更新できませんでした: {t.json().get('error')}")
     print("✓ 取得した refresh token で認証できることを確認しました")
 
     set_secret("GMAIL_REFRESH_TOKEN", data["refresh_token"])
-    if confirm("GMAIL_CLIENT_ID / GMAIL_CLIENT_SECRET も今回の値で上書きしますか (新しい OAuth クライアントを作った場合のみ)"):
-        set_secret("GMAIL_CLIENT_ID", client_id)
+    if confirm("GMAIL_CLIENT_SECRET を、今回入力した新しいシークレットで更新しますか (GMAIL_CLIENT_ID は変更しません)"):
         set_secret("GMAIL_CLIENT_SECRET", client_secret)
-    print("完了。GitHub Actions の auth-check を実行して確認してください。")
+    print("完了しました。Claude に「Gmail の再認証が終わった」と伝えてください。")
 
 
 if __name__ == "__main__":

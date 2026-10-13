@@ -24,12 +24,14 @@
       "published_at": "2026-10-13T21:27:16+00:00"
     },
     "STORY_2": {
-      "state": "publishing",
+      "state": "published",
       "attempts": 1,
       "container": "18632485306034614",
       "children": null,
       "error": null,
-      "updated_at": "2026-10-13T21:27:32+00:00"
+      "updated_at": "2026-10-13T21:27:37+00:00",
+      "media_id": "18074919293727005",
+      "published_at": "2026-10-13T21:27:37+00:00"
     }
   }
 }

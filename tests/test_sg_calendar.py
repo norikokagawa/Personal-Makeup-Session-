@@ -444,10 +444,19 @@ class DeletePreviousFeedTest(unittest.TestCase):
         self.orig = {k: getattr(RD, k) for k in self.patch}
         for k, v in self.patch.items():
             setattr(RD, k, v)
+        self.orig_delete = RD.CONFIG.get("delete_previous_feed")
+        RD.CONFIG["delete_previous_feed"] = True
 
     def tearDown(self):
         for k, v in self.orig.items():
             setattr(RD, k, v)
+        RD.CONFIG["delete_previous_feed"] = self.orig_delete
+
+    def test_nothing_deleted_when_turned_off(self):
+        RD.CONFIG["delete_previous_feed"] = False
+        ig = self.ig({})
+        self.assertEqual(RD.delete_previous_feeds(ig, "2026-11-10", self.CAPTION), ([], []))
+        self.assertEqual(ig.deleted, [])
 
     def ig(self, info):
         class IG:

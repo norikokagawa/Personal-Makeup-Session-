@@ -1,0 +1,51 @@
+name: Column post (atelierR today's column)
+
+# column-post ブランチに column/requests/<日付>.json が push されたら、
+# その日のフィード＋ストーリーズを Instagram に投稿する (SG カレンダーとは独立)。
+on:
+  push:
+    branches: [column-post]
+    paths: ['column/requests/**']
+  workflow_dispatch:
+    inputs:
+      request:
+        description: 'column/requests/<date>.json'
+        required: true
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: column-post
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install requests Pillow
+      - name: Find request
+        id: req
+        run: |
+          if [ -n "${{ inputs.request }}" ]; then f="${{ inputs.request }}";
+          else f=$(git diff --name-only HEAD~1 HEAD -- column/requests | tail -1); fi
+          echo "file=$f" >> "$GITHUB_OUTPUT"; echo "request: $f"
+      - name: Post
+        if: steps.req.outputs.file != ''
+        env:
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
+        run: python scripts/column_post/post.py "${{ steps.req.outputs.file }}"
+      - name: Notify
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh issue create --repo "${{ github.repository }}" --title "Column post failed ($(date -u +%F))" --body "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

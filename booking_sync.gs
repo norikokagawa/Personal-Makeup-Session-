@@ -23,7 +23,7 @@ function setDropdown(sheet, startRow, numRows) {
 }
 
 // 料金決定
-// 〜7月: 250 SGD / 8〜10月: 280 SGD / 11月: ¥38,500 JPY / 12月〜: 290 SGD
+// 〜7月: 250 SGD / 8〜10月: 280 SGD / 11月: ¥35,800 JPY / 12月〜: 290 SGD
 function getSessionFee(dateStr) {
   if (!dateStr) return 250;
   const m = dateStr.match(/(\d{4})\/(\d+)\//);
@@ -33,7 +33,7 @@ function getSessionFee(dateStr) {
   if (year === 2026) {
     if (month <= 7)  return 250;
     if (month <= 10) return 280;
-    if (month === 11) return 38500; // JPY
+    if (month === 11) return 35800; // JPY
     return 290;
   }
   return 290; // 2027年以降

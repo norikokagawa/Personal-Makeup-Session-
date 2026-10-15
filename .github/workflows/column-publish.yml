@@ -1,0 +1,44 @@
+name: Column publish 05:00 SGT (atelierR today's column)
+
+# 「今日のコラム」は前日に Noriko が承認し、column-post ブランチに画像とキャプションが準備される。
+# ここでは毎朝 05:00 SGT に、その日の分があれば投稿する (なければ何もしない)。
+# GitHub の定時実行は遅れることがあるので早めに起動し、05:00 まで待って公開する。
+# 2回目は1回目が遅れた・落ちたときの予備 (投稿結果の記録で二重投稿しない)。
+on:
+  schedule:
+    - cron: '22 20 * * *'   # 04:22 SGT
+    - cron: '44 20 * * *'   # 04:44 SGT (予備)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: column-post
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: column-post
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install requests Pillow
+      - name: Publish today's column
+        env:
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
+        run: |
+          git pull -q origin column-post
+          python scripts/column_post/post.py publish
+      - name: Notify
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh issue create --repo "${{ github.repository }}" --title "Column publish failed ($(date -u +%F))" --body "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

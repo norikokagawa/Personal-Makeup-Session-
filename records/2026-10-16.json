@@ -22,6 +22,14 @@
       "updated_at": "2026-10-15T21:00:19+00:00",
       "media_id": "17990980545098066",
       "published_at": "2026-10-15T21:00:19+00:00"
+    },
+    "STORY_2": {
+      "state": "prepared",
+      "attempts": 0,
+      "container": "18633251263034614",
+      "children": null,
+      "error": null,
+      "updated_at": "2026-10-15T21:00:29+00:00"
     }
   }
 }

@@ -1,7 +1,7 @@
 name: Column post (atelierR today's column)
 
 # column-post ブランチに column/requests/<日付>.json が push されたら、
-# その日のフィード＋ストーリーズを Instagram に投稿する (SG カレンダーとは独立)。
+# 画像を準備する (投稿は当日 05:00 に main の column-publish.yml が行う) (SG カレンダーとは独立)。
 on:
   push:
     branches: [column-post]
@@ -38,12 +38,12 @@ jobs:
           if [ -n "${{ inputs.request }}" ]; then f="${{ inputs.request }}";
           else f=$(git diff --name-only HEAD~1 HEAD -- column/requests | tail -1); fi
           echo "file=$f" >> "$GITHUB_OUTPUT"; echo "request: $f"
-      - name: Post
+      - name: Prepare images
         if: steps.req.outputs.file != ''
         env:
           IG_USER_ID: ${{ secrets.IG_USER_ID }}
           META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
-        run: python scripts/column_post/post.py "${{ steps.req.outputs.file }}"
+        run: python scripts/column_post/post.py prepare "${{ steps.req.outputs.file }}"
       - name: Notify
         if: failure()
         env:

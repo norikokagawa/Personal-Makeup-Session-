@@ -2,8 +2,9 @@
 """
 atelierR「今日のコラム」投稿 — フィード1枚＋ストーリーズ1枚を Instagram に直接投稿する。
 
-column-post ブランチの column/requests/<日付>.json が push されると実行される。
-リクエストは Claude が Noriko の「OK」をもらった後にだけ作成する。
+前日: Noriko が記事を承認 → Claude が column/requests/<投稿日>.json を push
+      → prepare: 画像を JPEG 化して column/media/<投稿日>/ に保存 (投稿しない)
+当日 05:00 SGT: main の column-publish.yml が publish を実行 → フィード・コメントオフ・ストーリーズ
 
   {"date": "2026-10-17", "title": "...", "feed_url": "<Canva export URL>",
    "story_url": "<Canva export URL>", "caption": "...", "dry_run": false}
@@ -74,24 +75,58 @@ def wait_public(url, timeout=180):
     raise RuntimeError(f"image not reachable: {url}")
 
 
-def main(req_path):
+def prepare(req_path):
+    """push 直後: Canva の書き出し画像を JPEG にして保存する (URL は数時間で切れるため前日に確保)。投稿はしない。"""
     req = json.loads(Path(req_path).read_text(encoding="utf-8"))
     day = req["date"]
-    dry = str(req.get("dry_run", os.environ.get("DRY_RUN", "false"))).lower() == "true"
-    result_path = ROOT / "column" / "results" / f"{day}.json"
-    result = json.loads(result_path.read_text()) if result_path.exists() else {}
-    if result.get("feed_media_id") and result.get("story_media_id") and not dry:
-        print(f"{day}: already posted — skip")
-        return 0
-
     media_dir = ROOT / "column" / "media" / day
     feed_jpg, story_jpg = media_dir / "feed.jpg", media_dir / "story.jpg"
     print("feed size:", to_jpeg(req["feed_url"], feed_jpg))
     print("story size:", to_jpeg(req["story_url"], story_jpg))
-    if dry:
-        print("DRY_RUN: images converted, nothing posted")
+    if str(req.get("dry_run", "false")).lower() == "true":
+        print("DRY_RUN: images converted, not saved")
         return 0
-    commit_push([feed_jpg, story_jpg], f"column {day}: images")
+    commit_push([feed_jpg, story_jpg], f"column {day}: images ready")
+    return 0
+
+
+def wait_until_5am():
+    """GitHub の定時実行は早めに起動するので、05:00 SGT まで待つ (最大50分)。"""
+    from datetime import datetime, timedelta, timezone
+    sgt = timezone(timedelta(hours=8))
+    now = datetime.now(sgt)
+    target = now.replace(hour=5, minute=0, second=0, microsecond=0)
+    if now.hour < 5 and (target - now).total_seconds() <= 3000:
+        wait = (target - now).total_seconds()
+        print(f"waiting {int(wait)}s until 05:00 SGT")
+        time.sleep(wait)
+    return datetime.now(sgt).strftime("%Y-%m-%d")
+
+
+def publish_today():
+    """05:00 SGT: 今日の日付のリクエストがあり、画像が準備済みで、未投稿なら投稿する。"""
+    day = wait_until_5am()
+    req_path = ROOT / "column" / "requests" / f"{day}.json"
+    if not req_path.exists():
+        print(f"{day}: no request — nothing to post")
+        return 0
+    req = json.loads(req_path.read_text(encoding="utf-8"))
+    if str(req.get("dry_run", "false")).lower() == "true":
+        print(f"{day}: dry_run request — skip")
+        return 0
+    return post(day, req)
+
+
+def post(day, req):
+    result_path = ROOT / "column" / "results" / f"{day}.json"
+    result = json.loads(result_path.read_text()) if result_path.exists() else {}
+    if result.get("feed_media_id") and result.get("story_media_id"):
+        print(f"{day}: already posted — skip")
+        return 0
+    media_dir = ROOT / "column" / "media" / day
+    feed_jpg, story_jpg = media_dir / "feed.jpg", media_dir / "story.jpg"
+    if not (feed_jpg.exists() and story_jpg.exists()):
+        raise RuntimeError(f"{day}: images not prepared")
     feed_u, story_u = raw_url(feed_jpg), raw_url(story_jpg)
     wait_public(feed_u)
     wait_public(story_u)
@@ -130,4 +165,5 @@ def main(req_path):
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1]))
+    mode = sys.argv[1]
+    sys.exit(publish_today() if mode == "publish" else prepare(sys.argv[2]))

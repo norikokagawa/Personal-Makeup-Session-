@@ -22,15 +22,31 @@ function setDropdown(sheet, startRow, numRows) {
   sheet.getRange(startRow, 4, numRows, 1).setDataValidation(rule);
 }
 
-// 料金決定：2026年8月以降は280 SGD
+// 料金決定
+// 〜7月: 250 SGD / 8〜10月: 280 SGD / 11月: ¥38,500 JPY / 12月〜: 290 SGD
 function getSessionFee(dateStr) {
   if (!dateStr) return 250;
   const m = dateStr.match(/(\d{4})\/(\d+)\//);
   if (!m) return 250;
   const year = parseInt(m[1]);
   const month = parseInt(m[2]);
-  if (year > 2026 || (year === 2026 && month >= 8)) return 280;
-  return 250;
+  if (year === 2026) {
+    if (month <= 7)  return 250;
+    if (month <= 10) return 280;
+    if (month === 11) return 38500; // JPY
+    return 290;
+  }
+  return 290; // 2027年以降
+}
+
+// 通貨取得
+function getSessionCurrency(dateStr) {
+  const m = dateStr && dateStr.match(/(\d{4})\/(\d+)\//);
+  if (!m) return 'SGD';
+  const year = parseInt(m[1]);
+  const month = parseInt(m[2]);
+  if (year === 2026 && month === 11) return 'JPY';
+  return 'SGD';
 }
 
 // 月別シートを取得または新規作成
@@ -45,13 +61,14 @@ function getOrCreateMonthSheet(ss, dateStr) {
   const sheetName = `${year}年${month}月`;
   let sheet = ss.getSheetByName(sheetName);
   if (!sheet) {
+    const currency = getSessionCurrency(dateStr);
     sheet = ss.insertSheet(sheetName);
-    sheet.appendRow(['日時', '名前', '料金 (SGD)', '決済完了']);
+    sheet.appendRow(['日時', '名前', `料金 (${currency})`, '決済完了']);
     const header = sheet.getRange(1, 1, 1, 4);
     header.setFontWeight('bold');
     header.setBackground('#f3f3f3');
     sheet.setFrozenRows(1);
-    Logger.log(`新しいシートを作成しました：${sheetName}`);
+    Logger.log(`新しいシートを作成しました：${sheetName}（${currency}）`);
   }
   return sheet;
 }
@@ -137,7 +154,7 @@ function manualSync() {
   ];
   eventSheet.getRange(2, 1, eventData.length, 4).setValues(eventData);
   setDropdown(eventSheet, 2, eventData.length);
-  Logger.log('manualSync完了: ' + sessionData.length + '件書き込み完了（プルダウン設定済）');
+  Logger.log('manualSync完了: ' + sessionData.length + '件書き込み完了（プルダウン設定済み）');
 }
 
 // -------------------------------------------------------
@@ -184,10 +201,8 @@ function checkBookingsAndUpdate() {
         }
         if (body.includes(EVENT_KEYWORD)) { updateBooking(eventSheet, body); eventUpdated = true; }
       } else if (subject.includes('キャンセル') || subject.includes('をキャンセルしました')) {
-        if (body.includes(SESSION_KEYWORD)) {
-          cancelSessionBooking(ss, body, subject);
-        }
-        if (body.includes(EVENT_KEYWORD)) { cancelBooking(eventSheet, body, subject); eventUpdated = true; }
+        if (body.includes(SESSION_KEYWORD)) { cancelSessionBooking(ss, body, subject); }
+        if (body.includes(EVENT_KEYWORD))   { cancelBooking(eventSheet, body, subject); eventUpdated = true; }
       }
 
       processedIds.add(msgId);
@@ -201,7 +216,6 @@ function checkBookingsAndUpdate() {
   if (eventUpdated) sortByDate(eventSheet);
 }
 
-// セッション予約を正しい月のシートに追加
 function addNewSessionBooking(ss, body) {
   const nameMatch = body.match(/◆予約者:\s*\r?\n\s*(.+)/);
   const dateMatch = body.match(/◆予約日時:\s*\r?\n\s*(.+)/);
@@ -221,7 +235,6 @@ function addNewSessionBooking(ss, body) {
   return sheet;
 }
 
-// イベント予約を指定シートに追加
 function addEventBooking(sheet, body, fee) {
   const nameMatch = body.match(/◆予約者:\s*\r?\n\s*(.+)/);
   const dateMatch = body.match(/◆予約日時:\s*\r?\n\s*(.+)/);
@@ -238,7 +251,6 @@ function addEventBooking(sheet, body, fee) {
   setDropdown(sheet, newRow, 1);
 }
 
-// セッション予約を全月から検索して日時変更
 function updateSessionBooking(ss, body) {
   const sheets = getAllSessionSheets(ss);
   for (const sheet of sheets) {
@@ -247,7 +259,6 @@ function updateSessionBooking(ss, body) {
   return null;
 }
 
-// セッション予約を全月から検索してキャンセル
 function cancelSessionBooking(ss, body, subject) {
   const sheets = getAllSessionSheets(ss);
   for (const sheet of sheets) {

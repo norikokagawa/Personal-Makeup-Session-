@@ -17,7 +17,11 @@ Each morning needs only two connections: **Gmail** (read-only) and **Instagram**
    - Page 3 (Sydney) is never used.
 4. Publish at **05:00 SGT** through the official Instagram API, also on days without changes:
    - feed: high-quality JPEG **2-image carousel** (1080×1350)
-   - **2 stories** (1080×1920, each page whole and unscaled)
+   - **2 stories** (1080×1920, each page whole and unscaled) — only when `auto_stories` is true.
+     With `auto_stories: false` (current setting) the stories are posted by hand, because a link sticker
+     to the booking page cannot be added through the API. The two story images are put every morning on
+     https://github.com/norikokagawa/Personal-Makeup-Session-/tree/instagram-media/today
+     (save each image → post as a story → add the link sticker).
 5. Switch off comments on the feed post (needs `instagram_manage_comments`).
 6. Delete the feed posts this system published on earlier days (`delete_previous_feed`).
    - Only media IDs in our own `records/<date>.json` are deleted, and only if Instagram still reports our carousel with our caption.

@@ -9,6 +9,8 @@ atelierR Singapore November calendar — daily run (Asia/Singapore)
               1・2ページを作り、画素単位で検証 → JPEG (フィード 1080x1350 / ストーリーズ 1080x1920)
             → Instagram 公式 API: コンテナ作成 (非公開) → 05:00 SGT まで待機 → 公開
               フィード (2枚カルーセル)・ストーリーズ2本を個別に状態管理 (post_state.py) → コメントオフ
+              auto_stories=false (config) のときはフィードだけ投稿し、ストーリーズ画像は
+              instagram-media ブランチの today/ ページに置く (リンクスタンプを付けて手動で投稿するため)
             → 前日までにこの仕組みが投稿したフィードを削除 (自分の記録にある投稿だけ)
   ledger    台帳だけ作って保存・確認 (投稿しない)
   watchdog  05:00 以降に3件すべて公開済みか確認し、そうでなければ失敗 (= 通知)
@@ -54,6 +56,12 @@ MEDIA_BRANCH = os.environ.get("MEDIA_BRANCH", "instagram-media")
 MEDIA_TEST_BRANCH = "instagram-media-test"
 
 EXIT_OK, EXIT_FAIL, EXIT_STOPPED = 0, 1, 2
+STORIES_PAGE = "today/README.md"
+
+
+def posted_items():
+    """The feed always; the stories only when they are posted automatically (config auto_stories)."""
+    return [k for k in ITEMS if k == "FEED" or CONFIG.get("auto_stories", True)]
 
 
 def log(msg):
@@ -273,6 +281,20 @@ def find_feed_today(ig, day, caption):
     return None
 
 
+def stories_page(day, urls):
+    """Markdown for the page the stories are saved from by hand (github.com renders it with the images)."""
+    d = datetime.strptime(day, "%Y-%m-%d")
+    lines = [f"# {d.month}/{d.day} のストーリーズ", "",
+             "画像を長押しして保存 → ストーリーズで投稿し、リンクスタンプ (予約ページ) を付けてください。", ""]
+    for p in CONFIG["pages"]:
+        lines += [f"## {p}枚目", "", f"![{p}枚目]({urls[f'story_p{p}']})", ""]
+    return "\n".join(lines)
+
+
+def publish_stories_page(day, urls):
+    put_branch_file(STORIES_PAGE, stories_page(day, urls).encode(), f"SG stories page {day}")
+
+
 def post_to_instagram(report, day, files, now):
     caption = CAPTION_PATH.read_text().strip()
     probe = DRY_RUN and os.environ.get("IG_PROBE", "").lower() == "true"
@@ -286,6 +308,12 @@ def post_to_instagram(report, day, files, now):
         ensure_media_branch()
         urls = {k: put_branch_file(f"media/{day}/{f.name}", f.read_bytes(), f"SG {f.stem} {day}")
                 for k, f in files.items()}
+        if not CONFIG.get("auto_stories", True):
+            try:                                     # ページが作れなくてもフィードの投稿は止めない
+                publish_stories_page(day, urls)
+                report["stories_page"] = f"https://github.com/{_repo()}/tree/{MEDIA_BRANCH}/{STORIES_PAGE.rsplit('/', 1)[0]}"
+            except Exception as e:
+                report["stories_page"] = f"FAILED: {type(e).__name__}"
     elif probe:
         # 非公開コンテナの作成テスト用。画像はテスト用ブランチに置く (本番の記録・画像とは分ける)
         ensure_media_branch(MEDIA_TEST_BRANCH)
@@ -313,7 +341,8 @@ def post_to_instagram(report, day, files, now):
         return lambda ig_: (ig_.create_image(urls[f"story_p{page}"], story=True), None)
 
     errors = []
-    for key, fn in [("FEED", feed)] + [(f"STORY_{p}", story(p)) for p in CONFIG["pages"]]:
+    jobs = [("FEED", feed)] + [(f"STORY_{p}", story(p)) for p in CONFIG["pages"]]
+    for key, fn in [j for j in jobs if j[0] in posted_items()]:
         try:
             poster.run_item(key, fn)
         except Exception as e:                       # 1件の失敗で他の投稿を止めない
@@ -327,7 +356,7 @@ def post_to_instagram(report, day, files, now):
     if poster.item("FEED")["state"] == "published" or DRY_RUN:
         done, problems = delete_previous_feeds(ig, day, caption)
         report["previous_feed"] = {"done": done, "problems": problems}
-    report["instagram"] = poster.summary()
+    report["instagram"] = {k: v for k, v in poster.summary().items() if k in posted_items()}
     report["instagram_errors"] = errors
     return errors
 
@@ -387,8 +416,8 @@ def step_ledger(report):
 def step_post(report, now):
     day = report["day"]
     record = load_record(day)
-    if all(record.get("items", {}).get(k, {}).get("state") == "published" for k in ITEMS):
-        report["instagram"] = {k: record["items"][k] for k in ITEMS}
+    if all(record.get("items", {}).get(k, {}).get("state") == "published" for k in posted_items()):
+        report["instagram"] = {k: record["items"][k] for k in posted_items()}
         return "ALREADY_POSTED"                     # 予備のトリガーで再実行されても何もしない
     try:
         data = current_ledger()
@@ -422,10 +451,10 @@ def step_post(report, now):
 
 
 def step_watchdog(report):
-    """After 05:00: confirm all three posts are published today; otherwise fail → notification."""
+    """After 05:00: confirm today's automatic posts are published; otherwise fail → notification."""
     day = report["day"]
     items = load_record(day).get("items", {})
-    states = {k: items.get(k, {}).get("state", "missing") for k in ITEMS}
+    states = {k: items.get(k, {}).get("state", "missing") for k in posted_items()}
     report["watchdog"] = states
     return "ALL_PUBLISHED" if all(v == "published" for v in states.values()) else "NOT_PUBLISHED"
 

@@ -485,3 +485,42 @@ class DeletePreviousFeedTest(unittest.TestCase):
         done, _ = RD.delete_previous_feeds(ig, "2026-11-10", self.CAPTION)
         self.assertEqual(ig.deleted, [])
         self.assertEqual(done, ["2026-11-09: would delete", "2026-11-07: would delete"])
+
+
+class ManualStoriesTest(unittest.TestCase):
+    """auto_stories=false: only the feed is posted; the story images go to a page for posting by hand."""
+
+    def setUp(self):
+        from sg_calendar import run_daily as RD
+        self.RD = RD
+        self.saved = RD.CONFIG.get("auto_stories")
+        RD.CONFIG["auto_stories"] = False
+
+    def tearDown(self):
+        self.RD.CONFIG["auto_stories"] = self.saved
+
+    def test_only_feed_is_posted(self):
+        self.assertEqual(self.RD.posted_items(), ["FEED"])
+        self.RD.CONFIG["auto_stories"] = True
+        self.assertEqual(self.RD.posted_items(), ["FEED", "STORY_1", "STORY_2"])
+
+    def test_watchdog_needs_only_the_feed(self):
+        RD = self.RD
+        record = {"items": {"FEED": {"state": "published"}}}
+        orig = RD.load_record
+        RD.load_record = lambda day: record
+        try:
+            report = {"day": "2026-10-17"}
+            self.assertEqual(RD.step_watchdog(report), "ALL_PUBLISHED")
+            record["items"]["FEED"]["state"] = "prepared"
+            self.assertEqual(RD.step_watchdog(report), "NOT_PUBLISHED")
+        finally:
+            RD.load_record = orig
+
+    def test_stories_page_shows_both_images(self):
+        urls = {"story_p1": "https://x/media/2026-10-17/story_p1.jpg",
+                "story_p2": "https://x/media/2026-10-17/story_p2.jpg"}
+        page = self.RD.stories_page("2026-10-17", urls)
+        self.assertIn("10/17", page)
+        self.assertIn("![1枚目](https://x/media/2026-10-17/story_p1.jpg)", page)
+        self.assertIn("![2枚目](https://x/media/2026-10-17/story_p2.jpg)", page)

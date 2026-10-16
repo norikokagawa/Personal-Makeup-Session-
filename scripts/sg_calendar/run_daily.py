@@ -189,7 +189,7 @@ def publish_time(now):
     return target if now < target else now
 
 
-def make_waiter(target, max_wait_min=58):
+def make_waiter(target, max_wait_min=90):
     """Sleep until `target` (SGT) before publishing; never sleeps longer than max_wait_min."""
     def wait():
         delay = (target - datetime.now(SGT)).total_seconds()

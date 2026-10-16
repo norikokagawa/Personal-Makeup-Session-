@@ -34,7 +34,7 @@ GitHub's own `schedule` is best effort; the old workflow in this repo once ran h
 
 1. Merge this branch to `main`: `workflow_dispatch` only works for workflows on the default branch. This adds a new workflow file and does not change `daily-instagram-post.yml`. Note that `deploy.yml` redeploys GitHub Pages on every push to `main` (same site plus the new files).
 2. Uncomment the `schedule` block and set the schedule's `DRY_RUN`/`AUTO_PUBLISH` values in the workflow.
-3. **cron-job.org**: create a job (timezone Asia/Singapore, 04:20 daily).
+3. **cron-job.org**: create a job (timezone Asia/Singapore, 03:45 daily — the story images are ready before 04:00; the run waits until 05:00 to publish the feed).
    - It sends `POST https://api.github.com/repos/norikokagawa/Personal-Makeup-Session-/actions/workflows/sg-calendar-daily.yml/dispatches`.
    - Body: `{"ref":"main","inputs":{"mode":"post","dry_run":"false","auto_publish":"true"}}`.
    - Header: `Authorization: Bearer <token>`. `<token>` is a fine-grained PAT limited to this repository with **Actions: Read and write** only. It is entered in cron-job.org, never in the repo.

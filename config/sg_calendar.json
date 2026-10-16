@@ -20,6 +20,8 @@
   ],
   "timezone": "Asia/Singapore",
   "delete_previous_feed": false,
+  "_auto_stories": "false: only the feed is posted automatically. The story images are put on the stories page every morning and posted by hand (a link sticker cannot be added through the API).",
+  "auto_stories": false,
   "_cancelled_in_stores": "Reservations cancelled in the STORES dashboard (no mail is sent). Hashed reservation numbers: python3 -c \"import sys; sys.path.insert(0,'scripts'); from sg_calendar.ledger import _key; print(_key('NUMBER'))\"",
   "cancelled_in_stores": [
     "r414584f91b14",

@@ -1,0 +1,35 @@
+name: Column publish now (one-off)
+
+# 一回限り: GitHub の定時実行が遅れた朝に、承認済みの今日のコラムをすぐ投稿する。
+# post.py は同じ日付を二度投稿しない (column/results で判定)。使い終わったら削除する。
+on:
+  push:
+    branches: [claude/loving-franklin-wr0o7p]
+    paths: ['.github/workflows/column-publish-now.yml']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: column-post
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: column-post
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install requests Pillow
+      - name: Publish today's column
+        env:
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
+        run: |
+          git pull -q origin column-post
+          python scripts/column_post/post.py publish

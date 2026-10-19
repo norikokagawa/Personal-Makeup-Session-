@@ -1,11 +1,11 @@
-# 10/19 のストーリーズ
+# 10/20 のストーリーズ
 
 画像を長押しして保存 → ストーリーズで投稿し、リンクスタンプ (予約ページ) を付けてください。
 
 ## 1枚目
 
-![1枚目](https://raw.githubusercontent.com/norikokagawa/Personal-Makeup-Session-/instagram-media/media/2026-10-19/story_p1.jpg)
+![1枚目](https://raw.githubusercontent.com/norikokagawa/Personal-Makeup-Session-/instagram-media/media/2026-10-20/story_p1.jpg)
 
 ## 2枚目
 
-![2枚目](https://raw.githubusercontent.com/norikokagawa/Personal-Makeup-Session-/instagram-media/media/2026-10-19/story_p2.jpg)
+![2枚目](https://raw.githubusercontent.com/norikokagawa/Personal-Makeup-Session-/instagram-media/media/2026-10-20/story_p2.jpg)

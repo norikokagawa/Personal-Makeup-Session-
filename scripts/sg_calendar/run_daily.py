@@ -302,7 +302,8 @@ def post_to_instagram(report, day, files, now):
     publish = (not DRY_RUN) and AUTO_PUBLISH
     when = publish_time(now)
     report["publish_at"] = when.isoformat()
-    report["late"] = now > when.replace(hour=5, minute=5)
+    hh, mm = map(int, CONFIG["post_time"].split(":"))
+    report["late"] = now > now.replace(hour=hh, minute=mm, second=0, microsecond=0) + timedelta(minutes=5)
 
     if not DRY_RUN:
         ensure_media_branch()

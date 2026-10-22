@@ -1,4 +1,4 @@
-name: Column publish 05:00 SGT (atelierR today's column)
+name: Column publish 04:00 SGT (atelierR today's column)
 
 # 「今日のコラム」は前日に Noriko が承認し、column-post ブランチに画像とキャプションが準備される。
 # ここでは毎朝 05:00 SGT に、その日の分があれば投稿する (なければ何もしない)。
@@ -6,8 +6,8 @@ name: Column publish 05:00 SGT (atelierR today's column)
 # 2回目は1回目が遅れた・落ちたときの予備 (投稿結果の記録で二重投稿しない)。
 on:
   schedule:
-    - cron: '22 20 * * *'   # 04:22 SGT
-    - cron: '44 20 * * *'   # 04:44 SGT (予備)
+    - cron: '22 19 * * *'   # 03:22 SGT (シドニー滞在中は 04:00 公開)
+    - cron: '44 19 * * *'   # 03:44 SGT (予備)
   workflow_dispatch:
 
 permissions:

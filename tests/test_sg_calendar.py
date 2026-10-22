@@ -182,7 +182,7 @@ class ImageTest(unittest.TestCase):
 
 class ScheduleTest(unittest.TestCase):
     def test_publish_time(self):
-        self.assertEqual(publish_time(datetime(2026, 11, 1, 4, 40, tzinfo=SGT)).strftime("%H:%M"), "05:00")
+        self.assertEqual(publish_time(datetime(2026, 11, 1, 3, 40, tzinfo=SGT)).strftime("%H:%M"), "04:00")
         late = datetime(2026, 11, 1, 5, 12, tzinfo=SGT)
         self.assertEqual(publish_time(late), late)          # 過ぎていれば直ちに公開
 

@@ -95,8 +95,8 @@ def wait_until_5am():
     from datetime import datetime, timedelta, timezone
     sgt = timezone(timedelta(hours=8))
     now = datetime.now(sgt)
-    target = now.replace(hour=4, minute=0, second=0, microsecond=0)
-    if now.hour < 4 and (target - now).total_seconds() <= 3000:
+    target = now.replace(hour=5, minute=0, second=0, microsecond=0)
+    if now.hour < 5 and (target - now).total_seconds() <= 3000:
         wait = (target - now).total_seconds()
         print(f"waiting {int(wait)}s until 05:00 SGT")
         time.sleep(wait)

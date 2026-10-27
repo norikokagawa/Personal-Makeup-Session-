@@ -1,0 +1,52 @@
+name: One-off post (atelierR 単発投稿)
+
+# column-post ブランチに oneoff/requests/<id>.json が push されたら、
+# 画像を準備し、publish_at が過ぎていれば (now なら) すぐ投稿する。
+# 予約時刻の投稿は main の oneoff-publish.yml が15分ごとに拾う。
+on:
+  push:
+    branches: [column-post]
+    paths: ['oneoff/requests/**']
+  workflow_dispatch:
+    inputs:
+      request:
+        description: 'oneoff/requests/<id>.json'
+        required: true
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: column-post
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install requests Pillow
+      - name: Find request
+        id: req
+        run: |
+          if [ -n "${{ inputs.request }}" ]; then f="${{ inputs.request }}";
+          else f=$(git diff --name-only HEAD~1 HEAD -- oneoff/requests | tail -1); fi
+          echo "file=$f" >> "$GITHUB_OUTPUT"; echo "request: $f"
+      - name: Prepare and post if due
+        if: steps.req.outputs.file != ''
+        env:
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
+        run: python scripts/oneoff_post/post.py prepare "${{ steps.req.outputs.file }}"
+      - name: Notify
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh issue create --repo "${{ github.repository }}" --title "One-off post failed ($(date -u +%F))" --body "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

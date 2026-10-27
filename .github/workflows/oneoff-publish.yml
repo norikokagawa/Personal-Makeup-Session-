@@ -1,0 +1,47 @@
+name: One-off publish (atelierR 単発投稿の予約分)
+
+# column-post ブランチの oneoff/requests/ のうち、publish_at を過ぎた未投稿のものを投稿する。
+# 投稿結果の記録 (oneoff/results/) で二重投稿しない。
+on:
+  schedule:
+    - cron: '7,22,37,52 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: column-post
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: column-post
+      - name: Anything waiting?
+        id: chk
+        run: |
+          n=$(ls oneoff/requests/*.json 2>/dev/null | wc -l)
+          echo "n=$n" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-python@v5
+        if: steps.chk.outputs.n != '0'
+        with:
+          python-version: '3.11'
+      - if: steps.chk.outputs.n != '0'
+        run: pip install requests Pillow
+      - name: Publish due posts
+        if: steps.chk.outputs.n != '0'
+        env:
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
+        run: python scripts/oneoff_post/post.py publish
+      - name: Notify
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh issue create --repo "${{ github.repository }}" --title "One-off publish failed ($(date -u +%F))" --body "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

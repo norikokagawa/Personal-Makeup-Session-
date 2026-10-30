@@ -3,7 +3,7 @@ name: SG November calendar — daily Instagram
 # 既存の daily-instagram-post.yml とは独立したワークフロー。
 # 本番移行はテスト成功・明示的な承認の後。承認までは schedule を有効にしない。
 # 毎朝必要なのは Gmail と Instagram (META_ACCESS_TOKEN) だけ。Canva には毎日アクセスしない。
-#   mode=post : Gmail → 台帳 → 元画像から1・2ページを合成・検証 → Instagram (05:00 SGT) → 前日分を削除
+#   mode=post : Gmail → 台帳 → 元画像から1・2ページを合成・検証 → Instagram (05:10 SGT、コラムの後) → 前日分を削除
 on:
   workflow_dispatch:
     inputs:
@@ -34,12 +34,12 @@ on:
       - 'tests/**'
       - '.github/workflows/sg-calendar-daily.yml'
   # 本番 (投稿期間は config/sg_calendar.json の posting_window。期間外は何もしない)。
-  # GitHub の定時実行は遅れることがあるので早めに起動し、05:00 まで待って公開する。
+  # GitHub の定時実行は遅れることがあるので早めに起動し、05:10 まで待って公開する (05:00 のコラムの後に並べるため)。
   # 2回目は1回目が遅れた・落ちたときの予備 (投稿状態の記録で二重投稿しない)。
   schedule:
     - cron: '13 20 * * *'   # 04:13 SGT post
     - cron: '37 20 * * *'   # 04:37 SGT post (予備)
-    - cron: '17 21 * * *'   # 05:17 SGT watchdog
+    - cron: '27 21 * * *'   # 05:27 SGT watchdog
 
 permissions:
   contents: write   # instagram-media ブランチに状態・画像・実行記録を保存 (DRY_RUN では書かない)
@@ -71,7 +71,7 @@ jobs:
         id: run
         env:
           # push (テスト用ブランチ): 認証確認 (Gmail・Meta を読み取りのみで確認し、予約を要約。投稿しない)
-          MODE: ${{ github.event_name == 'schedule' && (github.event.schedule == '17 21 * * *' && 'watchdog' || 'post') || (github.event_name == 'push' && 'auth-check') || inputs.mode || 'post' }}
+          MODE: ${{ github.event_name == 'schedule' && (github.event.schedule == '27 21 * * *' && 'watchdog' || 'post') || (github.event_name == 'push' && 'auth-check') || inputs.mode || 'post' }}
           # 定時実行は本番 (公開する)。push / 手動の既定は DRY_RUN
           DRY_RUN: ${{ github.event_name == 'schedule' && 'false' || (github.event_name == 'push' && 'true' || inputs.dry_run) }}
           AUTO_PUBLISH: ${{ github.event_name == 'schedule' && 'true' || (github.event_name == 'workflow_dispatch' && inputs.auto_publish || 'false') }}

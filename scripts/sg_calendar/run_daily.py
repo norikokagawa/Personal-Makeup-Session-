@@ -7,13 +7,13 @@ atelierR Singapore November calendar — daily run (Asia/Singapore)
             → 予約済みの枠 (+ 手動で閉じた枠) を決める
             → 2枚の元画像 (全部空き / 全部予約済み、assets/sg_masters/) から枠ごとに切り貼りして
               1・2ページを作り、画素単位で検証 → JPEG (フィード 1080x1350 / ストーリーズ 1080x1920)
-            → Instagram 公式 API: コンテナ作成 (非公開) → 05:00 SGT まで待機 → 公開
+            → Instagram 公式 API: コンテナ作成 (非公開) → 05:10 SGT まで待機 → 公開
               フィード (2枚カルーセル)・ストーリーズ2本を個別に状態管理 (post_state.py) → コメントオフ
               auto_stories=false (config) のときはフィードだけ投稿し、ストーリーズ画像は
               instagram-media ブランチの today/ ページに置く (リンクスタンプを付けて手動で投稿するため)
             → 前日までにこの仕組みが投稿したフィードを削除 (自分の記録にある投稿だけ)
   ledger    台帳だけ作って保存・確認 (投稿しない)
-  watchdog  05:00 以降に3件すべて公開済みか確認し、そうでなければ失敗 (= 通知)
+  watchdog  05:10 以降に3件すべて公開済みか確認し、そうでなければ失敗 (= 通知)
 
 止める条件: 台帳の矛盾 (同じ枠に2件・元予約のない変更/キャンセル)、未確定の変更・キャンセル依頼、
             カレンダーにない日時の予約、画像検証の失敗。
@@ -183,7 +183,7 @@ def put_branch_file(path, content, message, branch=MEDIA_BRANCH):
 # ── Scheduling helpers ─────────────────────────────────────────────────────
 
 def publish_time(now):
-    """Today's 05:00 SGT; if that has already passed, publish right away (nearest feasible time)."""
+    """Today's post_time (05:10 SGT, after the 05:00 column); if that has already passed, publish right away (nearest feasible time)."""
     hh, mm = map(int, CONFIG["post_time"].split(":"))
     target = now.replace(hour=hh, minute=mm, second=0, microsecond=0)
     return target if now < target else now
@@ -302,7 +302,7 @@ def post_to_instagram(report, day, files, now):
     publish = (not DRY_RUN) and AUTO_PUBLISH
     when = publish_time(now)
     report["publish_at"] = when.isoformat()
-    report["late"] = now > when.replace(hour=5, minute=5)
+    report["late"] = now > when + timedelta(minutes=5)
 
     if not DRY_RUN:
         ensure_media_branch()

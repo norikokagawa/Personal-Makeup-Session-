@@ -74,14 +74,27 @@ def gmail_token():
     return auth.gmail_access_token()
 
 
-def _body_text(payload):
-    if payload.get("mimeType") == "text/plain" and payload.get("body", {}).get("data"):
+def _body_text(payload, mime="text/plain"):
+    if payload.get("mimeType") == mime and payload.get("body", {}).get("data"):
         return base64.urlsafe_b64decode(payload["body"]["data"]).decode("utf-8", "replace")
     for part in payload.get("parts", []) or []:
-        text = _body_text(part)
+        text = _body_text(part, mime)
         if text:
             return text
+    if mime == "text/plain":                       # HTML だけのメール (Fresha など)
+        html_body = _body_text(payload, "text/html")
+        if html_body:
+            return _html_to_text(html_body)
     return ""
+
+
+def _html_to_text(html_body):
+    import html as html_mod
+    import re as re_mod
+    t = re_mod.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", "", html_body)
+    t = re_mod.sub(r"(?i)<br\s*/?>|</(p|div|tr|td|h[1-6]|li|table)>", "\n", t)
+    t = html_mod.unescape(re_mod.sub(r"<[^>]+>", "", t)).replace("\xa0", " ")
+    return "\n".join(line.strip() for line in t.splitlines() if line.strip())
 
 
 def _gmail_get(path, headers, params, tries=6):
@@ -114,21 +127,26 @@ def _list_ids(h, q):
 
 def fetch_events():
     """STORES mails that matter for the period: bookings/changes/cancellations whose body names
-    the period's month (e.g. 2026年11月), plus recent customer inquiries."""
+    the period's month (e.g. 2026年11月), plus recent customer inquiries, plus Fresha
+    appointment notices (bookings from 2026-11-01 on)."""
     h = {"Authorization": f"Bearer {gmail_token()}"}
     start = datetime.strptime(CONFIG["period"][0], "%Y-%m-%d")
     month = f"{start.year}年{start.month}月"
     booking_q = (f'from:hello@stores.jp "{month}" {{"予約が入りました" "予約が変更されました" '
                  f'"予約がキャンセルされました"}} newer_than:400d')
     inquiry_q = 'from:hello@stores.jp "お問い合わせがあります" newer_than:120d'
-    ids = list(dict.fromkeys(_list_ids(h, booking_q) + _list_ids(h, inquiry_q)))
+    # 2026-11-01 から予約は Fresha。新規・変更・キャンセルの通知をすべて読む (ログインコード等は日時がないので無視される)
+    fresha_q = '(from:updates.fresha.com OR from:fresha.com) -subject:ログイン -subject:login newer_than:120d'
+    fresha_ids = set(_list_ids(h, fresha_q))
+    ids = list(dict.fromkeys(_list_ids(h, booking_q) + _list_ids(h, inquiry_q) + list(fresha_ids)))
     events = []
     for mid in ids:
         m = _gmail_get(f"users/me/messages/{mid}", h, {"format": "full"})
         time.sleep(0.2)                             # 1通ずつ間をあけて Gmail の上限を避ける
         hdrs = {x["name"]: x["value"] for x in m["payload"].get("headers", [])}
         received = datetime.fromtimestamp(int(m["internalDate"]) / 1000, ZoneInfo("UTC")).isoformat()
-        ev = ledger_mod.parse_message(mid, received, hdrs.get("Subject", ""), _body_text(m["payload"]))
+        parse = ledger_mod.parse_fresha if mid in fresha_ids else ledger_mod.parse_message
+        ev = parse(mid, received, hdrs.get("Subject", ""), _body_text(m["payload"]))
         if ev:
             events.append(ev)
     log(f"Gmail: {len(ids)} messages scanned, {len(events)} reservation events")

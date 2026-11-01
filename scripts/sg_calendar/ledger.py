@@ -1,5 +1,5 @@
 """
-STORES 予約メール → 予約番号単位の台帳
+予約メール (STORES / 2026-11-01 から Fresha) → 予約単位の台帳
 
 メール1通ずつではなく予約番号ごとに最終状態を決める。
 推測はしない: 解釈できないメールや矛盾があれば ``anomalies`` に積み、
@@ -16,6 +16,7 @@ KIND_BOOKED = "booked"
 KIND_CHANGED = "changed"
 KIND_CANCELLED = "cancelled"
 KIND_INQUIRY = "inquiry"
+KIND_UNKNOWN = "unknown"          # Fresha の未知の通知 (期間内の日付があれば停止して確認)
 
 _NO_RE = re.compile(r"◆予約番号:\s*(\d+)")
 _SERVICE_RE = re.compile(r"◆予約内容:\s*(.+)")
@@ -34,6 +35,8 @@ class Event:
     slot: tuple = None        # ("2026-11-15", "11:00")
     previous_slot: tuple = None
     text: str = ""
+    source: str = "stores"
+    customer: str = None
 
 
 @dataclass
@@ -103,6 +106,108 @@ def parse_message(message_id, received_at, subject, body):
     return ev
 
 
+# ── Fresha (mail@updates.fresha.com) ──────────────────────────────────────────
+# 例: "Noriko Kagawa担当のNoriko Make Up Session 50mins\n日曜日, 22 11月 2026, 17:00"
+#     予約番号はメールにないので、日時 + 顧客名で1件の予約とみなす。
+
+_FRESHA_JA_RE = re.compile(r"(\d{1,2})\s*(\d{1,2})月\s*(\d{4})\D{0,6}?(\d{1,2}):(\d{2})")
+_EN_MONTHS = {m: i for i, m in enumerate(
+    ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], 1)}
+_FRESHA_EN_RE = re.compile(
+    r"(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{4})\D{0,6}?(\d{1,2}):(\d{2})",
+    re.I)
+_FRESHA_CUSTOMER_RE = re.compile(r"(?:顧客の詳細情報|Client details)\s*[:：]?\s*\n\s*(.+)")
+
+
+def _fresha_slots(body):
+    out = [(int(y), int(m), int(d), int(hh), mm) for d, m, y, hh, mm in _FRESHA_JA_RE.findall(body)]
+    out += [(int(y), _EN_MONTHS[mon.lower()[:3]], int(d), int(hh), mm)
+            for d, mon, y, hh, mm in _FRESHA_EN_RE.findall(body)]
+    return [(f"{y}-{m:02d}-{d:02d}", f"{hh:02d}:{mm}") for y, m, d, hh, mm in out]
+
+
+def classify_fresha(subject, body):
+    s = subject.lower()
+    if "キャンセル" in subject or "cancel" in s:
+        return KIND_CANCELLED
+    if any(w in subject for w in ("変更", "日時変更")) or any(w in s for w in ("reschedul", "changed", "moved")):
+        return KIND_CHANGED
+    if "新規予約" in subject or "予約が確定" in body or "new appointment" in s or "new booking" in s:
+        return KIND_BOOKED
+    return KIND_UNKNOWN
+
+
+def parse_fresha(message_id, received_at, subject, body):
+    """Fresha の予約通知 → Event (日時のない通知は None)。"""
+    slots = _fresha_slots(body)
+    kind = classify_fresha(subject, body)
+    if not slots:
+        if kind == KIND_UNKNOWN:
+            return None                              # ログインコード等
+        # 予約の通知なのに日時が読めない → 停止して確認 (書式が変わった可能性)
+        return Event(message_id, received_at, kind, source="fresha", text=subject)
+    cust = _FRESHA_CUSTOMER_RE.search(body)
+    ev = Event(message_id, received_at, kind, source="fresha",
+               customer=cust.group(1).strip() if cust else None, text=subject)
+    if kind == KIND_CHANGED and len(slots) >= 2:
+        ev.slot, ev.previous_slot = slots[0], slots[1]
+    else:
+        ev.slot = slots[0]
+    return ev
+
+
+def _fresha_no(slot, customer):
+    return f"fresha|{slot[0]}|{slot[1]}|{customer or ''}"
+
+
+def _apply_fresha(ledger, ev, in_period):
+    """Fresha の1通を台帳へ。曖昧なものは anomalies に積む (推測しない)。"""
+    if ev.slot is None:
+        ledger.anomalies.append(f"{ev.message_id}: Fresha {ev.kind} notice without a readable date")
+        return
+    if ev.kind == KIND_BOOKED:
+        no = _fresha_no(ev.slot, ev.customer)
+        cur = ledger.reservations.get(no)
+        ledger.reservations[no] = {"state": KIND_BOOKED, "slot": ev.slot,
+                                   "history": (cur["history"] if cur else []) + [ev.message_id]}
+        return
+
+    def find(slot):
+        hits = [no for no, r in ledger.reservations.items()
+                if no.startswith("fresha|") and r["state"] != KIND_CANCELLED and r["slot"] == slot
+                and (not ev.customer or no.endswith("|" + ev.customer))]
+        return hits[0] if len(hits) == 1 else None
+
+    if ev.kind == KIND_CANCELLED:
+        no = find(ev.slot)
+        if no:
+            ledger.reservations[no]["state"] = KIND_CANCELLED
+            ledger.reservations[no]["history"].append(ev.message_id)
+        elif in_period(ev.slot):
+            ledger.anomalies.append(f"{ev.message_id}: Fresha cancellation for unknown booking {ev.slot}")
+        return
+    if ev.kind == KIND_CHANGED:
+        if ev.previous_slot is None:
+            if in_period(ev.slot):
+                ledger.anomalies.append(
+                    f"{ev.message_id}: Fresha change notice without the previous date ({ev.slot})")
+            return
+        old = find(ev.previous_slot)
+        if old is None:
+            if in_period(ev.slot) or in_period(ev.previous_slot):
+                ledger.anomalies.append(
+                    f"{ev.message_id}: Fresha change from {ev.previous_slot} without the original booking")
+            return
+        r = ledger.reservations.pop(old)
+        ledger.reservations[_fresha_no(ev.slot, ev.customer)] = {
+            "state": KIND_BOOKED, "slot": ev.slot,
+            "released": r.get("released", []) + [ev.previous_slot],
+            "history": r["history"] + [ev.message_id]}
+        return
+    if in_period(ev.slot):
+        ledger.anomalies.append(f"{ev.message_id}: unknown Fresha notice ({ev.text!r}) for {ev.slot}")
+
+
 def build_ledger(events, period_start, period_end, cancelled_in_stores=()):
     """Apply events in received order. Period bounds are 'YYYY-MM-DD' inclusive.
 
@@ -115,6 +220,9 @@ def build_ledger(events, period_start, period_end, cancelled_in_stores=()):
         return slot is not None and period_start <= slot[0] <= period_end
 
     for ev in sorted(events, key=lambda e: e.received_at):
+        if ev.source == "fresha":
+            _apply_fresha(ledger, ev, in_period)
+            continue
         if ev.kind == KIND_INQUIRY:
             # 変更・キャンセルの「希望」だけでは台帳を変えない。確認対象として残す
             ledger.inquiries.append(ev)

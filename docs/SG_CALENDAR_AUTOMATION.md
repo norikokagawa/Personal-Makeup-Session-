@@ -6,7 +6,9 @@ Status: **LIVE** from 2026-10-14 to 2026-11-30 (`posting_window`): scheduled run
 
 Each morning needs only two connections: **Gmail** (read-only) and **Instagram** (`META_ACCESS_TOKEN`, no expiry). Canva and Claude are not part of the daily run.
 
-1. Read the STORES booking mails and build the ledger by reservation number.
+1. Read the booking mails and build the ledger.
+   - STORES (until 2026-11-01): by reservation number.
+   - Fresha (from 2026-11-01 14:00, `mail@updates.fresha.com`): by date + time + customer, because Fresha mails carry no reservation number. New bookings, cancellations and reschedules are applied; a Fresha notice that cannot be read safely (unknown type, no readable date, a change without the previous date, a cancellation of an unknown booking) stops the run and notifies. Dates outside the period (e.g. December) are ignored.
 2. Work out which slots are taken: active bookings plus `manual_closed` in `config/sg_calendar.json`.
 3. Build pages 1–2 from two fixed master images in `assets/sg_masters/`, exported once from copies of `DAGsRHlSvkw`.
    - `open_p*.png`: every slot gray (`#545454`) with no strikethrough (Canva copy `DAHX1S2EPR0`).
@@ -44,7 +46,7 @@ Copy pages 1–2 of the design twice. Set every time slot to open on one copy an
 
 | File | Role |
 |---|---|
-| `scripts/sg_calendar/ledger.py` | STORES mail → ledger by reservation number (numbers hashed/masked in anything stored or logged) |
+| `scripts/sg_calendar/ledger.py` | STORES / Fresha mail → ledger (numbers hashed/masked in anything stored or logged) |
 | `scripts/sg_calendar/compose.py` | slot boxes from the masters, per-slot composition, pixel verification |
 | `scripts/sg_calendar/images.py` | page checks, JPEG q95 4:4:4 with PSNR check, 1080×1920 stories |
 | `scripts/sg_calendar/instagram.py` | Graph API client: containers, carousel, STORIES, publish, comments off, delete own post, read-only checks |

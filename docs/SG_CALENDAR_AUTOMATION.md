@@ -1,4 +1,4 @@
-# atelierR Singapore November Calendar — Daily Instagram Automation
+# atelierR Singapore November–December Calendar — Daily Instagram Automation
 
 Status: **LIVE** from 2026-10-14 to 2026-11-30 (`posting_window`): scheduled runs publish at 05:00 SGT. Push and manual runs stay `DRY_RUN` by default. The existing `daily-instagram-post.yml` / `scripts/daily_post.py`, the original Canva design and the Instagram account are untouched.
 
@@ -10,7 +10,7 @@ Each morning needs only two connections: **Gmail** (read-only) and **Instagram**
    - STORES (until 2026-11-01): by reservation number.
    - Fresha (from 2026-11-01 14:00, `mail@updates.fresha.com`): by date + time + customer, because Fresha mails carry no reservation number. New bookings, cancellations and reschedules are applied; a Fresha notice that cannot be read safely (unknown type, no readable date, a change without the previous date, a cancellation of an unknown booking) stops the run and notifies. Dates outside the period (e.g. December) are ignored.
 2. Work out which slots are taken: active bookings plus `manual_closed` in `config/sg_calendar.json`.
-3. Build pages 1–2 from two fixed master images in `assets/sg_masters/`, exported once from copies of `DAGsRHlSvkw`.
+3. Build the pages from fixed master images in `assets/sg_masters/` (`open_p<n>.png` / `booked_p<n>.png`): pages 1–2 are November (copies of `DAGsRHlSvkw`), pages 3–4 are December (Canva copies `DAHZpzUvp_w`, `DAHZp9tiGcY` open / `DAHZpz2uNyQ`, `DAHZp_VKrfo` booked). Until 11/30 all four are posted as one carousel; from 12/1 only December. The caption's `{months}` follows the posted pages.
    - `open_p*.png`: every slot gray (`#545454`) with no strikethrough (Canva copy `DAHX1S2EPR0`).
    - `booked_p*.png`: every slot red (`#ff5757`) with strikethrough (Canva copy `DAHX1QJavPQ`).
    - Each slot's box is found from the pixel difference of the two masters and matched to `config/sg_layout.json`.
@@ -33,7 +33,7 @@ It **stops and notifies** (GitHub Issue → email) on any of these:
 - two bookings on one slot
 - a change/cancel mail for an unknown reservation
 - an unconfirmed change request
-- a booking with no slot on pages 1–2
+- a booking with no slot on the calendar pages
 - an image check fails
 - auth errors
 - the watchdog finds unpublished items after 05:00

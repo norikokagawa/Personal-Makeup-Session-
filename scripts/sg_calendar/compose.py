@@ -124,8 +124,10 @@ def verify(img, open_im, booked_im, boxes, booked):
         raise ComposeError("image differs from the master outside the time slots")
 
 
-def build_pages(masters_dir, booked, out_dir, layout=None):
-    """Write page_1.png / page_2.png for the set of booked (date, time); returns their paths."""
+def build_pages(masters_dir, booked, out_dir, layout=None, pages=None):
+    """Write page_<n>.png for the set of booked (date, time); returns their paths.
+    `pages` limits the output to those page numbers (all layout pages by default); booked
+    slots on the other pages are still checked against the calendar."""
     layout = layout or load_layout()
     masters_dir, out_dir = Path(masters_dir), Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -138,6 +140,8 @@ def build_pages(masters_dir, booked, out_dir, layout=None):
             boxes = slot_boxes(o, b, pl)
             mine = {k for k in booked if k in boxes}
             on_pages |= mine
+            if pages is not None and n not in pages:
+                continue
             img = compose(o, b, boxes, mine)
             verify(img, o, b, boxes, mine)
         p = out_dir / f"page_{n}.png"

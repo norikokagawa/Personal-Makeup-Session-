@@ -378,7 +378,7 @@ class ComposeTest(unittest.TestCase):
     def test_only_booked_slots_change(self):
         booked = {("2026-11-06", "11:00"), ("2026-11-29", "15:00")}
         with tempfile.TemporaryDirectory() as d:
-            p1, p2 = compose.build_pages(THUMBS, booked, d, self.layout)
+            p1, p2, p3, p4 = compose.build_pages(THUMBS, booked, d, self.layout)
             o1, b1 = self.masters(1)
             boxes = compose.slot_boxes(o1, b1, self.layout["pages"][0])
             img = Image.open(p1)
@@ -622,3 +622,30 @@ class FreshaTest(unittest.TestCase):
             {"mimeType": "text/html", "body": {"data": base64.urlsafe_b64encode(html.encode()).decode()}}]}
         ev = L.parse_fresha("f1", "2026-11-01T07:00:00Z", "新規予約", RD._body_text(payload))
         self.assertEqual(ev.slot, ("2026-11-22", "17:00"))
+
+
+class DecemberTest(unittest.TestCase):
+    """12月分 (pages 3-4) を11月と同時に投稿し、12/1 からは12月だけにする。"""
+
+    def setUp(self):
+        self.layout = compose.load_layout()
+
+    def test_december_has_66_slots(self):
+        dec = [s for pg in self.layout["pages"] if pg["page"] in (3, 4) for s in pg["slots"]]
+        self.assertEqual(len(dec), 66)
+        self.assertEqual(len({s["date"] for s in dec}), 14)
+        self.assertNotIn("2026-12-13", {s["date"] for s in dec})      # AMI collab の日は休み
+
+    def test_pages_and_caption_by_day(self):
+        self.assertEqual(RD.active_pages("2026-11-02", self.layout), [1, 2, 3, 4])
+        self.assertEqual(RD.active_pages("2026-11-30", self.layout), [1, 2, 3, 4])
+        self.assertEqual(RD.active_pages("2026-12-01", self.layout), [3, 4])
+        self.assertEqual(RD.active_pages("2026-12-20", self.layout), [3, 4])
+        self.assertIn("November and December bookings are now open.", RD.caption_for([1, 2, 3, 4], self.layout))
+        self.assertIn("\nDecember bookings are now open.", RD.caption_for([3, 4], self.layout))
+
+    def test_only_requested_pages_are_built(self):
+        booked = {("2026-11-06", "11:00"), ("2026-12-01", "12:00"), ("2026-12-19", "13:00")}
+        with tempfile.TemporaryDirectory() as d:
+            paths = compose.build_pages(THUMBS, booked, d, self.layout, pages=[3, 4])
+            self.assertEqual([p.name for p in paths], ["page_3.png", "page_4.png"])

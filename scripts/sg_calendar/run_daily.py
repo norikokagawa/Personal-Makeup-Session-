@@ -59,6 +59,26 @@ EXIT_OK, EXIT_FAIL, EXIT_STOPPED = 0, 1, 2
 STORIES_PAGE = "today/README.md"
 
 
+MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August",
+          "September", "October", "November", "December"]
+
+
+def active_pages(day, layout=None):
+    """Pages of this month and later (until 11/30 November + December; from 12/1 December only)."""
+    layout = layout or compose.load_layout()
+    return [pg["page"] for pg in layout["pages"] if pg["page"] in CONFIG["pages"]
+            and max(s["date"] for s in pg["slots"])[:7] >= day[:7]]
+
+
+def caption_for(pages, layout=None):
+    """config/sg_caption.txt with {months} = the months on the posted pages ("November and December")."""
+    layout = layout or compose.load_layout()
+    nums = sorted({int(s["date"][5:7]) for pg in layout["pages"] if pg["page"] in pages for s in pg["slots"]})
+    months = [MONTHS[m - 1] for m in nums]
+    text = months[0] if len(months) == 1 else ", ".join(months[:-1]) + " and " + months[-1]
+    return CAPTION_PATH.read_text().strip().replace("{months}", text)
+
+
 def posted_items():
     """The feed always; the stories only when they are posted automatically (config auto_stories)."""
     return [k for k in ITEMS if k == "FEED" or CONFIG.get("auto_stories", True)]
@@ -243,7 +263,7 @@ def booked_slots(data):
 
 def build_images(day, report, booked):
     """Pages 1-2 from the master images → verify → JPEG feed + 1080x1920 JPEG stories."""
-    pages = compose.build_pages(MASTERS, booked, OUT / "pages")
+    pages = compose.build_pages(MASTERS, booked, OUT / "pages", pages=CONFIG["pages"])
     pngs = []
     for page, src in zip(CONFIG["pages"], pages):
         p = OUT / f"sg_feed_p{page}_{day}.png"
@@ -304,8 +324,9 @@ def stories_page(day, urls):
     d = datetime.strptime(day, "%Y-%m-%d")
     lines = [f"# {d.month}/{d.day} のストーリーズ", "",
              "画像を長押しして保存 → ストーリーズで投稿し、リンクスタンプ (予約ページ) を付けてください。", ""]
-    for p in CONFIG["pages"]:
-        lines += [f"## {p}枚目", "", f"![{p}枚目]({urls[f'story_p{p}']})", ""]
+    shown = [p for p in CONFIG["pages"] if f"story_p{p}" in urls]
+    for i, p in enumerate(shown, 1):
+        lines += [f"## {i}枚目", "", f"![{i}枚目]({urls[f'story_p{p}']})", ""]
     return "\n".join(lines)
 
 
@@ -314,7 +335,7 @@ def publish_stories_page(day, urls):
 
 
 def post_to_instagram(report, day, files, now):
-    caption = CAPTION_PATH.read_text().strip()
+    caption = caption_for(CONFIG["pages"])
     probe = DRY_RUN and os.environ.get("IG_PROBE", "").lower() == "true"
     ig = instagram_client(probe)
     publish = (not DRY_RUN) and AUTO_PUBLISH
@@ -519,6 +540,9 @@ def main(mode):
               "dry_run": DRY_RUN, "auto_publish": AUTO_PUBLISH}
     log(f"=== SG calendar {mode} {now:%Y-%m-%d %H:%M} SGT | DRY_RUN={DRY_RUN} "
         f"AUTO_PUBLISH={AUTO_PUBLISH} ===")
+    # 12/1 以降は11月のページを出さない (その日以降の日付があるページだけ投稿する)
+    CONFIG["pages"] = active_pages(report["day"]) or CONFIG["pages"]
+    report["pages"] = CONFIG["pages"]
     try:
         lo, hi = CONFIG["posting_window"]
         if mode in ("post", "watchdog") and not lo <= report["day"] <= hi:

@@ -108,8 +108,12 @@ def to_jpeg(src_path, dst_path):
     return round(score, 1)
 
 
-def assert_pages_differ(a_path, b_path):
+def assert_pages_differ(*paths):
     """Guard against exporting the same page twice."""
-    with Image.open(a_path) as a, Image.open(b_path) as b:
-        if a.convert("RGB").tobytes() == b.convert("RGB").tobytes():
-            raise ValueError("page 1 and page 2 exports are identical")
+    seen = {}
+    for p in paths:
+        with Image.open(p) as im:
+            key = im.convert("RGB").tobytes()
+        if key in seen:
+            raise ValueError(f"{seen[key]} and {p} are identical")
+        seen[key] = p

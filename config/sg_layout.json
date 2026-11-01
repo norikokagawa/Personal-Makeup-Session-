@@ -1,8 +1,16 @@
 {
- "_comment": "Which table cell is which date/time on pages 1-2 of DAGsRHlSvkw (read from the master copies DAHX1S2EPR0 'all open' / DAHX1QJavPQ 'all booked'). Regenerate if the design's table changes.",
+ "_comment": "Which table cell is which date/time. Pages 1-2: November (Canva copies DAHX1S2EPR0 'all open' / DAHX1QJavPQ 'all booked'). Pages 3-4: December (Canva copies DAHZpzUvp_w + DAHZp9tiGcY 'all open' / DAHZpz2uNyQ + DAHZp_VKrfo 'all booked'); masters are assets/sg_masters/{open,booked}_p<page>.png. Regenerate if a design's table changes.",
  "masters": {
-  "open": "DAHX1S2EPR0",
-  "booked": "DAHX1QJavPQ"
+  "open": [
+   "DAHX1S2EPR0",
+   "DAHZpzUvp_w",
+   "DAHZp9tiGcY"
+  ],
+  "booked": [
+   "DAHX1QJavPQ",
+   "DAHZpz2uNyQ",
+   "DAHZp_VKrfo"
+  ]
  },
  "pages": [
   {
@@ -469,6 +477,416 @@
     },
     {
      "date": "2026-11-29",
+     "time": "17:00",
+     "row": 5,
+     "col": 6
+    }
+   ]
+  },
+  {
+   "page": 3,
+   "columns": 7,
+   "time_rows": 6,
+   "slots": [
+    {
+     "date": "2026-12-01",
+     "time": "11:00",
+     "row": 0,
+     "col": 0
+    },
+    {
+     "date": "2026-12-02",
+     "time": "11:00",
+     "row": 0,
+     "col": 1
+    },
+    {
+     "date": "2026-12-03",
+     "time": "11:00",
+     "row": 0,
+     "col": 2
+    },
+    {
+     "date": "2026-12-05",
+     "time": "11:00",
+     "row": 0,
+     "col": 3
+    },
+    {
+     "date": "2026-12-06",
+     "time": "11:00",
+     "row": 0,
+     "col": 4
+    },
+    {
+     "date": "2026-12-08",
+     "time": "11:00",
+     "row": 0,
+     "col": 5
+    },
+    {
+     "date": "2026-12-09",
+     "time": "11:00",
+     "row": 0,
+     "col": 6
+    },
+    {
+     "date": "2026-12-01",
+     "time": "12:00",
+     "row": 1,
+     "col": 0
+    },
+    {
+     "date": "2026-12-02",
+     "time": "12:00",
+     "row": 1,
+     "col": 1
+    },
+    {
+     "date": "2026-12-03",
+     "time": "12:00",
+     "row": 1,
+     "col": 2
+    },
+    {
+     "date": "2026-12-05",
+     "time": "12:00",
+     "row": 1,
+     "col": 3
+    },
+    {
+     "date": "2026-12-06",
+     "time": "12:00",
+     "row": 1,
+     "col": 4
+    },
+    {
+     "date": "2026-12-08",
+     "time": "12:00",
+     "row": 1,
+     "col": 5
+    },
+    {
+     "date": "2026-12-09",
+     "time": "12:00",
+     "row": 1,
+     "col": 6
+    },
+    {
+     "date": "2026-12-01",
+     "time": "13:00",
+     "row": 2,
+     "col": 0
+    },
+    {
+     "date": "2026-12-02",
+     "time": "13:00",
+     "row": 2,
+     "col": 1
+    },
+    {
+     "date": "2026-12-03",
+     "time": "13:00",
+     "row": 2,
+     "col": 2
+    },
+    {
+     "date": "2026-12-05",
+     "time": "13:00",
+     "row": 2,
+     "col": 3
+    },
+    {
+     "date": "2026-12-06",
+     "time": "13:00",
+     "row": 2,
+     "col": 4
+    },
+    {
+     "date": "2026-12-08",
+     "time": "13:00",
+     "row": 2,
+     "col": 5
+    },
+    {
+     "date": "2026-12-09",
+     "time": "13:00",
+     "row": 2,
+     "col": 6
+    },
+    {
+     "date": "2026-12-01",
+     "time": "14:00",
+     "row": 3,
+     "col": 0
+    },
+    {
+     "date": "2026-12-02",
+     "time": "14:00",
+     "row": 3,
+     "col": 1
+    },
+    {
+     "date": "2026-12-03",
+     "time": "14:00",
+     "row": 3,
+     "col": 2
+    },
+    {
+     "date": "2026-12-05",
+     "time": "15:00",
+     "row": 3,
+     "col": 3
+    },
+    {
+     "date": "2026-12-06",
+     "time": "15:00",
+     "row": 3,
+     "col": 4
+    },
+    {
+     "date": "2026-12-08",
+     "time": "14:00",
+     "row": 3,
+     "col": 5
+    },
+    {
+     "date": "2026-12-09",
+     "time": "14:00",
+     "row": 3,
+     "col": 6
+    },
+    {
+     "date": "2026-12-05",
+     "time": "16:00",
+     "row": 4,
+     "col": 3
+    },
+    {
+     "date": "2026-12-06",
+     "time": "16:00",
+     "row": 4,
+     "col": 4
+    },
+    {
+     "date": "2026-12-05",
+     "time": "17:00",
+     "row": 5,
+     "col": 3
+    },
+    {
+     "date": "2026-12-06",
+     "time": "17:00",
+     "row": 5,
+     "col": 4
+    }
+   ]
+  },
+  {
+   "page": 4,
+   "columns": 7,
+   "time_rows": 6,
+   "slots": [
+    {
+     "date": "2026-12-10",
+     "time": "11:00",
+     "row": 0,
+     "col": 0
+    },
+    {
+     "date": "2026-12-12",
+     "time": "11:00",
+     "row": 0,
+     "col": 1
+    },
+    {
+     "date": "2026-12-15",
+     "time": "11:00",
+     "row": 0,
+     "col": 2
+    },
+    {
+     "date": "2026-12-16",
+     "time": "11:00",
+     "row": 0,
+     "col": 3
+    },
+    {
+     "date": "2026-12-17",
+     "time": "11:00",
+     "row": 0,
+     "col": 4
+    },
+    {
+     "date": "2026-12-19",
+     "time": "11:00",
+     "row": 0,
+     "col": 5
+    },
+    {
+     "date": "2026-12-20",
+     "time": "11:00",
+     "row": 0,
+     "col": 6
+    },
+    {
+     "date": "2026-12-10",
+     "time": "12:00",
+     "row": 1,
+     "col": 0
+    },
+    {
+     "date": "2026-12-12",
+     "time": "12:00",
+     "row": 1,
+     "col": 1
+    },
+    {
+     "date": "2026-12-15",
+     "time": "12:00",
+     "row": 1,
+     "col": 2
+    },
+    {
+     "date": "2026-12-16",
+     "time": "12:00",
+     "row": 1,
+     "col": 3
+    },
+    {
+     "date": "2026-12-17",
+     "time": "12:00",
+     "row": 1,
+     "col": 4
+    },
+    {
+     "date": "2026-12-19",
+     "time": "12:00",
+     "row": 1,
+     "col": 5
+    },
+    {
+     "date": "2026-12-20",
+     "time": "12:00",
+     "row": 1,
+     "col": 6
+    },
+    {
+     "date": "2026-12-10",
+     "time": "13:00",
+     "row": 2,
+     "col": 0
+    },
+    {
+     "date": "2026-12-12",
+     "time": "13:00",
+     "row": 2,
+     "col": 1
+    },
+    {
+     "date": "2026-12-15",
+     "time": "13:00",
+     "row": 2,
+     "col": 2
+    },
+    {
+     "date": "2026-12-16",
+     "time": "13:00",
+     "row": 2,
+     "col": 3
+    },
+    {
+     "date": "2026-12-17",
+     "time": "13:00",
+     "row": 2,
+     "col": 4
+    },
+    {
+     "date": "2026-12-19",
+     "time": "13:00",
+     "row": 2,
+     "col": 5
+    },
+    {
+     "date": "2026-12-20",
+     "time": "13:00",
+     "row": 2,
+     "col": 6
+    },
+    {
+     "date": "2026-12-10",
+     "time": "14:00",
+     "row": 3,
+     "col": 0
+    },
+    {
+     "date": "2026-12-12",
+     "time": "15:00",
+     "row": 3,
+     "col": 1
+    },
+    {
+     "date": "2026-12-15",
+     "time": "14:00",
+     "row": 3,
+     "col": 2
+    },
+    {
+     "date": "2026-12-16",
+     "time": "14:00",
+     "row": 3,
+     "col": 3
+    },
+    {
+     "date": "2026-12-17",
+     "time": "14:00",
+     "row": 3,
+     "col": 4
+    },
+    {
+     "date": "2026-12-19",
+     "time": "15:00",
+     "row": 3,
+     "col": 5
+    },
+    {
+     "date": "2026-12-20",
+     "time": "15:00",
+     "row": 3,
+     "col": 6
+    },
+    {
+     "date": "2026-12-12",
+     "time": "16:00",
+     "row": 4,
+     "col": 1
+    },
+    {
+     "date": "2026-12-19",
+     "time": "16:00",
+     "row": 4,
+     "col": 5
+    },
+    {
+     "date": "2026-12-20",
+     "time": "16:00",
+     "row": 4,
+     "col": 6
+    },
+    {
+     "date": "2026-12-12",
+     "time": "17:00",
+     "row": 5,
+     "col": 1
+    },
+    {
+     "date": "2026-12-19",
+     "time": "17:00",
+     "row": 5,
+     "col": 5
+    },
+    {
+     "date": "2026-12-20",
      "time": "17:00",
      "row": 5,
      "col": 6

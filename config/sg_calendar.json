@@ -1,22 +1,32 @@
 {
-  "_comment": "Singapore November calendar automation. Daily images are composed from two fixed master exports of pages 1-2 (assets/sg_masters/); the Canva designs are not touched day to day. Page 3 (Sydney) is never used.",
+  "_comment": "Singapore November + December calendar automation. Daily images are composed from fixed master exports (assets/sg_masters/open_p<n>.png / booked_p<n>.png; pages 1-2 November, 3-4 December); the Canva designs are not touched day to day. Page 3 of the original design DAGsRHlSvkw (Sydney) is never used.",
   "design_id": "DAGsRHlSvkw",
   "masters": {
-    "open": "DAHX1S2EPR0",
-    "booked": "DAHX1QJavPQ"
+    "open": [
+      "DAHX1S2EPR0",
+      "DAHZpzUvp_w",
+      "DAHZp9tiGcY"
+    ],
+    "booked": [
+      "DAHX1QJavPQ",
+      "DAHZpz2uNyQ",
+      "DAHZp_VKrfo"
+    ]
   },
   "pages": [
     1,
-    2
+    2,
+    3,
+    4
   ],
   "period": [
     "2026-11-06",
-    "2026-11-30"
+    "2026-12-20"
   ],
   "post_time": "05:10",
   "posting_window": [
     "2026-10-14",
-    "2026-11-30"
+    "2026-12-20"
   ],
   "timezone": "Asia/Singapore",
   "delete_previous_feed": false,

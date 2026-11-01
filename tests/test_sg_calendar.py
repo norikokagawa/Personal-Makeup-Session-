@@ -524,3 +524,101 @@ class ManualStoriesTest(unittest.TestCase):
         self.assertIn("10/17", page)
         self.assertIn("![1枚目](https://x/media/2026-10-17/story_p1.jpg)", page)
         self.assertIn("![2枚目](https://x/media/2026-10-17/story_p2.jpg)", page)
+
+
+FRESHA_BOOKED = """予約が確定しました
+
+Noriko Kagawaさん、こんにちは。
+次の予約がオンラインで予約されました
+
+Noriko Kagawa担当のNoriko Make Up Session 50mins
+{dow}, {d} {m}月 2026, {t}
+
+次の店舗で：
+
+Hair & Eyelash Studio Flamingo - Noriko Make Up Class
+55 Tiong Bahru Road, #01-55, Singapore (Tiong Bahru)
+
+顧客の詳細情報：
+{who}
+chan*****
+*****2338"""
+
+
+def fresha(mid, d, t, received, who="JiaMin P", subject="新規予約", m=11, body=None):
+    body = body or FRESHA_BOOKED.format(dow="日曜日", d=d, m=m, t=t, who=who)
+    return L.parse_fresha(mid, received, subject, body)
+
+
+class FreshaTest(unittest.TestCase):
+    """From 2026-11-01 bookings come from Fresha (no reservation number in the mail)."""
+
+    def test_booking_is_read(self):
+        ev = fresha("f1", 22, "17:00", "2026-11-01T07:11:36Z")
+        self.assertEqual((ev.kind, ev.slot, ev.customer), ("booked", ("2026-11-22", "17:00"), "JiaMin P"))
+        lg = L.build_ledger([ev], *PERIOD)
+        self.assertEqual(lg.booked_slots(), {"2026-11-22": ["17:00"]})
+        self.assertEqual(lg.anomalies, [])
+
+    def test_december_booking_is_ignored(self):
+        lg = L.build_ledger([fresha("f1", 19, "13:00", "2026-11-01T06:14:04Z", m=12)], *PERIOD)
+        self.assertEqual(lg.booked_slots(), {})
+        self.assertEqual(lg.anomalies, [])
+
+    def test_stores_and_fresha_together(self):
+        lg = L.build_ledger([mail("1", 6, "11:00", "2026-10-01T00:00:00Z"),
+                             fresha("f1", 21, "17:00", "2026-11-01T06:46:51Z")], *PERIOD)
+        self.assertEqual(lg.booked_slots(), {"2026-11-06": ["11:00"], "2026-11-21": ["17:00"]})
+
+    def test_same_slot_in_both_systems_stops(self):
+        lg = L.build_ledger([mail("1", 21, "17:00", "2026-10-01T00:00:00Z"),
+                             fresha("f1", 21, "17:00", "2026-11-01T06:46:51Z")], *PERIOD)
+        self.assertTrue(any("two active reservations" in a for a in lg.anomalies))
+
+    def test_cancellation_frees_the_slot(self):
+        lg = L.build_ledger([fresha("f1", 22, "17:00", "2026-11-01T07:00:00Z"),
+                             fresha("f2", 22, "17:00", "2026-11-02T07:00:00Z", subject="予約がキャンセルされました")],
+                            *PERIOD)
+        self.assertEqual(lg.booked_slots(), {})
+        self.assertEqual(lg.anomalies, [])
+
+    def test_unknown_cancellation_stops(self):
+        lg = L.build_ledger([fresha("f2", 22, "17:00", "2026-11-02T07:00:00Z", subject="予約がキャンセルされました")],
+                            *PERIOD)
+        self.assertTrue(lg.anomalies)
+
+    def test_reschedule_moves_the_booking(self):
+        body = ("予約が変更されました\nNoriko Make Up Session 50mins\n土曜日, 21 11月 2026, 13:00\n"
+                "変更前\n日曜日, 22 11月 2026, 17:00\n顧客の詳細情報：\nJiaMin P\n")
+        lg = L.build_ledger([fresha("f1", 22, "17:00", "2026-11-01T07:00:00Z"),
+                             L.parse_fresha("f2", "2026-11-02T07:00:00Z", "予約の日時が変更されました", body)],
+                            *PERIOD)
+        self.assertEqual(lg.booked_slots(), {"2026-11-21": ["13:00"]})
+        self.assertEqual(lg.anomalies, [])
+
+    def test_change_without_previous_date_stops(self):
+        body = "予約が変更されました\n土曜日, 21 11月 2026, 13:00\n顧客の詳細情報：\nJiaMin P\n"
+        lg = L.build_ledger([L.parse_fresha("f2", "2026-11-02T07:00:00Z", "予約の日時が変更されました", body)],
+                            *PERIOD)
+        self.assertTrue(lg.anomalies)
+
+    def test_booking_mail_without_readable_date_stops(self):
+        ev = L.parse_fresha("f3", "2026-11-02T07:00:00Z", "新規予約", "予約が確定しました\n(no date)")
+        self.assertTrue(L.build_ledger([ev], *PERIOD).anomalies)
+
+    def test_login_code_mail_is_ignored(self):
+        self.assertIsNone(L.parse_fresha("x", "2026-10-30T02:58:01Z", "ログインコード：547282", "ご本人確認"))
+
+    def test_customer_name_is_not_stored(self):
+        data = L.to_json(L.build_ledger([fresha("f1", 22, "17:00", "2026-11-01T07:00:00Z")], *PERIOD))
+        self.assertNotIn("JiaMin", json.dumps(data))
+
+    def test_html_only_mail_is_read(self):
+        from sg_calendar import run_daily as RD
+        html = ("<div>予約が確定しました</div><p>Noriko Kagawa担当のNoriko Make Up Session 50mins<br>"
+                "日曜日, 22 11月 2026, 17:00</p><p>顧客の詳細情報：</p><p>JiaMin&nbsp;P</p>")
+        import base64
+        payload = {"mimeType": "multipart/alternative", "parts": [
+            {"mimeType": "text/html", "body": {"data": base64.urlsafe_b64encode(html.encode()).decode()}}]}
+        ev = L.parse_fresha("f1", "2026-11-01T07:00:00Z", "新規予約", RD._body_text(payload))
+        self.assertEqual(ev.slot, ("2026-11-22", "17:00"))

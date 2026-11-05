@@ -9,6 +9,7 @@ Noriko が画像と文面を承認 → Claude が column-post ブランチに次
    "caption": "...",
    "comments_off": true,
    "image_url": "<Canva export URL>"   # 省略可。oneoff/media/<id>/feed.jpg を一緒に push してもよい
+   "type": "story",   # 省略時はフィード。story ならストーリーズに投稿 (キャプション・コメント設定なし)
    "dry_run": false}
 
 prepare (push 直後, oneoff-post.yml):
@@ -119,7 +120,11 @@ def post(req):
     wait_public(url)
 
     ig = Instagram(os.environ["IG_USER_ID"], os.environ["META_ACCESS_TOKEN"], dry_run=False)
-    cid = ig.create_image(url, caption=req["caption"])
+    is_story = str(req.get("type", "feed")).lower() == "story"
+    if is_story:
+        cid = ig.create_image(url, story=True)
+    else:
+        cid = ig.create_image(url, caption=req["caption"])
     ig.wait_finished(cid)
     result["feed_media_id"] = ig.publish(cid)
     result["published_at"] = datetime.now(SGT).isoformat(timespec="seconds")
@@ -129,7 +134,9 @@ def post(req):
     commit_push([result_path], f"oneoff {rid}: published")
 
     problems = []
-    if req.get("comments_off", True):
+    if is_story:
+        result["type"] = "story"
+    elif req.get("comments_off", True):
         try:
             result["comments_off"] = ig.disable_comments(result["feed_media_id"])
         except InstagramError as e:

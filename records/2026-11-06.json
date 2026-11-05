@@ -1,8 +1,8 @@
 {
   "items": {
     "FEED": {
-      "state": "prepared",
-      "attempts": 0,
+      "state": "publishing",
+      "attempts": 1,
       "container": "18641001214034614",
       "children": [
         "18641001127034614",
@@ -11,7 +11,7 @@
         "18641001196034614"
       ],
       "error": null,
-      "updated_at": "2026-11-05T20:22:32+00:00"
+      "updated_at": "2026-11-05T21:10:00+00:00"
     }
   }
 }

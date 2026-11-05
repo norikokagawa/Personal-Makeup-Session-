@@ -2,6 +2,7 @@ import json
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -517,6 +518,7 @@ class ManualStoriesTest(unittest.TestCase):
         finally:
             RD.load_record = orig
 
+    @mock.patch.dict(RD.CONFIG, {"pages": [1, 2, 3, 4]})  # independent of the pages currently posted
     def test_stories_page_shows_both_images(self):
         urls = {"story_p1": "https://x/media/2026-10-17/story_p1.jpg",
                 "story_p2": "https://x/media/2026-10-17/story_p2.jpg"}
@@ -636,6 +638,7 @@ class DecemberTest(unittest.TestCase):
         self.assertEqual(len({s["date"] for s in dec}), 14)
         self.assertNotIn("2026-12-13", {s["date"] for s in dec})      # AMI collab の日は休み
 
+    @mock.patch.dict(RD.CONFIG, {"pages": [1, 2, 3, 4]})  # independent of the pages currently posted
     def test_pages_and_caption_by_day(self):
         self.assertEqual(RD.active_pages("2026-11-02", self.layout), [1, 2, 3, 4])
         self.assertEqual(RD.active_pages("2026-11-30", self.layout), [1, 2, 3, 4])

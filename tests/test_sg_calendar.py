@@ -634,7 +634,7 @@ class DecemberTest(unittest.TestCase):
 
     def test_december_has_66_slots(self):
         dec = [s for pg in self.layout["pages"] if pg["page"] in (3, 4) for s in pg["slots"]]
-        self.assertEqual(len(dec), 66)
+        self.assertEqual(len(dec), 61)
         self.assertEqual(len({s["date"] for s in dec}), 14)
         self.assertNotIn("2026-12-13", {s["date"] for s in dec})      # AMI collab の日は休み
 

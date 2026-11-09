@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
-atelierR「今日のコラム」投稿 — フィード1枚＋ストーリーズ1枚を Instagram に直接投稿する。
+atelierR「今日のコラム」投稿 — フィード1枚を Instagram に直接投稿する。
+2026-11 からストーリーズは Noriko がフィード投稿をアプリから手動でシェアする。
+story_url はもう付けない (付いている古いリクエストだけストーリーズも投稿する)。
 
 前日: Noriko が記事を承認 → Claude が column/requests/<投稿日>.json を push
       → prepare: 画像を JPEG 化して column/media/<投稿日>/ に保存 (投稿しない)
@@ -82,11 +84,14 @@ def prepare(req_path):
     media_dir = ROOT / "column" / "media" / day
     feed_jpg, story_jpg = media_dir / "feed.jpg", media_dir / "story.jpg"
     print("feed size:", to_jpeg(req["feed_url"], feed_jpg))
-    print("story size:", to_jpeg(req["story_url"], story_jpg))
+    paths = [feed_jpg]
+    if req.get("story_url"):
+        print("story size:", to_jpeg(req["story_url"], story_jpg))
+        paths.append(story_jpg)
     if str(req.get("dry_run", "false")).lower() == "true":
         print("DRY_RUN: images converted, not saved")
         return 0
-    commit_push([feed_jpg, story_jpg], f"column {day}: images ready")
+    commit_push(paths, f"column {day}: images ready")
     return 0
 
 
@@ -120,16 +125,19 @@ def publish_today():
 def post(day, req):
     result_path = ROOT / "column" / "results" / f"{day}.json"
     result = json.loads(result_path.read_text()) if result_path.exists() else {}
-    if result.get("feed_media_id") and result.get("story_media_id"):
+    want_story = bool(req.get("story_url"))
+    if result.get("feed_media_id") and (result.get("story_media_id") or not want_story):
         print(f"{day}: already posted — skip")
         return 0
     media_dir = ROOT / "column" / "media" / day
     feed_jpg, story_jpg = media_dir / "feed.jpg", media_dir / "story.jpg"
-    if not (feed_jpg.exists() and story_jpg.exists()):
+    if not feed_jpg.exists() or (want_story and not story_jpg.exists()):
         raise RuntimeError(f"{day}: images not prepared")
-    feed_u, story_u = raw_url(feed_jpg), raw_url(story_jpg)
+    feed_u = raw_url(feed_jpg)
     wait_public(feed_u)
-    wait_public(story_u)
+    if want_story:
+        story_u = raw_url(story_jpg)
+        wait_public(story_u)
 
     ig = Instagram(os.environ["IG_USER_ID"], os.environ["META_ACCESS_TOKEN"], dry_run=False)
     problems = []
@@ -148,7 +156,7 @@ def post(day, req):
         result["comments_off"] = False
         problems.append(f"comments off failed: {e}")
 
-    if not result.get("story_media_id"):
+    if want_story and not result.get("story_media_id"):
         try:
             cid = ig.create_image(story_u, story=True)
             ig.wait_finished(cid)

@@ -1,7 +1,7 @@
 {
   "items": {
     "FEED": {
-      "state": "publishing",
+      "state": "published",
       "attempts": 1,
       "container": "18642772579034614",
       "children": [
@@ -9,7 +9,9 @@
         "18642772543034614"
       ],
       "error": null,
-      "updated_at": "2026-11-10T21:10:00+00:00"
+      "updated_at": "2026-11-10T21:10:05+00:00",
+      "media_id": "17900517951610254",
+      "published_at": "2026-11-10T21:10:05+00:00"
     }
   }
 }

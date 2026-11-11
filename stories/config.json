@@ -1,0 +1,8 @@
+{
+  "enabled": true,
+  "count_min": 3,
+  "count_max": 4,
+  "avoid_days": 4,
+  "publish_time": "19:00",
+  "gap_seconds": 20
+}

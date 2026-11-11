@@ -1,0 +1,47 @@
+name: Evening stories import (atelierR 夜のストーリーズ 写真の取り込み)
+
+# column-post ブランチに stories/import/<id>.json が push されたら、写真を 1080x1920 にして stories/pool/ に保存する。
+on:
+  push:
+    branches: [column-post]
+    paths: ['stories/import/**']
+  workflow_dispatch:
+    inputs:
+      request:
+        description: 'stories/import/<id>.json'
+        required: true
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: column-post
+  cancel-in-progress: false
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install requests Pillow
+      - name: Find request
+        id: req
+        run: |
+          if [ -n "${{ inputs.request }}" ]; then f="${{ inputs.request }}";
+          else f=$(git diff --name-only HEAD~1 HEAD -- stories/import | tail -1); fi
+          echo "file=$f" >> "$GITHUB_OUTPUT"; echo "request: $f"
+      - name: Import photos
+        if: steps.req.outputs.file != ''
+        run: python scripts/evening_stories/stories.py import "${{ steps.req.outputs.file }}"
+      - name: Notify
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh issue create --repo "${{ github.repository }}" --title "Evening stories import failed ($(date -u +%F))" --body "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

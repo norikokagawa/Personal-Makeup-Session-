@@ -38,9 +38,16 @@ jobs:
         run: |
           if [ -n "${{ inputs.request }}" ]; then f="${{ inputs.request }}";
           else f=$(git diff --name-only HEAD~1 HEAD -- oneoff/requests | tail -1); fi
+          n=$(git diff --name-only HEAD~1 HEAD -- oneoff/requests | wc -l); echo "count=$n" >> "$GITHUB_OUTPUT"
           echo "file=$f" >> "$GITHUB_OUTPUT"; echo "request: $f"
+      - name: Post all due (several requests in one push)
+        if: steps.req.outputs.count > 1 && inputs.request == ''
+        env:
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
+        run: python scripts/oneoff_post/post.py publish
       - name: Prepare and post if due
-        if: steps.req.outputs.file != ''
+        if: steps.req.outputs.file != '' && (steps.req.outputs.count <= 1 || inputs.request != '')
         env:
           IG_USER_ID: ${{ secrets.IG_USER_ID }}
           META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}

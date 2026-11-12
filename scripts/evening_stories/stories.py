@@ -184,9 +184,38 @@ def publish(force=False):
     return 0
 
 
+def queue():
+    """今日の分を選び、oneoff/requests/ に type: story のリクエストとして書き出す (push すると即投稿)。
+    GitHub の定時実行が大きく遅れることがあるため、Claude の定時タスクが 19:00 SGT にこれを実行して push する。"""
+    cfg = config()
+    if not cfg["enabled"]:
+        print("disabled — skip")
+        return []
+    today = datetime.now(SGT).date()
+    history = json.loads(HISTORY.read_text()) if HISTORY.exists() else {}
+    if history.get(today.isoformat(), {}).get("done"):
+        print("already posted today — skip")
+        return []
+    names = sorted(p.stem for p in POOL.glob("*.jpg"))
+    photos = pick(names, history, cfg, today)
+    history[today.isoformat()] = {"photos": photos, "via": "oneoff", "done": True}
+    HISTORY.write_text(json.dumps(history, indent=2, sort_keys=True))
+    out = []
+    for i, name in enumerate(photos, 1):
+        rid = f"{today}-evening-{i}"
+        f = ROOT / "oneoff" / "requests" / f"{rid}.json"
+        f.write_text(json.dumps({"id": rid, "publish_at": "now", "type": "story", "caption": "",
+                                 "image_url": raw_url(POOL / f"{name}.jpg"), "dry_run": False}, indent=2))
+        out.append(f)
+    print("queued:", photos)
+    return out
+
+
 if __name__ == "__main__":
     mode = sys.argv[1]
-    if mode == "import":
+    if mode == "queue":
+        queue()
+    elif mode == "import":
         import_photos(sys.argv[2])
     else:
         sys.exit(publish(force="--now" in sys.argv))

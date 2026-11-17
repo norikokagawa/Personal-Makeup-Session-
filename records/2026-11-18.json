@@ -1,15 +1,15 @@
 {
   "items": {
     "FEED": {
-      "state": "prepared",
-      "attempts": 0,
+      "state": "publishing",
+      "attempts": 1,
       "container": "18645315742034614",
       "children": [
         "18645315634034614",
         "18645315667034614"
       ],
       "error": null,
-      "updated_at": "2026-11-17T20:22:26+00:00"
+      "updated_at": "2026-11-17T21:10:00+00:00"
     }
   }
 }

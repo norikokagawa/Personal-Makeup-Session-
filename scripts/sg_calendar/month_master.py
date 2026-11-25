@@ -108,7 +108,6 @@ def draw(layout, booked_style):
             w = spaced(d, cx, ty, display_time(s["time"]), inter(19, "ExtraLight"), col, 2.4)
             if booked_style:
                 d.line([(cx - w / 2 - 4, ty + 12), (cx + w / 2 + 4, ty + 12)], fill=col, width=1)
-    spaced(d, 540, 1236, "RESERVATIONS  ·  LINK IN BIO", inter(11, "Regular"), SOFT, 4)
     return img
 
 

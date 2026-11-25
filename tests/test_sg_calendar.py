@@ -379,7 +379,7 @@ class ComposeTest(unittest.TestCase):
     def test_only_booked_slots_change(self):
         booked = {("2026-11-06", "11:00"), ("2026-11-29", "15:00")}
         with tempfile.TemporaryDirectory() as d:
-            p1, p2, p3, p4 = compose.build_pages(THUMBS, booked, d, self.layout)
+            p1 = compose.build_pages(THUMBS, booked, d, self.layout)[0]
             o1, b1 = self.masters(1)
             boxes = compose.slot_boxes(o1, b1, self.layout["pages"][0])
             img = Image.open(p1)
@@ -652,3 +652,74 @@ class DecemberTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             paths = compose.build_pages(THUMBS, booked, d, self.layout, pages=[3, 4])
             self.assertEqual([p.name for p in paths], ["page_3.png", "page_4.png"])
+
+
+class OnePageDecemberTest(unittest.TestCase):
+    """page 5: 12月を1枚にまとめたデザイン (pages 3-4 の枠を上下2段に並べる)。"""
+
+    def setUp(self):
+        self.layout = compose.load_layout()
+        self.pages = {pg["page"]: pg for pg in self.layout["pages"]}
+
+    def test_page5_has_exactly_the_december_slots(self):
+        dec = {(s["date"], s["time"]) for n in (3, 4) for s in self.pages[n]["slots"]}
+        p5 = [(s["date"], s["time"]) for s in self.pages[5]["slots"]]
+        self.assertEqual(len(p5), len(set(p5)))
+        self.assertEqual(set(p5), dec)
+
+    def test_page5_layout_matches_the_generator(self):
+        from sg_calendar import month_master
+        self.assertEqual(month_master.page_layout(self.layout), self.pages[5])
+
+    def test_page5_composes_with_booked_slots(self):
+        booked = {("2026-12-01", "11:00"), ("2026-12-20", "15:00")}
+        with tempfile.TemporaryDirectory() as d:
+            (p5,) = compose.build_pages(THUMBS, booked, d, self.layout, pages=[5])
+            o, b = Image.open(THUMBS / "open_p5.png"), Image.open(THUMBS / "booked_p5.png")
+            boxes = compose.slot_boxes(o, b, self.pages[5])
+            compose.verify(Image.open(p5), o, b, boxes, booked)
+
+    def test_posted_page_and_caption(self):
+        self.assertEqual(RD.CONFIG["pages"], [5])
+        self.assertEqual(RD.active_pages("2026-12-20", self.layout), [5])
+        self.assertIn("\nDecember bookings are now open.", RD.caption_for([5], self.layout))
+
+    @mock.patch.dict(RD.CONFIG, {"pages": [5]})
+    def test_single_page_is_posted_as_one_image_not_a_carousel(self):
+        calls = []
+
+        class IG:
+            def create_image(self, url, caption=None, carousel_item=False, story=False):
+                calls.append(("image", url, caption, carousel_item))
+                return "c1"
+
+            def create_carousel(self, children, caption):
+                calls.append(("carousel",))
+                return "c2"
+
+        captured = {}
+
+        class FakePoster:
+            def __init__(self, *a, **k):
+                pass
+
+            def item(self, key):
+                return {"state": "published"} if key != "FEED" else {"state": "pending"}
+
+            def run_item(self, key, fn):
+                captured[key] = fn(IG())
+
+            def summary(self):
+                return {}
+
+        with mock.patch.object(RD, "Poster", FakePoster), \
+                mock.patch.object(RD, "instagram_client", lambda probe=False: IG()), \
+                mock.patch.object(RD, "load_record", lambda day: {}), \
+                mock.patch.object(RD, "DRY_RUN", True):
+            RD.post_to_instagram({}, "2026-12-01", {"feed_p5": Path("feed_p5.jpg"), "story_p5": Path("s.jpg")},
+                                 datetime(2026, 12, 1, 4, 20, tzinfo=RD.SGT))
+        self.assertEqual(captured["FEED"], ("c1", None))
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0][0], "image")
+        self.assertFalse(calls[0][3])
+        self.assertIn("December bookings are now open.", calls[0][2])

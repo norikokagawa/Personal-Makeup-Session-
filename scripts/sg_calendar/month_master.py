@@ -35,7 +35,7 @@ BG = (244, 243, 239)
 INK, SOFT, RULE = (92, 88, 84), (140, 134, 127), (222, 218, 211)
 RED = (150, 58, 52)            # booked slots and Sundays
 DATE, TIME = (88, 84, 80), (60, 57, 54)
-LEFT, RIGHT, TOP, BLOCK_GAP, STEP, ROWS_PER_BLOCK = 115, 965, 370, 58, 52, 5
+LEFT, RIGHT, TOP, BLOCK_GAP, STEP, ROWS_PER_BLOCK = 115, 965, 380, 70, 58, 5
 
 
 def cormorant(size, weight):
@@ -108,7 +108,6 @@ def draw(layout, booked_style):
             w = spaced(d, cx, ty, display_time(s["time"]), inter(19, "ExtraLight"), col, 2.4)
             if booked_style:
                 d.line([(cx - w / 2 - 4, ty + 12), (cx + w / 2 + 4, ty + 12)], fill=col, width=1)
-    spaced(d, 540, 1236, "RESERVATIONS  ·  LINK IN BIO", inter(11, "Regular"), SOFT, 4)
     return img
 
 

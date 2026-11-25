@@ -1,5 +1,5 @@
 {
-  "_comment": "Singapore November + December calendar automation. Daily images are composed from fixed master exports (assets/sg_masters/open_p<n>.png / booked_p<n>.png; pages 1-2 November, 3-4 December); the Canva designs are not touched day to day. Page 3 of the original design DAGsRHlSvkw (Sydney) is never used.",
+  "_comment": "Singapore November + December calendar automation. Daily images are composed from fixed master exports (assets/sg_masters/open_p<n>.png / booked_p<n>.png; pages 1-2 November, 3-4 December, 5 = December on one page drawn by scripts/sg_calendar/month_master.py); the Canva designs are not touched day to day. Page 3 of the original design DAGsRHlSvkw (Sydney) is never used.",
   "design_id": "DAGsRHlSvkw",
   "masters": {
     "open": [
@@ -14,8 +14,7 @@
     ]
   },
   "pages": [
-    3,
-    4
+    5
   ],
   "period": [
     "2026-11-06",
@@ -57,5 +56,5 @@
   "acknowledged_inquiries": [
     "1a12b734c679291d"
   ],
-  "_pages": "11/7 から12月 (pages 3-4) だけ投稿。11月 (pages 1-2) は予約締め切り済み。"
+  "_pages": "11/25 から12月を1枚にまとめたデザイン (page 5 = pages 3-4 の枠、scripts/sg_calendar/month_master.py で作る元画像) だけ投稿。11月 (pages 1-2) は予約締め切り済み。"
 }

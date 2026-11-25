@@ -57,6 +57,7 @@ MEDIA_TEST_BRANCH = "instagram-media-test"
 
 EXIT_OK, EXIT_FAIL, EXIT_STOPPED = 0, 1, 2
 STORIES_PAGE = "today/README.md"
+FEED_TYPES = ("CAROUSEL_ALBUM", "IMAGE")      # 2ページ以上はカルーセル、1ページは単独の画像
 
 
 MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August",
@@ -314,7 +315,7 @@ def find_feed_today(ig, day, caption):
     """Our carousel already on Instagram today (protects against a lost record)."""
     start = int(datetime.strptime(day, "%Y-%m-%d").replace(tzinfo=SGT).timestamp())
     for m in ig.media_since(start):
-        if m.get("media_type") == "CAROUSEL_ALBUM" and (m.get("caption") or "").strip() == caption:
+        if m.get("media_type") in FEED_TYPES and (m.get("caption") or "").strip() == caption:
             return m["id"]
     return None
 
@@ -371,6 +372,8 @@ def post_to_instagram(report, day, files, now):
             poster._set("FEED", state="published", media_id=existing, note="found on Instagram")
 
     def feed(ig_):
+        if len(CONFIG["pages"]) == 1:                # 1ページ (12月1枚デザイン) は通常の画像投稿
+            return ig_.create_image(urls[f"feed_p{CONFIG['pages'][0]}"], caption=caption), None
         children = [ig_.create_image(urls[f"feed_p{p}"], carousel_item=True) for p in CONFIG["pages"]]
         for c in children:
             ig_.wait_finished(c)
@@ -422,7 +425,7 @@ def delete_previous_feeds(ig, day, caption):
         save = record_saver(d)
         try:
             info = ig.media_info(mid)
-            if info.get("media_type") != "CAROUSEL_ALBUM" or (info.get("caption") or "").strip() != caption:
+            if info.get("media_type") not in FEED_TYPES or (info.get("caption") or "").strip() != caption:
                 problems.append(f"{d}: not deleted — the post no longer looks like ours (type/caption changed)")
                 continue
             if not ig.delete_media(mid):

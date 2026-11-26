@@ -662,10 +662,13 @@ class OnePageDecemberTest(unittest.TestCase):
         self.pages = {pg["page"]: pg for pg in self.layout["pages"]}
 
     def test_page5_has_exactly_the_december_slots(self):
-        dec = {(s["date"], s["time"]) for n in (3, 4) for s in self.pages[n]["slots"]}
+        from sg_calendar import month_master
+        dec = {(s["date"], s["time"]) for n in (3, 4) for s in self.pages[n]["slots"]
+               if s["date"] not in month_master.REMOVED_DATES}
         p5 = [(s["date"], s["time"]) for s in self.pages[5]["slots"]]
         self.assertEqual(len(p5), len(set(p5)))
         self.assertEqual(set(p5), dec)
+        self.assertFalse({"2026-12-10", "2026-12-17"} & {d for d, _ in p5})   # 表から削除した日
 
     def test_page5_layout_matches_the_generator(self):
         from sg_calendar import month_master

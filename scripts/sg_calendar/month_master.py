@@ -7,7 +7,7 @@ One-page December design (page 5): draws the two master images that the daily ru
 
 The two images are identical except inside the time-slot text, exactly like the Canva masters
 of pages 1-4, so compose.py finds each slot from their difference. Page 5 shows the slots of
-pages 3 and 4 (December) as two blocks of seven dates; its layout entry is written from them.
+pages 3 and 4 (December, minus REMOVED_DATES) as two equal blocks of dates; its layout entry is written from them.
 Run this only when the design or the December dates/times change:
 
   python3 scripts/sg_calendar/month_master.py            # writes assets/sg_masters/*_p5.png + layout
@@ -30,6 +30,7 @@ CORMORANT = ROOT / "assets" / "fonts" / "CormorantGaramond-wght.ttf"
 INTER_DIR = Path(os.environ.get("INTER_FONT_DIR", "/usr/share/fonts/opentype/inter"))
 
 PAGE, SOURCE_PAGES = 5, (3, 4)
+REMOVED_DATES = {"2026-12-10", "2026-12-17"}   # taken off the calendar (no sessions)
 SIZE = (1080, 1350)
 BG = (244, 243, 239)
 INK, SOFT, RULE = (92, 88, 84), (140, 134, 127), (222, 218, 211)
@@ -65,43 +66,55 @@ def spaced(d, cx, y, text, font, fill, track, features=None):
 
 
 def blocks(layout):
-    return [pg for pg in layout["pages"] if pg["page"] in SOURCE_PAGES]
+    """[(dates, slots)] for the two blocks: the December dates of pages 3-4 minus REMOVED_DATES,
+    split evenly (first half on top). Each slot keeps its time row from pages 3-4."""
+    slots = [s for pg in layout["pages"] if pg["page"] in SOURCE_PAGES for s in pg["slots"]
+             if s["date"] not in REMOVED_DATES]
+    dates = sorted({s["date"] for s in slots})
+    if len(dates) % 2:
+        raise ValueError(f"{len(dates)} dates cannot be split into two equal blocks")
+    half = len(dates) // 2
+    out = []
+    for part in (dates[:half], dates[half:]):
+        mine = [s for s in slots if s["date"] in part]
+        if max(s["row"] for s in mine) >= ROWS_PER_BLOCK:
+            raise ValueError(f"more than {ROWS_PER_BLOCK} times on one date")
+        out.append((part, mine))
+    return out
 
 
 def page_layout(layout):
-    """Layout entry for page 5: block 1 = page 3 rows 0-4, block 2 = page 4 rows 5-9."""
+    """Layout entry for page 5: block 1 rows 0-4, block 2 rows 5-9, one column per date."""
     slots = []
-    for bi, pg in enumerate(blocks(layout)):
-        if pg["columns"] != 7 or pg["time_rows"] > ROWS_PER_BLOCK:
-            raise ValueError(f"page {pg['page']} does not fit a 7 x {ROWS_PER_BLOCK} block")
-        slots += [{"date": s["date"], "time": s["time"], "row": s["row"] + bi * ROWS_PER_BLOCK, "col": s["col"]}
-                  for s in pg["slots"]]
+    for bi, (dates, mine) in enumerate(blocks(layout)):
+        slots += [{"date": s["date"], "time": s["time"], "row": s["row"] + bi * ROWS_PER_BLOCK,
+                   "col": dates.index(s["date"])} for s in mine]
     rows_used = max(s["row"] for s in slots) + 1
-    return {"page": PAGE, "columns": 7, "time_rows": rows_used,
+    return {"page": PAGE, "columns": len(blocks(layout)[0][0]), "time_rows": rows_used,
             "slots": sorted(slots, key=lambda s: (s["row"], s["col"]))}
 
 
 def draw(layout, booked_style):
     img = Image.new("RGB", SIZE, BG)
     d = ImageDraw.Draw(img)
-    months = sorted({s["date"][:7] for pg in blocks(layout) for s in pg["slots"]})
+    months = sorted({s["date"][:7] for _, mine in blocks(layout) for s in mine})
     if len(months) != 1:
         raise ValueError(f"page {PAGE} must show one month, got {months}")
     title = dt.date.fromisoformat(months[0] + "-01").strftime("%B  %Y").upper()
     spaced(d, 540, 132, "SINGAPORE", cormorant(60, 400), INK, 24)
     d.line([(495, 222), (585, 222)], fill=RULE, width=1)
     spaced(d, 540, 244, title, cormorant(24, 500), SOFT, 8, ["lnum"])
-    cw = (RIGHT - LEFT) / 7
-    for bi, pg in enumerate(blocks(layout)):
+    bl = blocks(layout)
+    cw = (RIGHT - LEFT) / len(bl[0][0])
+    for bi, (dates, mine) in enumerate(bl):
         y0 = TOP + bi * (102 + ROWS_PER_BLOCK * STEP + BLOCK_GAP)
-        dates = sorted({s["date"] for s in pg["slots"]})
         for ci, ds in enumerate(dates):
             cx, day = LEFT + cw * (ci + 0.5), dt.date.fromisoformat(ds)
             sunday = day.weekday() == 6
             spaced(d, cx, y0, day.strftime("%a").upper(), inter(12, "Regular"), RED if sunday else SOFT, 3.5)
             spaced(d, cx, y0 + 27, str(day.day), cormorant(30, 400), RED if sunday else DATE, 1, ["lnum"])
         d.line([(LEFT + 20, y0 + 80), (RIGHT - 20, y0 + 80)], fill=RULE, width=1)
-        for s in pg["slots"]:
+        for s in mine:
             cx = LEFT + cw * (dates.index(s["date"]) + 0.5)
             ty = y0 + 102 + s["row"] * STEP
             col = RED if booked_style else TIME

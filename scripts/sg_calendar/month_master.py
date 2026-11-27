@@ -31,6 +31,7 @@ INTER_DIR = Path(os.environ.get("INTER_FONT_DIR", "/usr/share/fonts/opentype/int
 
 PAGE, SOURCE_PAGES = 5, (3, 4)
 REMOVED_DATES = {"2026-12-10", "2026-12-17"}   # taken off the calendar (no sessions)
+EXTRA_SLOTS = [{"date": "2026-12-01", "time": "15:00", "row": 4}]   # booked outside the original times
 SIZE = (1080, 1350)
 BG = (244, 243, 239)
 INK, SOFT, RULE = (92, 88, 84), (140, 134, 127), (222, 218, 211)
@@ -70,6 +71,10 @@ def blocks(layout):
     split evenly (first half on top). Each slot keeps its time row from pages 3-4."""
     slots = [s for pg in layout["pages"] if pg["page"] in SOURCE_PAGES for s in pg["slots"]
              if s["date"] not in REMOVED_DATES]
+    for extra in EXTRA_SLOTS:
+        if any(s["date"] == extra["date"] and s["row"] == extra["row"] for s in slots):
+            raise ValueError(f"extra slot {extra} collides with an existing time on that date")
+        slots.append(extra)
     dates = sorted({s["date"] for s in slots})
     if len(dates) % 2:
         raise ValueError(f"{len(dates)} dates cannot be split into two equal blocks")

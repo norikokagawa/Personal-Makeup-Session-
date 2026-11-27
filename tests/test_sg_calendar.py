@@ -665,6 +665,7 @@ class OnePageDecemberTest(unittest.TestCase):
         from sg_calendar import month_master
         dec = {(s["date"], s["time"]) for n in (3, 4) for s in self.pages[n]["slots"]
                if s["date"] not in month_master.REMOVED_DATES}
+        dec |= {(s["date"], s["time"]) for s in month_master.EXTRA_SLOTS}
         p5 = [(s["date"], s["time"]) for s in self.pages[5]["slots"]]
         self.assertEqual(len(p5), len(set(p5)))
         self.assertEqual(set(p5), dec)
